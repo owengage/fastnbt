@@ -1,6 +1,8 @@
 # fastnbt
 
-A fast (or trying to be!) parser for Minecraft's NBT and Anvil formats.
+Documentation: [docs.rs](https://docs.rs/crate/fastnbt)
+
+A fast (or trying to be!) parser for *Minecraft: Java Edition*'s NBT and Anvil formats.
 
 Uses Rayon to utilise all cores of the machine. On a Ryzen 3600X 6-core, with a reasonably complex world, it can render a map of  256 *regions* in 9 seconds. That's 262k chunks, about 30k chunks/s.
 

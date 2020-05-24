@@ -1,13 +1,25 @@
 use bit_field::BitArray;
 
+/// Expand blockstate data so each block is an element of a `Vec`.
+///
+/// This requires the number of items in the palette of the section the blockstates came from. This is because
+/// blockstate is packed with as few bits as possible. If the maximum index in the palette fits in 5 bits, then
+/// every 5 bits of the blockstates will represent a block. Blocks bleed into one another, so remainder bits
+/// are tracked and handled for you.
+///
+/// This works for Minecraft 1.15. This format due to change in 1.16 so that bits do not bleed into other longs.
+/// This function will not work for 1.16 blockstates yet.
 pub fn expand_blockstates(state: &[i64], palette_len: usize) -> Vec<u16> {
     expand_generic(state, bits_per_block(palette_len))
 }
 
+/// Expand heightmap data. This is equivalent to `expand_generic(data, 9)`.
 pub fn expand_heightmap(data: &[i64]) -> Vec<u16> {
     expand_generic(data, 9)
 }
 
+/// Expand data into individual items. Currently a copy of data is made here to convert to unsigned integers
+/// to make bit operations more tractable.
 pub fn expand_generic(data: &[i64], bits_per_item: usize) -> Vec<u16> {
     let bits = bits_per_item;
     let mut result: Vec<u16> = vec![0; (data.len() * 64) / bits];
@@ -25,6 +37,9 @@ pub fn expand_generic(data: &[i64], bits_per_item: usize) -> Vec<u16> {
     result
 }
 
+/// Get the number of bits that will be used in `Blockstates` per block.
+///
+/// See `anvil::expand_blockstates` for more information.
 pub fn bits_per_block(palette_len: usize) -> usize {
     if palette_len < 16 {
         4

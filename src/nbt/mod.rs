@@ -8,6 +8,7 @@ type Name = Option<String>;
 #[cfg(test)]
 mod test;
 
+/// The NBT tag. This does not carry the value or the name.
 #[derive(Debug, TryFromPrimitive, PartialEq, Clone)]
 #[repr(u8)]
 pub enum Tag {
@@ -26,6 +27,15 @@ pub enum Tag {
     LongArray = 12,
 }
 
+/// An NBT value.
+///
+/// For every value except compounds and lists, this contains the value of the tag. For example, a `Value::Byte` will
+/// contain the name and the byte of that NBT tag.
+///
+/// The name part of each variant is optional, since elements in an NBT list do not have names. The end of lists do not
+/// have a name in the binary format, so it isn't included here either.
+///
+/// See `nbt::Parser` for more information.
 #[derive(Debug, PartialEq)]
 pub enum Value {
     CompoundEnd,
@@ -55,22 +65,70 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
-        Error::IO(err)
-    }
-}
-
-fn u8_to_tag(tag: u8) -> Result<Tag> {
-    Tag::try_from(tag).or_else(|_| Err(Error::InvalidTag(tag)))
-}
-
-#[derive(Clone)]
-enum Layer {
-    List(Tag, i32),
-    Compound,
-}
-
+/// Parser can take any reader and parse it as NBT data. Does not do decompression.
+///
+/// # Examples
+///
+/// ## Dump NBT
+/// The following takes a stream of GZip compressed data from stdin and dumps it out in Rust's `Debug` format, with
+/// some indentation to help see the structure.
+///
+/// ```
+/// let stdin = io::stdin();
+/// let decoder = GzDecoder::new(stdin);
+///
+/// let mut parser = nbt::Parser::new(decoder);
+/// let mut indent = 0;
+///
+/// loop {
+///     match parser.next() {
+///         Err(e) => {
+///             println!("{:?}", e);
+///             break;
+///         }
+///         Ok(value) => {
+///             match value {
+///                 nbt::Value::CompoundEnd => indent -= 4,
+///                 nbt::Value::ListEnd => indent -= 4,
+///                 _ => {}
+///             }
+///
+///             println!("{:indent$}{:?}", "", value, indent = indent);
+///
+///             match value {
+///                 nbt::Value::Compound(_) => indent += 4,
+///                 nbt::Value::List(_, _, _) => indent += 4,
+///                 _ => {}
+///             }
+///         }
+///     }
+/// }
+/// ```
+/// ## Finding a heightmap
+/// Here we assume we've parsed up until we have entered the `Heightmaps` compound of the
+/// [Minecraft Anvil chunk format](https://minecraft.gamepedia.com/Chunk_format). We keep parsing until we find the
+/// `WORLD_SURFACE` long array. We avoid entering nested compounds by skipping them if we enter one. We know we have
+/// finished with the current compound when we see the `CompoundEnd` value.
+///
+/// ```
+/// loop {
+///     match parser.next()? {
+///         Value::LongArray(Some(ref name), data) if name == "WORLD_SURFACE" => {
+///             nbt::skip_compound(&mut parser)?;
+///             return Ok(Some(bits::expand_heightmap(data.as_slice())));
+///         }
+///         Value::Compound(_) => {
+///             // don't enter another compound.
+///             nbt::skip_compound(&mut parser)?;
+///         }
+///         Value::CompoundEnd => {
+///             // No heightmap found, it happens.
+///             return Ok(None);
+///         }
+///         _ => {}
+///     }
+/// }
+/// ```
 pub struct Parser<R: Read> {
     reader: R,
     layers: Vec<Layer>,
@@ -258,4 +316,20 @@ fn vec_u8_into_i8(v: Vec<u8>) -> Vec<i8> {
 
     // finally, adopt the data into a new Vec
     unsafe { Vec::from_raw_parts(p as *mut i8, len, cap) }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Error {
+        Error::IO(err)
+    }
+}
+
+fn u8_to_tag(tag: u8) -> Result<Tag> {
+    Tag::try_from(tag).or_else(|_| Err(Error::InvalidTag(tag)))
+}
+
+#[derive(Clone)]
+enum Layer {
+    List(Tag, i32),
+    Compound,
 }
