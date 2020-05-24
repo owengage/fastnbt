@@ -1,8 +1,10 @@
 [package]
 name = "fastnbt"
+description = "Minecraft NBT (and more) parser aiming for high speed parsing."
 version = "0.1.0"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2018"
+license = "MIT"
 
 [dependencies]
 flate2 = { version = "1.0", features = ["zlib"], default-features = false }
