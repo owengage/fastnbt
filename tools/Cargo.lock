@@ -174,7 +174,7 @@ checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 
 [[package]]
 name = "fastnbt"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bit_field",
  "byteorder",
@@ -187,7 +187,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt-tools"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "fastnbt",

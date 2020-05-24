@@ -12,6 +12,14 @@ anvil render ~/path/to/world-dir --min-x=-1 --min-z=-1 --max-x=1 --max-z=1
 
 ![alt rendered map](map.png)
 
+## TODO
+
+* Full palette for block-based world rendering.
+* Modify palette colour based on height.
+* Change to visitor-based parser to avoid allocation of Array tags when not needed.
+* Test on Windows.
+* Use newtypes idiom for the various co-ordinate types for safety.
+
 ## Usage
 
 For the library
