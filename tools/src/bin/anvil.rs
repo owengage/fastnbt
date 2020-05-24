@@ -1,33 +1,43 @@
-use fastnbt::anvil::draw::{parse_region, DrawResult, RegionBlockDrawer, RegionMap};
+use clap::{App, Arg, ArgMatches, SubCommand};
+use fastnbt::anvil::draw::{parse_region, RegionBlockDrawer, RegionMap};
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
-use std::path::Path;
+use std::path::PathBuf;
 
-fn main() -> DrawResult<()> {
-    let args: Vec<String> = std::env::args().collect();
-    let paths = &args[1..];
+fn render(args: &ArgMatches) {
+    let minx: isize = args.value_of("min-x").unwrap().parse().unwrap();
+    let minz: isize = args.value_of("min-z").unwrap().parse().unwrap();
+    let maxx: isize = args.value_of("max-x").unwrap().parse().unwrap();
+    let maxz: isize = args.value_of("max-z").unwrap().parse().unwrap();
+    let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
 
-    let x_range = -3isize..3;
-    let z_range = -3isize..3;
+    let x_range = minx..maxx;
+    let z_range = minz..maxz;
 
     let region_len: usize = 32 * 16;
     let dx = x_range.len();
     let dz = z_range.len();
 
-    let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
+    let paths = std::fs::read_dir(world.join("region")).unwrap();
+
+    let paths: Vec<_> = paths
+        .into_iter()
+        .filter_map(|path| path.ok())
+        .map(|path| path.path())
+        .filter(|path| path.is_file())
+        .collect();
 
     let region_maps: Vec<_> = paths
-        .par_iter()
+        .into_par_iter()
         .map(|path| {
-            let path = Path::new(path);
-
             let filename = path.file_name().unwrap().to_str().unwrap();
             let mut parts = filename.split('.').skip(1);
             let x = parts.next().unwrap().parse::<isize>().unwrap();
             let z = parts.next().unwrap().parse::<isize>().unwrap();
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
+                println!("parsing region x: {}, z: {}", x, z);
                 let file = std::fs::File::open(path).ok()?;
                 let region = Region::new(file);
 
@@ -41,6 +51,9 @@ fn main() -> DrawResult<()> {
             }
         })
         .collect();
+
+    println!("writing map.png");
+    let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
 
     for region_map in region_maps {
         if let Some(map) = region_map {
@@ -66,7 +79,43 @@ fn main() -> DrawResult<()> {
         }
     }
 
-    img.save("test.png").unwrap();
+    img.save("map.png").unwrap();
+}
 
-    Ok(())
+fn main() {
+    let matches = App::new("anvil-fast")
+        .subcommand(
+            SubCommand::with_name("render")
+                .arg(Arg::with_name("world").takes_value(true).required(true))
+                .arg(
+                    Arg::with_name("max-z")
+                        .long("max-z")
+                        .takes_value(true)
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("max-x")
+                        .long("max-x")
+                        .takes_value(true)
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("min-z")
+                        .long("min-z")
+                        .takes_value(true)
+                        .required(true),
+                )
+                .arg(
+                    Arg::with_name("min-x")
+                        .long("min-x")
+                        .takes_value(true)
+                        .required(true),
+                ),
+        )
+        .get_matches();
+
+    match matches.subcommand() {
+        ("render", Some(args)) => render(args),
+        _ => println!("{}", matches.usage()),
+    };
 }
