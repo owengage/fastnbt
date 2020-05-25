@@ -14,11 +14,15 @@ anvil render ~/path/to/world-dir --min-x=-1 --min-z=-1 --max-x=1 --max-z=1
 
 ## TODO
 
-* Full palette for block-based world rendering.
+* Full palette for block-based world rendering (unknown blocks are magenta at the moment)
 * Modify palette colour based on height.
+* Modify palette colour based on biome.
 * Change to visitor-based parser to avoid allocation of Array tags when not needed.
 * Test on Windows.
 * Use newtypes idiom for the various co-ordinate types for safety.
+* serde for deserialisation.
+* Maybe: some sort of interactive map. WASM?
+* Maybe: transparent blocks.
 
 ## Usage
 
@@ -26,7 +30,7 @@ For the library
 
 ```toml
 [dependencies]
-fastnbt = "0.2.0"
+fastnbt = "0.3.0"
 ```
 
 For the `anvil` executable
