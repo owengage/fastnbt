@@ -1,5 +1,5 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fastnbt::anvil::draw::{parse_region, RegionBlockDrawer, RegionMap};
+use fastnbt::anvil::draw::{parse_region, BasicPalette, RegionBlockDrawer, RegionMap};
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
@@ -11,6 +11,7 @@ fn render(args: &ArgMatches) {
     let maxx: isize = args.value_of("max-x").unwrap().parse().unwrap();
     let maxz: isize = args.value_of("max-z").unwrap().parse().unwrap();
     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
+    let dim: &str = args.value_of("dimension").unwrap();
 
     let x_range = minx..maxx;
     let z_range = minz..maxz;
@@ -19,7 +20,13 @@ fn render(args: &ArgMatches) {
     let dx = x_range.len();
     let dz = z_range.len();
 
-    let paths = std::fs::read_dir(world.join("region")).unwrap();
+    let subpath = match dim {
+        "end" => "DIM1/region",
+        "nether" => "DIM-1/region",
+        _ => "region",
+    };
+
+    let paths = std::fs::read_dir(world.join(subpath)).unwrap();
 
     let paths: Vec<_> = paths
         .into_iter()
@@ -42,7 +49,8 @@ fn render(args: &ArgMatches) {
                 let region = Region::new(file);
 
                 let mut map = RegionMap::new(x, z, image::Rgb::<u8>([0, 0, 0]));
-                let mut drawer = RegionBlockDrawer::new(&mut map);
+                let palette = BasicPalette {};
+                let mut drawer = RegionBlockDrawer::new(&mut map, &palette);
                 parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
                 Some(map)
@@ -110,6 +118,13 @@ fn main() {
                         .long("min-x")
                         .takes_value(true)
                         .required(true),
+                )
+                .arg(
+                    Arg::with_name("dimension")
+                        .long("dimension")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("overworld"),
                 ),
         )
         .get_matches();
