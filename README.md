@@ -4,10 +4,13 @@ Documentation: [docs.rs](https://docs.rs/crate/fastnbt)
 
 A fast (or trying to be!) parser for *Minecraft: Java Edition*'s NBT and Anvil formats.
 
-Uses Rayon to utilise all cores of the machine. On a Ryzen 3600X 6-core, with a reasonably complex world, it can render a map of  256 *regions* in 9 seconds. That's 262k chunks, about 30k chunks/s.
+The `anvil` binary can render your world leveraging all of your CPU. On a Ryzen 3600X 6-core, with a reasonably complex world, it can render a map of 256 *regions* in under 10 seconds. That's about 30k chunks every second.
 
 ```bash
-anvil render ~/path/to/world-dir --min-x=-1 --min-z=-1 --max-x=1 --max-z=1
+anvil render ~/path/to/world-dir # render entire overworld
+anvil render ~/path/to/world-dir --dimension=end # render entire end
+anvil render ~/path/to/world-dir --size=6,6 # render 6 by 6 regions around 0,0.
+anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10 # render 10 by 10 offset by x: -4, z: 10.
 ```
 
 ![alt rendered map](map.png)
@@ -30,7 +33,7 @@ For the library
 
 ```toml
 [dependencies]
-fastnbt = "0.3.0"
+fastnbt = "0.4.0"
 ```
 
 For the `anvil` executable

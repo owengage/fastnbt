@@ -2,7 +2,7 @@
 name = "fastnbt"
 description = "Minecraft NBT (and more) parser aiming for high speed parsing."
 repository = "https://github.com/owengage/fastnbt"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2018"
 license = "MIT"

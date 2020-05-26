@@ -3,22 +3,81 @@ use fastnbt::anvil::draw::{parse_region, BasicPalette, RegionBlockDrawer, Region
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+fn parse_coord(coord: &str) -> Option<(isize, isize)> {
+    let mut s = coord.split(",");
+    let x: isize = s.next()?.parse().ok()?;
+    let z: isize = s.next()?.parse().ok()?;
+    Some((x, z))
+}
+
+fn region_paths(in_path: &Path) -> Vec<PathBuf> {
+    let paths = std::fs::read_dir(in_path).unwrap();
+
+    paths
+        .into_iter()
+        .filter_map(|path| path.ok())
+        .map(|path| path.path())
+        .filter(|path| path.is_file())
+        .filter(|path| {
+            let ext = path.extension();
+            ext.is_some() && ext.unwrap() == "mca"
+        })
+        .collect()
+}
+
+fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
+    let filename = region.file_name()?.to_str()?;
+    let mut parts = filename.split('.').skip(1);
+    let x = parts.next()?.parse::<isize>().ok()?;
+    let z = parts.next()?.parse::<isize>().ok()?;
+    Some((x, z))
+}
+
+fn auto_size(paths: &Vec<PathBuf>) -> Option<Rectangle> {
+    if paths.len() == 0 {
+        return None;
+    }
+
+    let mut bounds = Rectangle {
+        xmin: isize::MAX,
+        zmin: isize::MAX,
+        xmax: isize::MIN,
+        zmax: isize::MIN,
+    };
+
+    for path in paths {
+        let coord = coords_from_region(path)?;
+        bounds.xmin = std::cmp::min(bounds.xmin, coord.0);
+        bounds.xmax = std::cmp::max(bounds.xmax, coord.0);
+        bounds.zmin = std::cmp::min(bounds.zmin, coord.1);
+        bounds.zmax = std::cmp::max(bounds.zmax, coord.1);
+    }
+
+    Some(bounds)
+}
+
+fn make_bounds(size: (isize, isize), off: (isize, isize)) -> Rectangle {
+    Rectangle {
+        xmin: off.0 - size.0 / 2,
+        xmax: off.0 + size.0 / 2,
+        zmin: off.1 - size.1 / 2,
+        zmax: off.1 + size.1 / 2,
+    }
+}
+
+#[derive(Debug)]
+struct Rectangle {
+    xmin: isize,
+    xmax: isize,
+    zmin: isize,
+    zmax: isize,
+}
 
 fn render(args: &ArgMatches) {
-    let minx: isize = args.value_of("min-x").unwrap().parse().unwrap();
-    let minz: isize = args.value_of("min-z").unwrap().parse().unwrap();
-    let maxx: isize = args.value_of("max-x").unwrap().parse().unwrap();
-    let maxz: isize = args.value_of("max-z").unwrap().parse().unwrap();
     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
     let dim: &str = args.value_of("dimension").unwrap();
-
-    let x_range = minx..maxx;
-    let z_range = minz..maxz;
-
-    let region_len: usize = 32 * 16;
-    let dx = x_range.len();
-    let dz = z_range.len();
 
     let subpath = match dim {
         "end" => "DIM1/region",
@@ -26,22 +85,29 @@ fn render(args: &ArgMatches) {
         _ => "region",
     };
 
-    let paths = std::fs::read_dir(world.join(subpath)).unwrap();
+    let paths = region_paths(&world.join(subpath));
 
-    let paths: Vec<_> = paths
-        .into_iter()
-        .filter_map(|path| path.ok())
-        .map(|path| path.path())
-        .filter(|path| path.is_file())
-        .collect();
+    let bounds = match (args.value_of("size"), args.value_of("offset")) {
+        (Some(size), Some(offset)) => {
+            make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
+        }
+        (None, _) => auto_size(&paths).unwrap(),
+        _ => panic!(),
+    };
+
+    print!("Bounds: {:?}", bounds);
+
+    let x_range = bounds.xmin..bounds.xmax;
+    let z_range = bounds.zmin..bounds.zmax;
+
+    let region_len: usize = 32 * 16;
+    let dx = x_range.len();
+    let dz = z_range.len();
 
     let region_maps: Vec<_> = paths
         .into_par_iter()
         .map(|path| {
-            let filename = path.file_name().unwrap().to_str().unwrap();
-            let mut parts = filename.split('.').skip(1);
-            let x = parts.next().unwrap().parse::<isize>().unwrap();
-            let z = parts.next().unwrap().parse::<isize>().unwrap();
+            let (x, z) = coords_from_region(&path).unwrap();
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 println!("parsing region x: {}, z: {}", x, z);
@@ -96,28 +162,17 @@ fn main() {
             SubCommand::with_name("render")
                 .arg(Arg::with_name("world").takes_value(true).required(true))
                 .arg(
-                    Arg::with_name("max-z")
-                        .long("max-z")
+                    Arg::with_name("size")
+                        .long("size")
                         .takes_value(true)
-                        .required(true),
+                        .required(false),
                 )
                 .arg(
-                    Arg::with_name("max-x")
-                        .long("max-x")
+                    Arg::with_name("offset")
+                        .long("offset")
                         .takes_value(true)
-                        .required(true),
-                )
-                .arg(
-                    Arg::with_name("min-z")
-                        .long("min-z")
-                        .takes_value(true)
-                        .required(true),
-                )
-                .arg(
-                    Arg::with_name("min-x")
-                        .long("min-x")
-                        .takes_value(true)
-                        .required(true),
+                        .required(false)
+                        .default_value("0,0"),
                 )
                 .arg(
                     Arg::with_name("dimension")
