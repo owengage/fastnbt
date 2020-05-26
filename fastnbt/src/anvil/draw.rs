@@ -48,17 +48,69 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub struct RegionBlockDrawer<'a> {
-    map: &'a mut RegionMap<image::Rgb<u8>>,
+pub trait BlockPalette {
+    fn pick(&self, block_id: &str) -> image::Rgb<u8>;
 }
 
-impl<'a> RegionBlockDrawer<'a> {
-    pub fn new(map: &'a mut RegionMap<image::Rgb<u8>>) -> Self {
-        Self { map }
+pub struct BasicPalette {}
+
+impl BlockPalette for BasicPalette {
+    fn pick(&self, block_id: &str) -> image::Rgb<u8> {
+        match block_id {
+            "minecraft:grass" => image::Rgb([0, 200, 0]),
+            "minecraft:tall_grass" => image::Rgb([0, 200, 0]),
+            "minecraft:fern" => image::Rgb([0, 200, 0]),
+            "minecraft:large_fern" => image::Rgb([0, 200, 0]),
+            "minecraft:sand" => image::Rgb([247, 237, 44]),
+            "minecraft:grass_block" => image::Rgb([0, 200, 0]),
+            "minecraft:poppy" => image::Rgb([0, 200, 0]),
+            "minecraft:water" => image::Rgb([0, 0, 200]),
+            "minecraft:seagrass" => image::Rgb([0, 30, 200]),
+            "minecraft:tall_seagrass" => image::Rgb([0, 30, 200]),
+            "minecraft:kelp" => image::Rgb([0, 30, 200]),
+            "minecraft:stone" => image::Rgb([80, 80, 80]),
+            "minecraft:cobblestone" => image::Rgb([80, 80, 80]),
+            "minecraft:andesite" => image::Rgb([196, 196, 196]),
+            "minecraft:diorite" => image::Rgb([196, 196, 196]),
+            "minecraft:granite" => image::Rgb([191, 104, 38]),
+            "minecraft:gravel" => image::Rgb([80, 80, 80]),
+            "minecraft:coal_ore" => image::Rgb([75, 75, 75]),
+            "minecraft:air" => image::Rgb([255, 255, 255]),
+            "minecraft:dirt" => image::Rgb([90, 80, 70]),
+            "minecraft:snow" => image::Rgb([240, 240, 240]),
+            "minecraft:snow_block" => image::Rgb([240, 240, 240]),
+            "minecraft:ice" => image::Rgb([180, 250, 250]),
+            "minecraft:packed_ice" => image::Rgb([180, 220, 252]),
+            "minecraft:cave_air" => image::Rgb([0, 0, 0]),
+            "minecraft:lava" => image::Rgb([252, 145, 5]),
+            "minecraft:pumpkin" => image::Rgb([252, 145, 5]),
+            "minecraft:grass_path" => image::Rgb([140, 100, 56]),
+            "minecraft:wheat" => image::Rgb([226, 203, 22]),
+            "minecraft:end_stone" => image::Rgb([242, 238, 157]),
+            s if s.contains("leaves") => image::Rgb([0, 150, 0]),
+            s if s.contains("plank") => image::Rgb([165, 95, 41]),
+            s if s.contains("fence") => image::Rgb([165, 95, 41]),
+            s if s.contains("stairs") => image::Rgb([165, 95, 41]),
+            s if s.contains("log") => image::Rgb([155, 85, 41]),
+            s if s.contains("stone") => image::Rgb([80, 80, 80]),
+            s if s.contains("chorus") => image::Rgb([200, 87, 220]),
+            _ => image::Rgb([250, 0, 240]),
+        }
     }
 }
 
-impl<'a> RegionDrawer for RegionBlockDrawer<'a> {
+pub struct RegionBlockDrawer<'a, P: BlockPalette> {
+    map: &'a mut RegionMap<image::Rgb<u8>>,
+    palette: &'a P,
+}
+
+impl<'a, P: BlockPalette> RegionBlockDrawer<'a, P> {
+    pub fn new(map: &'a mut RegionMap<image::Rgb<u8>>, palette: &'a P) -> Self {
+        Self { map, palette }
+    }
+}
+
+impl<'a, P: BlockPalette> RegionDrawer for RegionBlockDrawer<'a, P> {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
         let mut sec_map = std::collections::HashMap::new();
         for sec in &chunk.sections {
@@ -67,8 +119,6 @@ impl<'a> RegionDrawer for RegionBlockDrawer<'a> {
 
         let data = (*self.map).chunk_mut(xc_rel, zc_rel);
 
-        let mut missing = std::collections::HashMap::<String, u32>::new();
-
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.heights[x * 16 + z] - 1; // -1 because we want the block below the air.
@@ -76,7 +126,6 @@ impl<'a> RegionDrawer for RegionBlockDrawer<'a> {
                 let containing_section_y = (height) / 16;
                 let sec = sec_map.get(&(containing_section_y as u8));
 
-                //println!("height {}, cont {}", height, containing_section_y);
                 if let Some(sec) = sec {
                     let sec_y = height - sec.y as u16 * 16;
                     let state_index = (sec_y as usize * 16 * 16) + x * 16 + z;
@@ -84,61 +133,10 @@ impl<'a> RegionDrawer for RegionBlockDrawer<'a> {
                     let material = &sec.palette[pal_index as usize];
 
                     let pixel = &mut data[x * 16 + z];
-                    match material.as_str() {
-                        "minecraft:grass" => *pixel = image::Rgb([0, 200, 0]),
-                        "minecraft:tall_grass" => *pixel = image::Rgb([0, 200, 0]),
-                        "minecraft:fern" => *pixel = image::Rgb([0, 200, 0]),
-                        "minecraft:large_fern" => *pixel = image::Rgb([0, 200, 0]),
-                        "minecraft:sand" => *pixel = image::Rgb([247, 237, 44]),
-                        "minecraft:grass_block" => *pixel = image::Rgb([0, 200, 0]),
-                        "minecraft:poppy" => *pixel = image::Rgb([0, 200, 0]),
-                        "minecraft:water" => *pixel = image::Rgb([0, 0, 200]),
-                        "minecraft:seagrass" => *pixel = image::Rgb([0, 30, 200]),
-                        "minecraft:tall_seagrass" => *pixel = image::Rgb([0, 30, 200]),
-                        "minecraft:kelp" => *pixel = image::Rgb([0, 30, 200]),
-                        "minecraft:stone" => *pixel = image::Rgb([80, 80, 80]),
-                        "minecraft:cobblestone" => *pixel = image::Rgb([80, 80, 80]),
-                        "minecraft:andesite" => *pixel = image::Rgb([196, 196, 196]),
-                        "minecraft:diorite" => *pixel = image::Rgb([196, 196, 196]),
-                        "minecraft:granite" => *pixel = image::Rgb([191, 104, 38]),
-                        "minecraft:gravel" => *pixel = image::Rgb([80, 80, 80]),
-                        "minecraft:coal_ore" => *pixel = image::Rgb([75, 75, 75]),
-                        "minecraft:air" => *pixel = image::Rgb([255, 255, 255]),
-                        "minecraft:dirt" => *pixel = image::Rgb([90, 80, 70]),
-                        "minecraft:snow" => *pixel = image::Rgb([240, 240, 240]),
-                        "minecraft:snow_block" => *pixel = image::Rgb([240, 240, 240]),
-                        "minecraft:ice" => *pixel = image::Rgb([180, 250, 250]),
-                        "minecraft:packed_ice" => *pixel = image::Rgb([180, 220, 252]),
-                        "minecraft:cave_air" => *pixel = image::Rgb([0, 0, 0]),
-                        "minecraft:lava" => *pixel = image::Rgb([252, 145, 5]),
-                        "minecraft:pumpkin" => *pixel = image::Rgb([252, 145, 5]),
-                        "minecraft:grass_path" => *pixel = image::Rgb([140, 100, 56]),
-                        "minecraft:wheat" => *pixel = image::Rgb([226, 203, 22]),
-                        "minecraft:end_stone" => *pixel = image::Rgb([242, 238, 157]),
-                        s if s.contains("leaves") => *pixel = image::Rgb([0, 150, 0]),
-                        s if s.contains("plank") => *pixel = image::Rgb([165, 95, 41]),
-                        s if s.contains("fence") => *pixel = image::Rgb([165, 95, 41]),
-                        s if s.contains("stairs") => *pixel = image::Rgb([165, 95, 41]),
-                        s if s.contains("log") => *pixel = image::Rgb([155, 85, 41]),
-                        s if s.contains("stone") => *pixel = image::Rgb([80, 80, 80]),
-                        s if s.contains("chorus") => *pixel = image::Rgb([200, 87, 220]),
-                        _ => {
-                            *pixel = image::Rgb([250, 0, 240]);
-                            match missing.get_mut(material) {
-                                Some(kv) => {
-                                    *kv = *kv + 1;
-                                }
-                                None => {
-                                    missing.insert(material.to_owned(), 1);
-                                }
-                            }
-                        }
-                    }
+                    *pixel = self.palette.pick(material);
                 }
             }
         }
-
-        //println!("{:?}", missing);
     }
 }
 pub struct RegionHeightmapDrawer<'a> {
