@@ -73,8 +73,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// The following takes a stream of GZip compressed data from stdin and dumps it out in Rust's `Debug` format, with
 /// some indentation to help see the structure.
 ///
-/// ```
-/// let stdin = io::stdin();
+/// ```man
+/// let stdin = std::io::stdin();
 /// let decoder = GzDecoder::new(stdin);
 ///
 /// let mut parser = nbt::Parser::new(decoder);
@@ -111,6 +111,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///
 /// ```
+/// use fastnbt::nbt::{self, Value};
+/// use fastnbt::anvil::bits;
+///
+/// # fn f() -> nbt::Result<Option<Vec<u16>>> {
+/// let mut parser = /* ... */
+/// # nbt::Parser::new(&[1u8,2,3][..]);
+///
 /// loop {
 ///     match parser.next()? {
 ///         Value::LongArray(Some(ref name), data) if name == "WORLD_SURFACE" => {
@@ -128,6 +135,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///         _ => {}
 ///     }
 /// }
+/// # }
 /// ```
 pub struct Parser<R: Read> {
     reader: R,
