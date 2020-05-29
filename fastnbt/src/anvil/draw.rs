@@ -48,64 +48,66 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
+pub type Rgb = [u8; 3];
+
 pub trait BlockPalette {
-    fn pick(&self, block_id: &str) -> image::Rgb<u8>;
+    fn pick(&self, block_id: &str) -> Rgb;
 }
 
 pub struct BasicPalette {}
 
 impl BlockPalette for BasicPalette {
-    fn pick(&self, block_id: &str) -> image::Rgb<u8> {
+    fn pick(&self, block_id: &str) -> Rgb {
         match block_id {
-            "minecraft:grass" => image::Rgb([0, 200, 0]),
-            "minecraft:tall_grass" => image::Rgb([0, 200, 0]),
-            "minecraft:fern" => image::Rgb([0, 200, 0]),
-            "minecraft:large_fern" => image::Rgb([0, 200, 0]),
-            "minecraft:sand" => image::Rgb([247, 237, 44]),
-            "minecraft:grass_block" => image::Rgb([0, 200, 0]),
-            "minecraft:poppy" => image::Rgb([0, 200, 0]),
-            "minecraft:water" => image::Rgb([0, 0, 200]),
-            "minecraft:seagrass" => image::Rgb([0, 30, 200]),
-            "minecraft:tall_seagrass" => image::Rgb([0, 30, 200]),
-            "minecraft:kelp" => image::Rgb([0, 30, 200]),
-            "minecraft:stone" => image::Rgb([80, 80, 80]),
-            "minecraft:cobblestone" => image::Rgb([80, 80, 80]),
-            "minecraft:andesite" => image::Rgb([196, 196, 196]),
-            "minecraft:diorite" => image::Rgb([196, 196, 196]),
-            "minecraft:granite" => image::Rgb([191, 104, 38]),
-            "minecraft:gravel" => image::Rgb([80, 80, 80]),
-            "minecraft:coal_ore" => image::Rgb([75, 75, 75]),
-            "minecraft:air" => image::Rgb([255, 255, 255]),
-            "minecraft:dirt" => image::Rgb([90, 80, 70]),
-            "minecraft:snow" => image::Rgb([240, 240, 240]),
-            "minecraft:snow_block" => image::Rgb([240, 240, 240]),
-            "minecraft:ice" => image::Rgb([180, 250, 250]),
-            "minecraft:packed_ice" => image::Rgb([180, 220, 252]),
-            "minecraft:cave_air" => image::Rgb([0, 0, 0]),
-            "minecraft:lava" => image::Rgb([252, 145, 5]),
-            "minecraft:pumpkin" => image::Rgb([252, 145, 5]),
-            "minecraft:grass_path" => image::Rgb([140, 100, 56]),
-            "minecraft:wheat" => image::Rgb([226, 203, 22]),
-            "minecraft:end_stone" => image::Rgb([242, 238, 157]),
-            s if s.contains("leaves") => image::Rgb([0, 150, 0]),
-            s if s.contains("plank") => image::Rgb([165, 95, 41]),
-            s if s.contains("fence") => image::Rgb([165, 95, 41]),
-            s if s.contains("stairs") => image::Rgb([165, 95, 41]),
-            s if s.contains("log") => image::Rgb([155, 85, 41]),
-            s if s.contains("stone") => image::Rgb([80, 80, 80]),
-            s if s.contains("chorus") => image::Rgb([200, 87, 220]),
-            _ => image::Rgb([250, 0, 240]),
+            "minecraft:grass" => [0, 200, 0],
+            "minecraft:tall_grass" => [0, 200, 0],
+            "minecraft:fern" => [0, 200, 0],
+            "minecraft:large_fern" => [0, 200, 0],
+            "minecraft:sand" => [247, 237, 44],
+            "minecraft:grass_block" => [0, 200, 0],
+            "minecraft:poppy" => [0, 200, 0],
+            "minecraft:water" => [0, 0, 200],
+            "minecraft:seagrass" => [0, 30, 200],
+            "minecraft:tall_seagrass" => [0, 30, 200],
+            "minecraft:kelp" => [0, 30, 200],
+            "minecraft:stone" => [80, 80, 80],
+            "minecraft:cobblestone" => [80, 80, 80],
+            "minecraft:andesite" => [196, 196, 196],
+            "minecraft:diorite" => [196, 196, 196],
+            "minecraft:granite" => [191, 104, 38],
+            "minecraft:gravel" => [80, 80, 80],
+            "minecraft:coal_ore" => [75, 75, 75],
+            "minecraft:air" => [255, 255, 255],
+            "minecraft:dirt" => [90, 80, 70],
+            "minecraft:snow" => [240, 240, 240],
+            "minecraft:snow_block" => [240, 240, 240],
+            "minecraft:ice" => [180, 250, 250],
+            "minecraft:packed_ice" => [180, 220, 252],
+            "minecraft:cave_air" => [0, 0, 0],
+            "minecraft:lava" => [252, 145, 5],
+            "minecraft:pumpkin" => [252, 145, 5],
+            "minecraft:grass_path" => [140, 100, 56],
+            "minecraft:wheat" => [226, 203, 22],
+            "minecraft:end_stone" => [242, 238, 157],
+            s if s.contains("leaves") => [0, 150, 0],
+            s if s.contains("plank") => [165, 95, 41],
+            s if s.contains("fence") => [165, 95, 41],
+            s if s.contains("stairs") => [165, 95, 41],
+            s if s.contains("log") => [155, 85, 41],
+            s if s.contains("stone") => [80, 80, 80],
+            s if s.contains("chorus") => [200, 87, 220],
+            _ => [250, 0, 240],
         }
     }
 }
 
 pub struct RegionBlockDrawer<'a, P: BlockPalette> {
-    map: &'a mut RegionMap<image::Rgb<u8>>,
+    map: &'a mut RegionMap<Rgb>,
     palette: &'a P,
 }
 
 impl<'a, P: BlockPalette> RegionBlockDrawer<'a, P> {
-    pub fn new(map: &'a mut RegionMap<image::Rgb<u8>>, palette: &'a P) -> Self {
+    pub fn new(map: &'a mut RegionMap<Rgb>, palette: &'a P) -> Self {
         Self { map, palette }
     }
 }
@@ -140,11 +142,11 @@ impl<'a, P: BlockPalette> RegionDrawer for RegionBlockDrawer<'a, P> {
     }
 }
 pub struct RegionHeightmapDrawer<'a> {
-    map: &'a mut RegionMap<image::Rgb<u8>>,
+    map: &'a mut RegionMap<Rgb>,
 }
 
 impl<'a> RegionHeightmapDrawer<'a> {
-    pub fn new(map: &'a mut RegionMap<image::Rgb<u8>>) -> Self {
+    pub fn new(map: &'a mut RegionMap<Rgb>) -> Self {
         Self { map }
     }
 }
@@ -159,10 +161,10 @@ impl<'a> RegionDrawer for RegionHeightmapDrawer<'a> {
                 let height = chunk.heights[x * 16 + z];
 
                 if height <= SEA_LEVEL {
-                    data[x * 16 + z] = image::Rgb([height as u8, height as u8, 150]);
+                    data[x * 16 + z] = [height as u8, height as u8, 150];
                 } else {
                     let height = (height - 63) * 2;
-                    data[x * 16 + z] = image::Rgb([height as u8, 150, height as u8]);
+                    data[x * 16 + z] = [height as u8, 150, height as u8];
                 }
             }
         }

@@ -114,7 +114,7 @@ fn render(args: &ArgMatches) {
                 let file = std::fs::File::open(path).ok()?;
                 let region = Region::new(file);
 
-                let mut map = RegionMap::new(x, z, image::Rgb::<u8>([0, 0, 0]));
+                let mut map = RegionMap::new(x, z, [0, 0, 0]);
                 let palette = BasicPalette {};
                 let mut drawer = RegionBlockDrawer::new(&mut map, &palette);
                 parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
@@ -145,7 +145,7 @@ fn render(args: &ArgMatches) {
                             let pixel = heightmap[z * 16 + x];
                             let x = xcp * 16 + x as isize;
                             let z = zcp * 16 + z as isize;
-                            img.put_pixel(x as u32, z as u32, pixel)
+                            img.put_pixel(x as u32, z as u32, image::Rgb(pixel))
                         }
                     }
                 }
