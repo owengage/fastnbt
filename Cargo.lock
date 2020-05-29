@@ -180,7 +180,6 @@ dependencies = [
  "byteorder",
  "flate2",
  "num_enum",
- "rayon",
  "serde",
 ]
 
