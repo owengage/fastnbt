@@ -101,18 +101,18 @@ impl BlockPalette for BasicPalette {
     }
 }
 
-pub struct RegionBlockDrawer<'a, P: BlockPalette> {
+pub struct RegionBlockDrawer<'a, P: BlockPalette + ?Sized> {
     map: &'a mut RegionMap<Rgb>,
     palette: &'a P,
 }
 
-impl<'a, P: BlockPalette> RegionBlockDrawer<'a, P> {
+impl<'a, P: BlockPalette + ?Sized> RegionBlockDrawer<'a, P> {
     pub fn new(map: &'a mut RegionMap<Rgb>, palette: &'a P) -> Self {
         Self { map, palette }
     }
 }
 
-impl<'a, P: BlockPalette> RegionDrawer for RegionBlockDrawer<'a, P> {
+impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
         let mut sec_map = std::collections::HashMap::new();
         for sec in &chunk.sections {
@@ -193,7 +193,7 @@ impl From<super::Error> for DrawError {
 
 pub type DrawResult<T> = std::result::Result<T, DrawError>;
 
-pub fn parse_region<F: RegionDrawer>(
+pub fn parse_region<F: RegionDrawer + ?Sized>(
     mut region: Region<std::fs::File>,
     draw_to: &mut F,
 ) -> DrawResult<()> {

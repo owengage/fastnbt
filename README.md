@@ -27,6 +27,10 @@ anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10 # render 10 by 10 o
 * Maybe: some sort of interactive map. WASM?
 * Maybe: transparent blocks.
 
+### Full palette
+
+Inside `.minecraft/versions` you can find JARs for each local Minecraft versions. If you unzip these you can find `assets/minecraft/blockstates/` which look to describe every placeable block. They refer to models in `asserts/minecraft/models/`, that refer to textures that can be found in `assets/textures/`. Should be able to use this to precompute a palette for all blocks.
+
 ## Usage
 
 For the library

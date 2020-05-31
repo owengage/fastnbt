@@ -1,9 +1,28 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fastnbt::anvil::draw::{parse_region, BasicPalette, RegionBlockDrawer, RegionMap};
+use fastnbt::anvil::draw::{
+    parse_region, BasicPalette, BlockPalette, RegionBlockDrawer, RegionMap,
+};
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+struct FullPalette(std::collections::HashMap<String, [u8; 3]>);
+
+impl BlockPalette for FullPalette {
+    fn pick(&self, block_id: &str) -> [u8; 3] {
+        let col = self.0.get(block_id);
+        match col {
+            Some(c) => *c,
+            None => {
+                println!("{}", block_id);
+                [255, 0, 255]
+            }
+        }
+    }
+}
 
 fn parse_coord(coord: &str) -> Option<(isize, isize)> {
     let mut s = coord.split(",");
@@ -75,7 +94,20 @@ struct Rectangle {
     zmax: isize,
 }
 
-fn render(args: &ArgMatches) {
+fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>> {
+    let path = match path {
+        Some(path) => Path::new(path),
+        None => return Ok(Box::new(BasicPalette {})),
+    };
+
+    let f = std::fs::File::open(path)?;
+
+    let mut json: std::collections::HashMap<String, [u8; 3]> = serde_json::from_reader(f)?;
+
+    Ok(Box::new(FullPalette(json)))
+}
+
+fn render(args: &ArgMatches) -> Result<()> {
     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
     let dim: &str = args.value_of("dimension").unwrap();
 
@@ -104,6 +136,9 @@ fn render(args: &ArgMatches) {
     let dx = x_range.len();
     let dz = z_range.len();
 
+    let pal: std::sync::Arc<dyn BlockPalette + Send + Sync> =
+        get_palette(args.value_of("palette"))?.into();
+
     let region_maps: Vec<_> = paths
         .into_par_iter()
         .map(|path| {
@@ -115,8 +150,7 @@ fn render(args: &ArgMatches) {
                 let region = Region::new(file);
 
                 let mut map = RegionMap::new(x, z, [0, 0, 0]);
-                let palette = BasicPalette {};
-                let mut drawer = RegionBlockDrawer::new(&mut map, &palette);
+                let mut drawer = RegionBlockDrawer::new(&mut map, &*pal);
                 parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
                 Some(map)
@@ -154,9 +188,10 @@ fn render(args: &ArgMatches) {
     }
 
     img.save("map.png").unwrap();
+    Ok(())
 }
 
-fn main() {
+fn main() -> Result<()> {
     let matches = App::new("anvil-fast")
         .subcommand(
             SubCommand::with_name("render")
@@ -180,12 +215,20 @@ fn main() {
                         .takes_value(true)
                         .required(false)
                         .default_value("overworld"),
+                )
+                .arg(
+                    Arg::with_name("palette")
+                        .long("palette")
+                        .takes_value(true)
+                        .required(false),
                 ),
         )
         .get_matches();
 
     match matches.subcommand() {
-        ("render", Some(args)) => render(args),
+        ("render", Some(args)) => render(args)?,
         _ => println!("{}", matches.usage()),
     };
+
+    Ok(())
 }
