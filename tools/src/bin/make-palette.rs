@@ -187,7 +187,7 @@ fn find_model_in_variant(var: &Variant, models: &HashMap<String, Model>) -> Resu
 
 fn find_texture(state: &Blockstate, models: &HashMap<String, Model>) -> Result<String> {
     if let Some(ref v) = state.variants {
-        for (vname, variant) in v {
+        for (_vname, variant) in v {
             return match variant {
                 Variants::Single(ref var) => find_model_in_variant(var, models),
                 Variants::Many(vars) => find_model_in_variant(&vars[0], models),

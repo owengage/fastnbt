@@ -1,7 +1,5 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fastnbt::anvil::draw::{
-    parse_region, BasicPalette, BlockPalette, RegionBlockDrawer, RegionMap,
-};
+use fastnbt::anvil::draw::{parse_region, Chunk, RegionDrawer, RegionMap, Rgb};
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
@@ -9,6 +7,49 @@ use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+pub trait BlockPalette {
+    fn pick(&self, block_id: &str) -> Rgb;
+}
+
+pub struct RegionBlockDrawer<'a, P: BlockPalette + ?Sized> {
+    map: &'a mut RegionMap<Rgb>,
+    palette: &'a P,
+}
+
+impl<'a, P: BlockPalette + ?Sized> RegionBlockDrawer<'a, P> {
+    pub fn new(map: &'a mut RegionMap<Rgb>, palette: &'a P) -> Self {
+        Self { map, palette }
+    }
+}
+
+impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
+        let data = (*self.map).chunk_mut(xc_rel, zc_rel);
+
+        for z in 0..16 {
+            for x in 0..16 {
+                let height = chunk.height_of(x, z) - 1; // -1 because we want the block below the air.
+                let material = chunk.id_of(x, height, z);
+
+                // TODO:  If material is grass block (and others), we need to colour it based on biome.
+                let colour = match material {
+                    "minecraft:grass_block" => [50, 200, 50],
+                    "minecraft:oak_leaves" => [10, 140, 10],
+                    "minecraft:birch_leaves" => [10, 140, 10],
+                    "minecraft:spruce_leaves" => [10, 140, 10],
+                    "minecraft:jungle_leaves" => [10, 140, 10],
+                    "minecraft:acacia_leaves" => [10, 140, 10],
+                    "minecraft:dark_oak_leaves" => [10, 140, 10],
+                    "minecraft:water" => [30, 30, 200],
+                    _ => self.palette.pick(material),
+                };
+
+                let pixel = &mut data[x * 16 + z];
+                *pixel = colour;
+            }
+        }
+    }
+}
 struct FullPalette(std::collections::HashMap<String, [u8; 3]>);
 
 impl BlockPalette for FullPalette {
@@ -17,7 +58,7 @@ impl BlockPalette for FullPalette {
         match col {
             Some(c) => *c,
             None => {
-                println!("{}", block_id);
+                //println!("{}", block_id);
                 [255, 0, 255]
             }
         }
@@ -97,12 +138,12 @@ struct Rectangle {
 fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>> {
     let path = match path {
         Some(path) => Path::new(path),
-        None => return Ok(Box::new(BasicPalette {})),
+        None => panic!("no palette"),
     };
 
     let f = std::fs::File::open(path)?;
 
-    let mut json: std::collections::HashMap<String, [u8; 3]> = serde_json::from_reader(f)?;
+    let json: std::collections::HashMap<String, [u8; 3]> = serde_json::from_reader(f)?;
 
     Ok(Box::new(FullPalette(json)))
 }
@@ -220,7 +261,7 @@ fn main() -> Result<()> {
                     Arg::with_name("palette")
                         .long("palette")
                         .takes_value(true)
-                        .required(false),
+                        .required(true),
                 ),
         )
         .get_matches();
