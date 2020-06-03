@@ -9,10 +9,11 @@ pub trait RegionDrawer {
 pub struct Chunk {
     heights: Vec<u16>,
     sections: Vec<Option<Section>>,
+    biomes: Option<Vec<i32>>,
 }
 
 impl Chunk {
-    pub fn new(heights: Vec<u16>, sections: Vec<Section>) -> Self {
+    pub fn new(heights: Vec<u16>, sections: Vec<Section>, biomes: Option<Vec<i32>>) -> Self {
         let mut s = Vec::new();
         s.resize_with(16, || None);
 
@@ -21,9 +22,18 @@ impl Chunk {
             s[y] = Some(sec);
         }
 
+        // println!("Biomes size: {}", biomes.as_ref().unwrap().len());
+        // biomes
+        //     .as_ref()
+        //     .unwrap()
+        //     .as_slice()
+        //     .chunks(16)
+        //     .for_each(|c| println!("{:?}", c));
+
         Self {
             heights,
             sections: s,
+            biomes,
         }
     }
 
@@ -43,6 +53,23 @@ impl Chunk {
 
     pub fn height_of(&self, x: usize, z: usize) -> usize {
         self.heights[x * 16 + z] as usize
+    }
+
+    pub fn biome_of(&self, x: usize, y: usize, z: usize) -> Option<i32> {
+        // FIXME, what's the right way to do this?
+
+        // For biome len of 1024,
+        //  it's 4x4x4 sets of blocks stored by z then x then y (+1 moves one in z)
+        //  for overworld theres no vertical chunks so it looks like only first 16 values are used.
+        // For biome len of 256, it's chunk 1x1 columns stored z then x.
+
+        let biomes = self.biomes.as_ref()?;
+
+        if biomes.len() == 1024 {
+            Some(biomes[(x / 4) * 4 + (z / 4)])
+        } else {
+            Some(biomes[x * 16 + z])
+        }
     }
 }
 
@@ -179,7 +206,7 @@ pub fn parse_chunk(data: &[u8]) -> DrawResult<Chunk> {
     let buf = &data[5..];
     let decoder = match meta.compression_scheme {
         CompressionScheme::Zlib => ZlibDecoder::new(buf),
-        _ => panic!("unknown compression scheme (probably gzip)"),
+        _ => panic!("unknown compression scheme (gzip?)"),
     };
 
     let mut parser = nbt::Parser::new(decoder);
@@ -188,6 +215,7 @@ pub fn parse_chunk(data: &[u8]) -> DrawResult<Chunk> {
 
     let mut sections = Vec::new();
     let mut heightmap: Option<Vec<u16>> = None;
+    let mut biomes = None;
 
     loop {
         match parser.next()? {
@@ -198,6 +226,9 @@ pub fn parse_chunk(data: &[u8]) -> DrawResult<Chunk> {
                     }
                 }
             }
+            Value::IntArray(Some(ref name), b) if name == "Biomes" => {
+                biomes = Some(b);
+            }
             Value::Compound(Some(name)) if name == "Heightmaps" => {
                 heightmap = process_heightmap(&mut parser)?;
             }
@@ -206,10 +237,11 @@ pub fn parse_chunk(data: &[u8]) -> DrawResult<Chunk> {
                 nbt::skip_compound(&mut parser)?;
             }
             Value::CompoundEnd => {
-                if let Some(heights) = heightmap {
-                    return Ok(Chunk::new(heights, sections));
+                if heightmap == None {
+                    return Err(DrawError::MissingHeightMap);
                 }
-                return Err(DrawError::MissingHeightMap);
+
+                return Ok(Chunk::new(heightmap.unwrap(), sections, biomes));
             }
             _ => {}
         }

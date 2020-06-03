@@ -7,24 +7,34 @@ use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-pub trait BlockPalette {
+trait BlockPalette {
     fn pick(&self, block_id: &str) -> Rgb;
 }
 
-pub struct RegionBlockDrawer<'a, P: BlockPalette + ?Sized> {
-    map: &'a mut RegionMap<Rgb>,
+trait IntoMap {
+    fn into_map(self) -> RegionMap<Rgb>;
+}
+
+struct RegionBlockDrawer<'a, P: BlockPalette + ?Sized> {
+    map: RegionMap<Rgb>,
     palette: &'a P,
 }
 
 impl<'a, P: BlockPalette + ?Sized> RegionBlockDrawer<'a, P> {
-    pub fn new(map: &'a mut RegionMap<Rgb>, palette: &'a P) -> Self {
+    pub fn new(map: RegionMap<Rgb>, palette: &'a P) -> Self {
         Self { map, palette }
+    }
+}
+
+impl<'a, P: BlockPalette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
+    fn into_map(self) -> RegionMap<Rgb> {
+        self.map
     }
 }
 
 impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
-        let data = (*self.map).chunk_mut(xc_rel, zc_rel);
+        let data = self.map.chunk_mut(xc_rel, zc_rel);
 
         for z in 0..16 {
             for x in 0..16 {
@@ -60,6 +70,37 @@ impl BlockPalette for FullPalette {
             None => {
                 //println!("{}", block_id);
                 [255, 0, 255]
+            }
+        }
+    }
+}
+
+struct RegionBiomeDrawer<'a> {
+    map: &'a mut RegionMap<Rgb>,
+}
+
+impl<'a> RegionDrawer for RegionBiomeDrawer<'a> {
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
+        let data = (*self.map).chunk_mut(xc_rel, zc_rel);
+
+        for z in 0..16 {
+            for x in 0..16 {
+                let y = chunk.height_of(x, z);
+                let biome = chunk.biome_of(x, y, z).unwrap();
+
+                // TODO:  If material is grass block (and others), we need to colour it based on biome.
+                let colour = match biome {
+                    0 => [0, 0, 200],                                     // ocean
+                    24 => [0, 0, 150],                                    // deep ocean
+                    10 | 50 | 46 | 49 | 45 | 48 | 44 | 47 => [0, 0, 255], // other oceans
+                    7 | 11 => [0, 0, 255],                                // rivers
+                    16 => [100, 50, 50],                                  // beach
+
+                    b => [b as u8, b as u8, b as u8],
+                };
+
+                let pixel = &mut data[x * 16 + z];
+                *pixel = colour;
             }
         }
     }
@@ -180,7 +221,7 @@ fn render(args: &ArgMatches) -> Result<()> {
     let pal: std::sync::Arc<dyn BlockPalette + Send + Sync> =
         get_palette(args.value_of("palette"))?.into();
 
-    let region_maps: Vec<_> = paths
+    let region_maps: Vec<Option<RegionMap<Rgb>>> = paths
         .into_par_iter()
         .map(|path| {
             let (x, z) = coords_from_region(&path).unwrap();
@@ -190,11 +231,11 @@ fn render(args: &ArgMatches) -> Result<()> {
                 let file = std::fs::File::open(path).ok()?;
                 let region = Region::new(file);
 
-                let mut map = RegionMap::new(x, z, [0, 0, 0]);
-                let mut drawer = RegionBlockDrawer::new(&mut map, &*pal);
+                let map = RegionMap::new(x, z, [0, 0, 0]);
+                let mut drawer = RegionBlockDrawer::new(map, &*pal);
                 parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
-                Some(map)
+                Some(drawer.into_map())
             } else {
                 None
             }
@@ -232,6 +273,87 @@ fn render(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn biomes(args: &ArgMatches) -> Result<()> {
+    let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
+    let dim: &str = args.value_of("dimension").unwrap();
+
+    let subpath = match dim {
+        "end" => "DIM1/region",
+        "nether" => "DIM-1/region",
+        _ => "region",
+    };
+
+    let paths = region_paths(&world.join(subpath));
+
+    let bounds = match (args.value_of("size"), args.value_of("offset")) {
+        (Some(size), Some(offset)) => {
+            make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
+        }
+        (None, _) => auto_size(&paths).unwrap(),
+        _ => panic!(),
+    };
+
+    print!("Bounds: {:?}", bounds);
+
+    let x_range = bounds.xmin..bounds.xmax;
+    let z_range = bounds.zmin..bounds.zmax;
+
+    let region_len: usize = 32 * 16;
+    let dx = x_range.len();
+    let dz = z_range.len();
+
+    let region_maps: Vec<Option<RegionMap<Rgb>>> = paths
+        .into_par_iter()
+        .map(|path| {
+            let (x, z) = coords_from_region(&path).unwrap();
+
+            if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
+                println!("parsing region x: {}, z: {}", x, z);
+                let file = std::fs::File::open(path).ok()?;
+                let region = Region::new(file);
+
+                let mut map = RegionMap::new(x, z, [0, 0, 0]);
+                let mut drawer = RegionBiomeDrawer { map: &mut map };
+                parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
+
+                Some(map)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    println!("writing biome.png");
+    let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
+
+    for region_map in region_maps {
+        if let Some(map) = region_map {
+            let xrp = map.x_region - x_range.start;
+            let zrp = map.z_region - z_range.start;
+
+            for xc in 0..32 {
+                for zc in 0..32 {
+                    let heightmap = map.chunk(xc, zc);
+                    let xcp = xrp * 32 + xc as isize;
+                    let zcp = zrp * 32 + zc as isize;
+
+                    for z in 0..16 {
+                        for x in 0..16 {
+                            let pixel = heightmap[z * 16 + x];
+                            let x = xcp * 16 + x as isize;
+                            let z = zcp * 16 + z as isize;
+                            img.put_pixel(x as u32, z as u32, image::Rgb(pixel))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    img.save("biome.png").unwrap();
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let matches = App::new("anvil-fast")
         .subcommand(
@@ -261,13 +383,38 @@ fn main() -> Result<()> {
                     Arg::with_name("palette")
                         .long("palette")
                         .takes_value(true)
-                        .required(true),
+                        .required(false),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("biomes")
+                .arg(Arg::with_name("world").takes_value(true).required(true))
+                .arg(
+                    Arg::with_name("size")
+                        .long("size")
+                        .takes_value(true)
+                        .required(false),
+                )
+                .arg(
+                    Arg::with_name("offset")
+                        .long("offset")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("0,0"),
+                )
+                .arg(
+                    Arg::with_name("dimension")
+                        .long("dimension")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("overworld"),
                 ),
         )
         .get_matches();
 
     match matches.subcommand() {
         ("render", Some(args)) => render(args)?,
+        ("biomes", Some(args)) => biomes(args)?,
         _ => println!("{}", matches.usage()),
     };
 
