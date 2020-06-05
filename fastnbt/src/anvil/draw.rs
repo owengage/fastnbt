@@ -1,5 +1,6 @@
 use super::*;
 use crate::nbt::{self, Value};
+use biome::Biome;
 use flate2::read::ZlibDecoder;
 
 pub trait RegionDrawer {
@@ -55,8 +56,9 @@ impl Chunk {
         self.heights[x * 16 + z] as usize
     }
 
-    pub fn biome_of(&self, x: usize, y: usize, z: usize) -> Option<i32> {
-        // FIXME, what's the right way to do this?
+    pub fn biome_of(&self, x: usize, y: usize, z: usize) -> Option<Biome> {
+        // TODO: Take into account height. For overworld this doesn't matter (at least not yet)
+        // TODO: Make use of data version?
 
         // For biome len of 1024,
         //  it's 4x4x4 sets of blocks stored by z then x then y (+1 moves one in z)
@@ -66,9 +68,9 @@ impl Chunk {
         let biomes = self.biomes.as_ref()?;
 
         if biomes.len() == 1024 {
-            Some(biomes[(x / 4) * 4 + (z / 4)])
+            Biome::try_from(biomes[(x / 4) * 4 + (z / 4)]).ok()
         } else {
-            Some(biomes[x * 16 + z])
+            Biome::try_from(biomes[x * 16 + z]).ok()
         }
     }
 }

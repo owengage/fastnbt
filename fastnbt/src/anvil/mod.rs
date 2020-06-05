@@ -6,6 +6,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 pub const SECTOR_SIZE: usize = 4096;
 pub const HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 
+pub mod biome;
 pub mod bits;
 pub mod draw;
 

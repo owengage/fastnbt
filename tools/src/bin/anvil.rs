@@ -1,4 +1,5 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
+use fastnbt::anvil::biome::Biome;
 use fastnbt::anvil::draw::{parse_region, Chunk, RegionDrawer, RegionMap, Rgb};
 use fastnbt::anvil::Region;
 use image;
@@ -90,13 +91,23 @@ impl<'a> RegionDrawer for RegionBiomeDrawer<'a> {
 
                 // TODO:  If material is grass block (and others), we need to colour it based on biome.
                 let colour = match biome {
-                    0 => [0, 0, 200],                                     // ocean
-                    24 => [0, 0, 150],                                    // deep ocean
-                    10 | 50 | 46 | 49 | 45 | 48 | 44 | 47 => [0, 0, 255], // other oceans
-                    7 | 11 => [0, 0, 255],                                // rivers
-                    16 => [100, 50, 50],                                  // beach
+                    Biome::Ocean => [0, 0, 200],
+                    Biome::DeepOcean => [0, 0, 150],
+                    Biome::ColdOcean
+                    | Biome::DeepColdOcean
+                    | Biome::DeepFrozenOcean
+                    | Biome::DeepLukewarmOcean
+                    | Biome::DeepWarmOcean
+                    | Biome::FrozenOcean
+                    | Biome::LukewarmOcean
+                    | Biome::WarmOcean => [0, 0, 255],
+                    Biome::River | Biome::FrozenRiver => [0, 0, 255],
+                    Biome::Beach => [100, 50, 50],
 
-                    b => [b as u8, b as u8, b as u8],
+                    b => {
+                        let b: i32 = b.into();
+                        [b as u8, b as u8, b as u8]
+                    }
                 };
 
                 let pixel = &mut data[x * 16 + z];
