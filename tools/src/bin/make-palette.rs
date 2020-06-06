@@ -227,6 +227,29 @@ fn main() -> Result<()> {
         palette.insert(id, textures.get(&tex).unwrap_or(&[0u8, 255, 255]));
     }
 
-    println!("{}", serde_json::to_string_pretty(&palette)?);
+    let f = std::fs::File::create("palette.tar")?;
+    let mut ar = tar::Builder::new(f);
+
+    let grass_colourmap = &assets.join("textures").join("colormap").join("grass.png");
+    ar.append_file(
+        "grass-colourmap.png",
+        &mut std::fs::File::open(grass_colourmap)?,
+    )?;
+
+    let foliage_colourmap = &assets.join("textures").join("colormap").join("foliage.png");
+    ar.append_file(
+        "foliage-colourmap.png",
+        &mut std::fs::File::open(foliage_colourmap)?,
+    )?;
+
+    let palette_data = serde_json::to_vec(&palette)?;
+    let mut header = tar::Header::new_gnu();
+    header.set_size(palette_data.len() as u64);
+    header.set_cksum();
+    header.set_mode(0o666);
+    ar.append_data(&mut header, "blockstates.json", palette_data.as_slice())?;
+
+    // finishes the archive.
+    ar.into_inner()?;
     Ok(())
 }

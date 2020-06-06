@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 trait BlockPalette {
-    fn pick(&self, block_id: &str) -> Rgb;
+    fn pick(&self, block_id: &str, biome: Option<Biome>) -> Rgb;
 }
 
 trait IntoMap {
@@ -41,18 +41,11 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
             for x in 0..16 {
                 let height = chunk.height_of(x, z) - 1; // -1 because we want the block below the air.
                 let material = chunk.id_of(x, height, z);
+                let biome = chunk.biome_of(x, height, z);
 
                 // TODO:  If material is grass block (and others), we need to colour it based on biome.
                 let colour = match material {
-                    "minecraft:grass_block" => [50, 200, 50],
-                    "minecraft:oak_leaves" => [10, 140, 10],
-                    "minecraft:birch_leaves" => [10, 140, 10],
-                    "minecraft:spruce_leaves" => [10, 140, 10],
-                    "minecraft:jungle_leaves" => [10, 140, 10],
-                    "minecraft:acacia_leaves" => [10, 140, 10],
-                    "minecraft:dark_oak_leaves" => [10, 140, 10],
-                    "minecraft:water" => [30, 30, 200],
-                    _ => self.palette.pick(material),
+                    _ => self.palette.pick(material, biome),
                 };
 
                 let pixel = &mut data[x * 16 + z];
@@ -61,11 +54,74 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
         }
     }
 }
-struct FullPalette(std::collections::HashMap<String, [u8; 3]>);
+struct FullPalette {
+    blockstates: std::collections::HashMap<String, [u8; 3]>,
+    grass: image::RgbImage,
+    foliage: image::RgbImage,
+}
+
+impl FullPalette {
+    fn pick_grass(&self, b: Option<Biome>) -> [u8; 3] {
+        b.map(|b| {
+            let climate = fastnbt::anvil::biome::climate(b);
+            let t = climate.temperature.min(1.).max(0.);
+            let r = climate.rainfall.min(1.).max(0.) * t;
+
+            let t = 255 - (t * 255.).ceil() as u32;
+            let r = 255 - (r * 255.).ceil() as u32;
+
+            self.grass.get_pixel(t, r).0
+        })
+        .unwrap_or([0, 0, 0])
+    }
+
+    fn pick_foliage(&self, b: Option<Biome>) -> [u8; 3] {
+        b.map(|b| {
+            let climate = fastnbt::anvil::biome::climate(b);
+            let t = climate.temperature.min(1.).max(0.);
+            let r = climate.rainfall.min(1.).max(0.) * t;
+
+            let t = 255 - (t * 255.).ceil() as u32;
+            let r = 255 - (r * 255.).ceil() as u32;
+
+            self.foliage.get_pixel(t, r).0
+        })
+        .unwrap_or([0, 0, 0])
+    }
+
+    fn pick_water(&self, b: Option<Biome>) -> [u8; 3] {
+        b.map(|b| match b {
+            Biome::Swamp => [0x61, 0x7B, 0x64],
+            Biome::River => [0x3F, 0x76, 0xE4],
+            Biome::Ocean => [0x3F, 0x76, 0xE4],
+            Biome::LukewarmOcean => [0x45, 0xAD, 0xF2],
+            Biome::WarmOcean => [0x43, 0xD5, 0xEE],
+            Biome::ColdOcean => [0x3D, 0x57, 0xD6],
+            Biome::FrozenRiver => [0x39, 0x38, 0xC9],
+            Biome::FrozenOcean => [0x39, 0x38, 0xC9],
+            _ => [0x3f, 0x76, 0xe4],
+        })
+        .unwrap_or([0x3f, 0x76, 0xe4])
+    }
+}
 
 impl BlockPalette for FullPalette {
-    fn pick(&self, block_id: &str) -> [u8; 3] {
-        let col = self.0.get(block_id);
+    fn pick(&self, block_id: &str, biome: Option<Biome>) -> [u8; 3] {
+        // If the block id is something like grass, we should pull the colour from the colour map.
+        match block_id {
+            "minecraft:grass_block" => return self.pick_grass(biome),
+            "minecraft:oak_leaves" => return self.pick_foliage(biome),
+            "minecraft:jungle_leaves" => return self.pick_foliage(biome),
+            "minecraft:acacia_leaves" => return self.pick_foliage(biome),
+            "minecraft:dark_oak_leaves" => return self.pick_foliage(biome),
+            "minecraft:birch_leaves" => return [0x80, 0xa7, 0x55],
+            "minecraft:spruce_leaves" => return [0x61, 0x99, 0x61],
+
+            "minecraft:water" => return self.pick_water(biome),
+            _ => {}
+        }
+
+        let col = self.blockstates.get(block_id);
         match col {
             Some(c) => *c,
             None => {
@@ -194,10 +250,46 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>
     };
 
     let f = std::fs::File::open(path)?;
+    let mut ar = tar::Archive::new(f);
+    let mut grass = Err("no grass colour map");
+    let mut foliage = Err("no foliage colour map");
+    let mut blockstates = Err("no blockstate palette");
 
-    let json: std::collections::HashMap<String, [u8; 3]> = serde_json::from_reader(f)?;
+    for file in ar.entries()? {
+        let mut file = file?;
+        match file.path()?.to_str().ok_or("invalid path in TAR")? {
+            "grass-colourmap.png" => {
+                use std::io::Read;
+                let mut buf = vec![];
+                file.read_to_end(&mut buf)?;
 
-    Ok(Box::new(FullPalette(json)))
+                grass =
+                    Ok(image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgb());
+            }
+            "foliage-colourmap.png" => {
+                use std::io::Read;
+                let mut buf = vec![];
+                file.read_to_end(&mut buf)?;
+
+                foliage =
+                    Ok(image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgb());
+            }
+            "blockstates.json" => {
+                let json: std::collections::HashMap<String, [u8; 3]> =
+                    serde_json::from_reader(file)?;
+                blockstates = Ok(json);
+            }
+            _ => {}
+        }
+    }
+
+    let p = FullPalette {
+        blockstates: blockstates?,
+        grass: grass?,
+        foliage: foliage?,
+    };
+
+    Ok(Box::new(p))
 }
 
 fn render(args: &ArgMatches) -> Result<()> {
