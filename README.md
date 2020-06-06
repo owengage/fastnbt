@@ -8,24 +8,46 @@ The `anvil` binary can render your world leveraging all of your CPU. On a Ryzen 
 
 ```bash
 cargo install fastnbt-tools
-anvil-palette ~/.minecraft/versions/1.15.2/unpacked # this is to an unzipped minecraft version JAR
-anvil render ~/path/to/world-dir --palette=palette.tar # render entire overworld
-anvil render ~/path/to/world-dir --dimension=end --palette=palette.tar # render entire end
-anvil render ~/path/to/world-dir --size=6,6  --palette=palette.tar # render 6 by 6 regions around 0,0.
-anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.tar # render 10 by 10 offset by x: -4, z: 10.
+
+# Extract a minecraft version for getting the palette out.
+# This will be simpler in future.
+pushd ~/.minecraft/versions/1.15.2/ && mkdir unpacked && cd unpacked
+unzip ../1.15.2.jar
+popd
+
+# Create a palette to render with
+anvil-palette ~/.minecraft/versions/1.15.2/unpacked 
+
+ # render entire overworld
+anvil render ~/path/to/world-dir --palette=palette.tar
+
+# render entire end
+anvil render ~/path/to/world-dir --dimension=end --palette=palette.tar 
+
+# render 6 by 6 regions around 0,0.
+anvil render ~/path/to/world-dir --size=6,6  --palette=palette.tar 
+
+# render 10 by 10 offset by x: -4, z: 10.
+anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.tar 
 ```
 
 ![alt rendered map](map.png)
 
-## TODO
+# TODO
+
+### Full palette
+
+I currently can extract textures for 618 out of 681 blockstates. I need to implement things like stairs, logs, and rails.
+
+### Advanced state
+
+If I render wheat, for example, I just render all wheat at a particular growth stage. I could extract more information from the chunks and render more exact state.
+
+### Other
 
 * Fix end dimension panic.
-* Full palette for block-based world rendering (unknown blocks are magenta at the moment)
-* Modify palette colour based on height.
+* Modify palette colour based on height?
 * Change to visitor-based parser to avoid allocation of Array tags when not needed.
-* Test on Windows.
-* Use newtypes idiom for the various co-ordinate types for safety.
-* serde for deserialisation.
 * Maybe: some sort of interactive map. WASM?
 * Maybe: transparent blocks.
 
