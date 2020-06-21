@@ -31,7 +31,7 @@ anvil render ~/path/to/world-dir --size=6,6  --palette=palette.tar
 anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.tar 
 ```
 
-![alt rendered map](map.png)
+![alt rendered map](demo.png)
 
 # TODO
 
