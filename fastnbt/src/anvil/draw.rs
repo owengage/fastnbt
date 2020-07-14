@@ -56,7 +56,7 @@ impl Chunk {
         self.heights[x * 16 + z] as usize
     }
 
-    pub fn biome_of(&self, x: usize, y: usize, z: usize) -> Option<Biome> {
+    pub fn biome_of(&self, x: usize, _y: usize, z: usize) -> Option<Biome> {
         // TODO: Take into account height. For overworld this doesn't matter (at least not yet)
         // TODO: Make use of data version?
 

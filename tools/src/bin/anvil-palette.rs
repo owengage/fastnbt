@@ -101,7 +101,7 @@ fn load_models(path: &Path) -> Result<HashMap<String, Model>> {
 
             let json: Model = serde_json::from_str(&json)?;
             models.insert(
-                "block/".to_owned()
+                "minecraft:block/".to_owned()
                     + path
                         .file_stem()
                         .ok_or(format!("invalid file name: {}", path.display()))?
@@ -109,6 +109,7 @@ fn load_models(path: &Path) -> Result<HashMap<String, Model>> {
                         .ok_or(format!("nonunicode file name: {}", path.display()))?,
                 json,
             );
+
         }
     }
 
@@ -182,7 +183,7 @@ fn find_model_in_variant(var: &Variant, models: &HashMap<String, Model>) -> Resu
         }
     }
 
-    Err("no texture")?
+    Err("did not understand model")?
 }
 
 fn find_texture(state: &Blockstate, models: &HashMap<String, Model>) -> Result<String> {
@@ -195,7 +196,7 @@ fn find_texture(state: &Blockstate, models: &HashMap<String, Model>) -> Result<S
         }
     };
 
-    Err("no texture found")?
+    Err("did not understand blockstate")?
 }
 
 fn main() -> Result<()> {
@@ -210,16 +211,20 @@ fn main() -> Result<()> {
 
     for (name, state) in &blockstates {
         let texture = find_texture(state, &models);
-
-        if let Ok(texture) = texture {
-            textured_blocks.insert(name.clone(), texture.clone());
+        
+        match texture {
+            Ok(texture) => {textured_blocks.insert(name.clone(), texture.clone());},
+            Err(e) => {eprintln!("{}: {}", name, e);},
         }
     }
 
-    eprintln!("total blockstates: {}", blockstates.len());
-    eprintln!("textured blockstates: {}", textured_blocks.len());
-
     let textures = load_textures(&assets.join("textures").join("block"))?;
+
+    eprintln!("found {} blockstates", blockstates.len());
+    eprintln!("found {} models", models.len());
+    eprintln!("found {} textures", textures.len());
+    eprintln!("understood {} out of {} blockstates", textured_blocks.len(), blockstates.len());
+
 
     let mut palette = HashMap::new();
 
