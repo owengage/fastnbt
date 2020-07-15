@@ -189,10 +189,10 @@ fn parse_coord(coord: &str) -> Option<(isize, isize)> {
     Some((x, z))
 }
 
-fn region_paths(in_path: &Path) -> Vec<PathBuf> {
-    let paths = std::fs::read_dir(in_path).unwrap();
+fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
+    let paths = std::fs::read_dir(in_path)?;
 
-    paths
+    let paths = paths
         .into_iter()
         .filter_map(|path| path.ok())
         .map(|path| path.path())
@@ -201,7 +201,9 @@ fn region_paths(in_path: &Path) -> Vec<PathBuf> {
             let ext = path.extension();
             ext.is_some() && ext.unwrap() == "mca"
         })
-        .collect()
+        .collect();
+
+    Ok(paths)
 }
 
 fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
@@ -311,7 +313,7 @@ fn render(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let paths = region_paths(&world.join(subpath));
+    let paths = region_paths(&world.join(subpath)).or(Err(format!("no region files found for {} dimension", dim)))?;
 
     let bounds = match (args.value_of("size"), args.value_of("offset")) {
         (Some(size), Some(offset)) => {
@@ -395,7 +397,7 @@ fn biomes(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let paths = region_paths(&world.join(subpath));
+    let paths = region_paths(&world.join(subpath)).or(Err(format!("no region files found for {} dimension", dim)))?;
 
     let bounds = match (args.value_of("size"), args.value_of("offset")) {
         (Some(size), Some(offset)) => {
