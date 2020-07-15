@@ -39,11 +39,12 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
 
         for z in 0..16 {
             for x in 0..16 {
-                let height = chunk.height_of(x, z) - 1; // -1 because we want the block below the air.
+                let height = chunk.height_of(x, z);
+                let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
                 let material = chunk.id_of(x, height, z);
                 let biome = chunk.biome_of(x, height, z);
 
-                // TODO:  If material is grass block (and others), we need to colour it based on biome.
+                // TODO: If material is grass block (and others), we need to colour it based on biome.
                 let colour = match material {
                     _ => self.palette.pick(material, biome),
                 };
@@ -127,6 +128,10 @@ impl BlockPalette for FullPalette {
             // foliage.
             "minecraft:vine" => return self.pick_foliage(biome),
 
+            // Occurs a lot for the end, as layer 0 will be air a lot.
+            // Rendering it black makes sense in the end, but might look weird if it ends up elsewhere.
+            "minecraft:air" => return [0, 0, 0],
+
             _ => {}
         }
 
@@ -189,6 +194,7 @@ fn parse_coord(coord: &str) -> Option<(isize, isize)> {
     Some((x, z))
 }
 
+/// Get all the paths to region files in a 'region' directory like 'region', 'DIM1' and 'DIM-1'.
 fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
     let paths = std::fs::read_dir(in_path)?;
 
@@ -313,7 +319,8 @@ fn render(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let paths = region_paths(&world.join(subpath)).or(Err(format!("no region files found for {} dimension", dim)))?;
+    let paths = region_paths(&world.join(subpath))
+        .or(Err(format!("no region files found for {} dimension", dim)))?;
 
     let bounds = match (args.value_of("size"), args.value_of("offset")) {
         (Some(size), Some(offset)) => {
@@ -397,7 +404,8 @@ fn biomes(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let paths = region_paths(&world.join(subpath)).or(Err(format!("no region files found for {} dimension", dim)))?;
+    let paths = region_paths(&world.join(subpath))
+        .or(Err(format!("no region files found for {} dimension", dim)))?;
 
     let bounds = match (args.value_of("size"), args.value_of("offset")) {
         (Some(size), Some(offset)) => {

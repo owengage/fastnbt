@@ -109,7 +109,6 @@ fn load_models(path: &Path) -> Result<HashMap<String, Model>> {
                         .ok_or(format!("nonunicode file name: {}", path.display()))?,
                 json,
             );
-
         }
     }
 
@@ -211,10 +210,14 @@ fn main() -> Result<()> {
 
     for (name, state) in &blockstates {
         let texture = find_texture(state, &models);
-        
+
         match texture {
-            Ok(texture) => {textured_blocks.insert(name.clone(), texture.clone());},
-            Err(e) => {eprintln!("{}: {}", name, e);},
+            Ok(texture) => {
+                textured_blocks.insert(name.clone(), texture.clone());
+            }
+            Err(e) => {
+                eprintln!("{}: {}", name, e);
+            }
         }
     }
 
@@ -224,13 +227,19 @@ fn main() -> Result<()> {
     eprintln!("found {} blockstates", blockstates.len());
     eprintln!("found {} models", models.len());
     eprintln!("found {} textures", textures.len());
-    eprintln!("understood {} out of {} blockstates", textured_blocks.len(), blockstates.len());
+    eprintln!(
+        "understood {} out of {} blockstates",
+        textured_blocks.len(),
+        blockstates.len()
+    );
 
     let mut palette = HashMap::new();
 
     for (id, tex) in textured_blocks {
         match textures.get(&tex) {
-            Some(tex) => {palette.insert(id, tex);},
+            Some(tex) => {
+                palette.insert(id, tex);
+            }
             None => {
                 eprintln!("no texture found for {}", id);
                 //palette.insert(id, &[255u8, 0, 255])

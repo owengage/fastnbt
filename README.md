@@ -39,7 +39,7 @@ anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.
 
 ### Full palette
 
-I currently can extract textures for 618 out of 681 blockstates. I need to implement things like stairs, logs, and rails.
+I currently can extract textures for 657 out of 764 blockstates. I need to implement things like stairs, logs, and rails, cactus etc.
 
 ### Advanced state
 
@@ -47,7 +47,6 @@ If I render wheat, for example, I just render all wheat at a particular growth s
 
 ### Other
 
-* Fix end dimension panic.
 * Modify palette colour based on height?
 * Change to visitor-based parser to avoid allocation of Array tags when not needed.
 * Maybe: some sort of interactive map. WASM?
@@ -59,7 +58,7 @@ For the library
 
 ```toml
 [dependencies]
-fastnbt = "0.4.0"
+fastnbt = "0.6.0"
 ```
 
 For the `anvil` executable
