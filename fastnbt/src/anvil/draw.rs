@@ -23,14 +23,6 @@ impl Chunk {
             s[y] = Some(sec);
         }
 
-        // println!("Biomes size: {}", biomes.as_ref().unwrap().len());
-        // biomes
-        //     .as_ref()
-        //     .unwrap()
-        //     .as_slice()
-        //     .chunks(16)
-        //     .for_each(|c| println!("{:?}", c));
-
         Self {
             heights,
             sections: s,
@@ -300,7 +292,6 @@ fn process_section<R: Read>(mut parser: &mut nbt::Parser<R>) -> DrawResult<Optio
                 palette = process_palette(&mut parser, n as usize)?;
             }
             Value::LongArray(Some(ref name), s) if name == "BlockStates" => {
-                //println!("{:?}", s);
                 states = s;
             }
             Value::Byte(Some(ref name), b) if name == "Y" => {

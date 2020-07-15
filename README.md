@@ -4,6 +4,8 @@ Documentation: [docs.rs](https://docs.rs/crate/fastnbt)
 
 A fast (or trying to be!) parser for *Minecraft: Java Edition*'s NBT and Anvil formats.
 
+Aim to support only the latest version of Minecraft. Works with 1.16 worlds at the moment. Endevour to support old chunks in 1.16 worlds, but not extracting textures from older versions due to the added complexity it would require.
+
 The `anvil` binary can render your world leveraging all of your CPU. On a Ryzen 3600X 6-core, with a reasonably complex world, it can render a map of 256 *regions* in under 10 seconds. That's about 30k chunks every second.
 
 ```bash
@@ -11,12 +13,12 @@ cargo install fastnbt-tools
 
 # Extract a minecraft version for getting the palette out.
 # This will be simpler in future.
-pushd ~/.minecraft/versions/1.15.2/ && mkdir unpacked && cd unpacked
-unzip ../1.15.2.jar
+pushd ~/.minecraft/versions/1.16.1/ && mkdir unpacked && cd unpacked
+unzip ../1.16.1.jar
 popd
 
 # Create a palette to render with
-anvil-palette ~/.minecraft/versions/1.15.2/unpacked 
+anvil-palette ~/.minecraft/versions/1.16.1/unpacked 
 
  # render entire overworld
 anvil render ~/path/to/world-dir --palette=palette.tar

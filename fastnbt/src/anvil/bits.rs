@@ -1,27 +1,56 @@
-use bit_field::BitArray;
+use bit_field::{BitArray, BitField};
 
 /// Expand blockstate data so each block is an element of a `Vec`.
 ///
 /// This requires the number of items in the palette of the section the blockstates came from. This is because
-/// blockstate is packed with as few bits as possible. If the maximum index in the palette fits in 5 bits, then
-/// every 5 bits of the blockstates will represent a block. Blocks bleed into one another, so remainder bits
-/// are tracked and handled for you.
-///
-/// This works for Minecraft 1.15. This format due to change in 1.16 so that bits do not bleed into other longs.
-/// This function will not work for 1.16 blockstates yet.
-pub fn expand_blockstates(state: &[i64], palette_len: usize) -> Vec<u16> {
-    expand_generic(state, bits_per_block(palette_len))
+/// blockstate is packed with on a bit-level granularity. If the maximum index in the palette fits in 5 bits, then
+/// every 5 bits of the blockstates will represent a block. 
+////
+/// In 1.15 there is no padding, so blocks bleed into one another, so remainder bits are tracked and handled for you.
+/// In 1.16 padding bits are used so that a block is always in a single 64-bit int.
+pub fn expand_blockstates(data: &[i64], palette_len: usize) -> Vec<u16> {
+    let bits_per_item =  bits_per_block(palette_len);
+    let blocks_per_section = 16*16*16;
+
+    // If it's tightly packed assume 1.15 format.
+    if blocks_per_section * bits_per_item == data.len() * 64 {
+        expand_generic_1_15(data, bits_per_item)
+    } else {
+        expand_generic_1_16(data, bits_per_item)
+    }
 }
 
 /// Expand heightmap data. This is equivalent to `expand_generic(data, 9)`.
 pub fn expand_heightmap(data: &[i64]) -> Vec<u16> {
-    expand_generic(data, 9)
+    let bits_per_item = 9;
+    let heights_per_chunk = 16*16;
+
+    // If it's tightly packed assume 1.15 format.
+    if heights_per_chunk * bits_per_item == data.len() * 64 {
+        expand_generic_1_15(data, bits_per_item)
+    } else {
+        expand_generic_1_16(data, bits_per_item)
+    }
 }
 
-/// Expand data into individual items. Currently a copy of data is made here to convert to unsigned integers
-/// to make bit operations more tractable.
-pub fn expand_generic(data: &[i64], bits_per_item: usize) -> Vec<u16> {
-    let bits = bits_per_item;
+/// Expand generic bit-packed data in the 1.16 format, ie with padding bits.
+pub fn expand_generic_1_16(data: &[i64], bits: usize) -> Vec<u16> {
+    let values_per_64bits = 64/bits;
+    let mut result: Vec<u16> = Vec::with_capacity(values_per_64bits * data.len());
+
+    for datum in data {
+        for i in 0..values_per_64bits {
+            let datum = *datum as u64;
+            let v = datum.get_bits(i*bits..(i+1)*bits);
+            result.push(v as u16);
+        }
+    }
+
+    result
+}
+
+/// Expand generic bit-packed data in the 1.15 format, ie data potentially existing across two 64-bit ints.
+pub fn expand_generic_1_15(data: &[i64], bits: usize) -> Vec<u16> {
     let mut result: Vec<u16> = vec![0; (data.len() * 64) / bits];
 
     // Unfortunely make a copy here in order to treat the data as u64 rather than i64.

@@ -127,7 +127,7 @@ fn load_textures(path: &Path) -> Result<HashMap<String, [u8; 3]>> {
             let colour = avg_colour(&path)?;
 
             tex.insert(
-                "block/".to_owned()
+                "minecraft:block/".to_owned()
                     + path
                         .file_stem()
                         .ok_or(format!("invalid file name: {}", path.display()))?
@@ -219,17 +219,23 @@ fn main() -> Result<()> {
     }
 
     let textures = load_textures(&assets.join("textures").join("block"))?;
+    // block/sand
 
     eprintln!("found {} blockstates", blockstates.len());
     eprintln!("found {} models", models.len());
     eprintln!("found {} textures", textures.len());
     eprintln!("understood {} out of {} blockstates", textured_blocks.len(), blockstates.len());
 
-
     let mut palette = HashMap::new();
 
     for (id, tex) in textured_blocks {
-        palette.insert(id, textures.get(&tex).unwrap_or(&[0u8, 255, 255]));
+        match textures.get(&tex) {
+            Some(tex) => {palette.insert(id, tex);},
+            None => {
+                eprintln!("no texture found for {}", id);
+                //palette.insert(id, &[255u8, 0, 255])
+            }
+        };
     }
 
     let f = std::fs::File::create("palette.tar")?;

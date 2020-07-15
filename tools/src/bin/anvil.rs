@@ -114,10 +114,19 @@ impl BlockPalette for FullPalette {
             "minecraft:jungle_leaves" => return self.pick_foliage(biome),
             "minecraft:acacia_leaves" => return self.pick_foliage(biome),
             "minecraft:dark_oak_leaves" => return self.pick_foliage(biome),
+            "minecraft:water" => return self.pick_water(biome),
+
+            // Specific colours defined.
             "minecraft:birch_leaves" => return [0x80, 0xa7, 0x55],
             "minecraft:spruce_leaves" => return [0x61, 0x99, 0x61],
 
-            "minecraft:water" => return self.pick_water(biome),
+            // FIXME: How do we colour snow?
+            "minecraft:snow" => return [250, 250, 250],
+
+            // FIXME: We should probably render the floor under the vine. We cheat here and render it like
+            // foliage.
+            "minecraft:vine" => return self.pick_foliage(biome),
+
             _ => {}
         }
 
@@ -125,7 +134,7 @@ impl BlockPalette for FullPalette {
         match col {
             Some(c) => *c,
             None => {
-                //println!("{}", block_id);
+                //println!("could not draw {}", block_id);
                 [255, 0, 255]
             }
         }
