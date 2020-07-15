@@ -35,7 +35,7 @@ anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.
 
 ![alt rendered map](demo.png)
 
-# TODO
+# Goals
 
 ### Full palette
 
