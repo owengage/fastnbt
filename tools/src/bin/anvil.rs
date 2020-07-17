@@ -139,7 +139,7 @@ impl BlockPalette for FullPalette {
         match col {
             Some(c) => *c,
             None => {
-                //println!("could not draw {}", block_id);
+                // println!("could not draw {}", block_id);
                 [255, 0, 255]
             }
         }

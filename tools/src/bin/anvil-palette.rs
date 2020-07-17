@@ -205,6 +205,7 @@ fn main() -> Result<()> {
 
     let blockstates = load_blockstates(&assets.join("blockstates"))?;
     let models = load_models(&assets.join("models").join("block"))?;
+    let textures = load_textures(&assets.join("textures").join("block"))?;
 
     let mut textured_blocks = HashMap::<String, String>::new();
 
@@ -216,13 +217,30 @@ fn main() -> Result<()> {
                 textured_blocks.insert(name.clone(), texture.clone());
             }
             Err(e) => {
-                eprintln!("{}: {}", name, e);
+                if std::env::var_os("VERBOSE").is_some() {
+                    eprintln!("{}: {}", name, e);
+                }
             }
         }
     }
 
-    let textures = load_textures(&assets.join("textures").join("block"))?;
-    // block/sand
+
+    let mut palette = HashMap::new();
+
+    for (id, tex) in &textured_blocks {
+        
+        // // This is sometimes minecraft:block/blah, sometimes block/blah.
+        let col = textures.get(tex).or_else(|| textures.get(&("minecraft:".to_owned() + &tex)));
+
+         match col {        
+            Some(c) => {
+                palette.insert(id, c);
+            }
+            None => {
+                //palette.insert(id, &[255u8, 0, 255])
+            }
+        };
+    }
 
     eprintln!("found {} blockstates", blockstates.len());
     eprintln!("found {} models", models.len());
@@ -232,20 +250,11 @@ fn main() -> Result<()> {
         textured_blocks.len(),
         blockstates.len()
     );
-
-    let mut palette = HashMap::new();
-
-    for (id, tex) in textured_blocks {
-        match textures.get(&tex) {
-            Some(tex) => {
-                palette.insert(id, tex);
-            }
-            None => {
-                eprintln!("no texture found for {}", id);
-                //palette.insert(id, &[255u8, 0, 255])
-            }
-        };
-    }
+    eprintln!(
+        "textured {} out of {} blockstates",
+        palette.len(),
+        blockstates.len()
+    );
 
     let f = std::fs::File::create("palette.tar")?;
     let mut ar = tar::Builder::new(f);
