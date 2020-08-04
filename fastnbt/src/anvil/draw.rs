@@ -1,7 +1,6 @@
 use super::*;
 use crate::nbt::{self, Value};
 use biome::Biome;
-use flate2::read::ZlibDecoder;
 
 pub trait RegionDrawer {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk);
@@ -162,48 +161,29 @@ pub fn parse_region<F: RegionDrawer + ?Sized>(
     mut region: Region<std::fs::File>,
     draw_to: &mut F,
 ) -> DrawResult<()> {
-    let mut offsets = Vec::<ChunkLocation>::new();
-
     for x in 0..32 {
         for z in 0..32 {
-            let loc = region.chunk_location(x, z)?;
-
-            // 0,0 chunk location means the chunk isn't present.
-            // cannot decide if this means we should return an error from chunk_location() or not.
-            if loc.begin_sector != 0 && loc.sector_count != 0 {
-                offsets.push(loc);
+            let buf = region.load_chunk_nbt_at_location(x, z);
+            match buf {
+                Ok(buf) => {
+                    let chunk = parse_chunk(buf.as_slice());
+                    match chunk {
+                        Ok(chunk) => draw_to.draw(x, z, &chunk),
+                        Err(DrawError::MissingHeightMap) => {} // skip this chunk.
+                        Err(e) => return Err(e),
+                    }
+                }
+                Err(Error::ChunkNotFound) => {} // skip empty chunk.
+                Err(e) => return Err(DrawError::ParseAnvil(e)),
             }
         }
-    }
-
-    offsets.sort_by(|o1, o2| o1.begin_sector.cmp(&o2.begin_sector));
-
-    for off in offsets {
-        let mut buf = vec![0u8; off.sector_count * SECTOR_SIZE];
-        region.load_chunk(&off, &mut buf[..])?;
-
-        let chunk = parse_chunk(buf.as_slice());
-
-        match chunk {
-            Ok(chunk) => draw_to.draw(off.x, off.z, &chunk),
-            Err(DrawError::MissingHeightMap) => {} // skip this chunk.
-            Err(e) => return Err(e),
-        };
     }
 
     Ok(())
 }
 
 pub fn parse_chunk(data: &[u8]) -> DrawResult<Chunk> {
-    let meta = super::ChunkMeta::new(data)?;
-
-    let buf = &data[5..];
-    let decoder = match meta.compression_scheme {
-        CompressionScheme::Zlib => ZlibDecoder::new(buf),
-        _ => panic!("unknown compression scheme (gzip?)"),
-    };
-
-    let mut parser = nbt::Parser::new(decoder);
+    let mut parser = nbt::Parser::new(data);
 
     nbt::find_compound(&mut parser, Some("Level"))?;
 
