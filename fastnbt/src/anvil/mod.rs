@@ -118,6 +118,38 @@ impl<S: Seek + Read> Region<S> {
         let data = self.load_chunk_at_location(x, z)?;
         Ok(decompress_chunk(&data))
     }
+
+/// Call f function with earch uncompressed, non-empty chunk
+pub fn for_each_chunk(&mut self, mut f: impl FnMut(usize, usize, &Vec<u8> )) -> Result<()>{
+    let mut offsets = Vec::<ChunkLocation>::new();
+
+    // Build list of existing chunks
+    for x in 0..32 {
+        for z in 0..32 {
+            let loc = self.chunk_location(x, z)?;
+            // 0,0 chunk location means the chunk isn't present.
+            // cannot decide if this means we should return an error from chunk_location() or not.
+            if loc.begin_sector != 0 && loc.sector_count != 0 {
+                offsets.push(loc);
+            }
+        }
+    }
+    // sort for efficient file seeks during processing
+    offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
+    offsets.shrink_to_fit();
+
+    while !offsets.is_empty() {
+        let location: ChunkLocation = offsets.pop().ok_or(0).unwrap();
+        // TODO: move outside the loop
+        let mut buf = vec![0u8; location.sector_count * SECTOR_SIZE];
+        self.load_chunk(&location, &mut buf)?;
+        let raw = decompress_chunk(&buf);
+        f(location.x, location.z, &raw)
+    
+    }
+    Ok(())
+}
+
 }
 
 // Read Information Bytes of Minecraft Chunk and decompress it
@@ -137,36 +169,6 @@ fn decompress_chunk(data: &Vec<u8>) -> Vec<u8> {
     outbuf
 }
 
-/// Call f function with earch uncompressed, non-empty chunk
-pub fn for_each_chunk(mut r: Region<std::fs::File>, mut f: impl FnMut(usize, usize, &Vec<u8> )) -> Result<()>{
-    let mut offsets = Vec::<ChunkLocation>::new();
-
-    // Build list of existing chunks
-    for x in 0..32 {
-        for z in 0..32 {
-            let loc = r.chunk_location(x, z)?;
-            // 0,0 chunk location means the chunk isn't present.
-            // cannot decide if this means we should return an error from chunk_location() or not.
-            if loc.begin_sector != 0 && loc.sector_count != 0 {
-                offsets.push(loc);
-            }
-        }
-    }
-    // sort for efficient file seeks during processing
-    offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
-    offsets.shrink_to_fit();
-
-    while !offsets.is_empty() {
-        let location: ChunkLocation = offsets.pop().ok_or(0).unwrap();
-        // TODO: move outside the loop
-        let mut buf = vec![0u8; location.sector_count * SECTOR_SIZE];
-        r.load_chunk(&location, &mut buf)?;
-        let raw = decompress_chunk(&buf);
-        f(location.x, location.z, &raw)
-    
-    }
-    Ok(())
-}
 
 #[derive(Debug)]
 pub enum Error {
