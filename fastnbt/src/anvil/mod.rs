@@ -88,7 +88,8 @@ impl<S: Seek + Read> Region<S> {
     }
 
     /// Return the raw, compressed data for a chunk at ChunkLocation
-    pub fn load_chunk(&mut self, offset: &ChunkLocation, dest: &mut [u8]) -> Result<()> {
+    pub fn load_chunk(&mut self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
+        dest.resize(offset.sector_count * SECTOR_SIZE, 0u8);
         self.data.seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;
@@ -103,7 +104,7 @@ impl<S: Seek + Read> Region<S> {
 
         // 0,0 chunk location means the chunk isn't present.
         if location.begin_sector != 0 && location.sector_count != 0 {
-            let mut buf = vec![0u8; location.sector_count * SECTOR_SIZE];
+            let mut buf = Vec::new();
             self.load_chunk(&location, &mut buf)?;
             Ok(buf)
         } else {
@@ -138,12 +139,13 @@ pub fn for_each_chunk(&mut self, mut f: impl FnMut(usize, usize, &Vec<u8> )) -> 
     offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
     offsets.shrink_to_fit();
 
+    let mut buf = Vec::new();
     while !offsets.is_empty() {
         let location: ChunkLocation = offsets.pop().ok_or(0).unwrap();
         // TODO: move outside the loop
-        let mut buf = vec![0u8; location.sector_count * SECTOR_SIZE];
         self.load_chunk(&location, &mut buf)?;
         let raw = decompress_chunk(&buf);
+
         f(location.x, location.z, &raw)
     
     }
