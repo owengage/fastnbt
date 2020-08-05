@@ -13,6 +13,7 @@ cargo install fastnbt-tools
 
 # Extract a minecraft version for getting the palette out.
 # This will be simpler in future.
+# on macOS: `pushd ~/Library/Application\ Support/minecraft/versions/1.16.1/ && mkdir unpacked && cd unpacked`
 pushd ~/.minecraft/versions/1.16.1/ && mkdir unpacked && cd unpacked
 unzip ../1.16.1.jar
 popd
