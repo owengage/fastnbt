@@ -4,6 +4,7 @@ use fastnbt::anvil::draw::{parse_region, Chunk, RegionDrawer, RegionMap, Rgb};
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -207,6 +208,7 @@ fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
             let ext = path.extension();
             ext.is_some() && ext.unwrap() == "mca"
         })
+        .filter(|path| { fs::metadata(path).unwrap().len() > 0 })
         .collect();
 
     Ok(paths)
