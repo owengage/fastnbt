@@ -161,24 +161,17 @@ pub fn parse_region<F: RegionDrawer + ?Sized>(
     mut region: Region<std::fs::File>,
     draw_to: &mut F,
 ) -> DrawResult<()> {
-    for x in 0..32 {
-        for z in 0..32 {
-            let buf = region.load_chunk_nbt_at_location(x, z);
-            match buf {
-                Ok(buf) => {
-                    let chunk = parse_chunk(buf.as_slice());
-                    match chunk {
-                        Ok(chunk) => draw_to.draw(x, z, &chunk),
-                        Err(DrawError::MissingHeightMap) => {} // skip this chunk.
-                        Err(e) => return Err(e),
-                    }
-                }
-                Err(Error::ChunkNotFound) => {} // skip empty chunk.
-                Err(e) => return Err(DrawError::ParseAnvil(e)),
-            }
+    
+    let closure = |x: usize, z: usize, buf: &Vec<u8>| { 
+        let chunk = parse_chunk(buf.as_slice());
+        match chunk {
+            Ok(chunk) => draw_to.draw(x, z, &chunk),
+            Err(DrawError::MissingHeightMap) => {} // skip this chunk.
+            Err(e) => panic!(e),
         }
-    }
+    };
 
+    region.for_each_chunk(closure)?;
     Ok(())
 }
 
