@@ -188,10 +188,10 @@ impl<'a> RegionDrawer for RegionBiomeDrawer<'a> {
     }
 }
 
-fn parse_coord(coord: &str) -> Option<(isize, isize)> {
-    let mut s = coord.split(",");
-    let x: isize = s.next()?.parse().ok()?;
-    let z: isize = s.next()?.parse().ok()?;
+fn coords_from_region(filename: &str) -> Option<(isize, isize)> {
+    let mut parts = filename.split('.').rev().skip(1);
+    let z = parts.next()?.parse::<isize>().ok()?;
+    let x = parts.next()?.parse::<isize>().ok()?;
     Some((x, z))
 }
 
