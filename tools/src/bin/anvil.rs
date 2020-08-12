@@ -216,9 +216,9 @@ fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
 
 fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
     let filename = region.file_name()?.to_str()?;
-    let mut parts = filename.split('.').skip(1);
-    let x = parts.next()?.parse::<isize>().ok()?;
+    let mut parts = filename.split('.').rev().skip(1);
     let z = parts.next()?.parse::<isize>().ok()?;
+    let x = parts.next()?.parse::<isize>().ok()?;
     Some((x, z))
 }
 
