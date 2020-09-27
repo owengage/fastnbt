@@ -66,3 +66,11 @@ For the `anvil` executable
 ```bash
 cargo install fastnbt-tools
 ```
+
+## Other notes
+
+### Deserialisation
+
+To make life easier it's going to make sense to [implement a serde Deserializer for NBT](https://serde.rs/impl-deserializer.html). It looks like NBT is a self describing format by serde's definitions, and that the macro `forward_to_deserialize_any!` is going to be very relevant to me.
+
+Look for the `de::Deserializer` impl in the link, specifically the `deserialize_any` function.

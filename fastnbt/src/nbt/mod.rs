@@ -8,8 +8,12 @@ type Name = Option<String>;
 #[cfg(test)]
 mod test;
 
+pub mod de;
+pub mod error;
+pub mod tokenizer;
+
 /// The NBT tag. This does not carry the value or the name.
-#[derive(Debug, TryFromPrimitive, PartialEq, Clone)]
+#[derive(Debug, TryFromPrimitive, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum Tag {
     End = 0,

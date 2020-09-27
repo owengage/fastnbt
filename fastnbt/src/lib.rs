@@ -14,3 +14,5 @@ pub mod anvil;
 ///
 /// `Parser` has some usage examples which might be helpful.
 pub mod nbt;
+
+pub mod nbt2;
