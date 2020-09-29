@@ -2,6 +2,8 @@ use super::super::de::from_bytes;
 use super::super::error::{Error, Result};
 use super::super::Tag;
 
+use serde::de::SeqAccess;
+
 use super::builder::Builder;
 use serde::Deserialize;
 
@@ -335,3 +337,441 @@ fn list_of_compounds() -> Result<()> {
     assert_eq!(v.inner, [Inner { a: 1 }, Inner { a: 2 }, Inner { a: 3 }]);
     Ok(())
 }
+
+#[test]
+fn optional() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        opt1: Option<&'a str>,
+        opt2: Option<&'a str>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .string("opt1", "hello")
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+
+    assert_eq!(v.opt1, Some("hello"));
+    assert_eq!(v.opt2, None);
+    Ok(())
+}
+
+#[test]
+fn unit_just_requires_presense() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        _unit: (),
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .byte("_unit", 0)
+        .end_compound()
+        .build();
+
+    assert!(from_bytes::<V>(payload.as_slice()).is_ok());
+    Ok(())
+}
+
+#[test]
+fn unit_not_present_errors() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        _unit: (),
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .end_compound()
+        .build();
+
+    assert!(from_bytes::<V>(payload.as_slice()).is_err());
+    Ok(())
+}
+
+#[test]
+fn ignore_compound() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        a: u8,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_compound("inner")
+        .byte("ignored", 1)
+        .end_compound()
+        .start_compound("inner")
+        .byte("ignored", 1)
+        .end_compound()
+        .byte("a", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a, 123);
+
+    Ok(())
+}
+
+#[test]
+fn ignore_list() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        a: u8,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("ignored", Tag::Byte, 2)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte("a", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a, 123);
+
+    Ok(())
+}
+
+#[test]
+fn ignore_list_of_compound() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        a: u8,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("ignored", Tag::Compound, 2)
+        .byte("a", 1) // ignored!
+        .end_compound()
+        .end_compound()
+        .byte("a", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a, 123);
+
+    Ok(())
+}
+
+#[test]
+fn byte_array_from_list_bytes() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("arr", Tag::Byte, 3)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte_payload(3)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [1, 2, 3]);
+
+    Ok(())
+}
+
+#[test]
+fn byte_array_from_nbt_byte_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::ByteArray)
+        .name("arr")
+        .int_payload(3)
+        .byte_array_payload(&[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [1, 2, 3]);
+
+    Ok(())
+}
+
+#[test]
+fn newtype_struct() -> Result<()> {
+    #[derive(Deserialize)]
+    struct Inner(u8);
+
+    #[derive(Deserialize)]
+    struct V {
+        a: Inner,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .byte("a", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a.0, 123);
+
+    Ok(())
+}
+
+#[test]
+fn tuple_errors() -> Result<()> {
+    #[derive(Deserialize)]
+    struct Inner(u8);
+
+    #[derive(Deserialize)]
+    struct V {
+        a: Inner,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .byte("a", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a.0, 123);
+
+    Ok(())
+}
+
+#[test]
+fn vec_from_nbt_byte_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        a: Vec<u8>,
+        b: Vec<u32>,
+        c: Vec<u64>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::ByteArray)
+        .name("a")
+        .int_payload(3)
+        .byte_array_payload(&[1, 2, 3])
+        .tag(Tag::IntArray)
+        .name("b")
+        .int_payload(3)
+        .int_array_payload(&[4, 5, 6])
+        .tag(Tag::LongArray)
+        .name("c")
+        .int_payload(3)
+        .long_array_payload(&[7, 8, 9])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a, [1, 2, 3]);
+    assert_eq!(v.b, [4, 5, 6]);
+    assert_eq!(v.c, [7, 8, 9]);
+    Ok(())
+}
+
+#[test]
+fn unit_variant_enum() -> Result<()> {
+    #[derive(Deserialize, PartialEq, Debug)]
+    enum E {
+        A,
+        B,
+        C,
+    }
+    #[derive(Deserialize)]
+    struct V {
+        e1: E,
+        e2: E,
+        e3: E,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .string("e1", "A")
+        .string("e2", "B")
+        .string("e3", "C")
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.e1, E::A);
+    assert_eq!(v.e2, E::B);
+    assert_eq!(v.e3, E::C);
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct Blockstates<'a>(&'a [u8]);
+
+#[test]
+fn blockstates() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        #[serde(borrow)]
+        states: Blockstates<'a>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::LongArray)
+        .name("states")
+        .int_payload(3)
+        .long_payload(1)
+        .long_payload(2)
+        .long_payload(3)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(
+        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3],
+        v.states.0
+    );
+
+    Ok(())
+}
+
+#[test]
+fn ignore_integral_arrays() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {}
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::ByteArray)
+        .name("a")
+        .int_payload(3)
+        .byte_array_payload(&[1, 2, 3])
+        .tag(Tag::IntArray)
+        .name("b")
+        .int_payload(3)
+        .int_array_payload(&[4, 5, 6])
+        .tag(Tag::LongArray)
+        .name("c")
+        .int_payload(3)
+        .long_array_payload(&[7, 8, 9])
+        .end_compound()
+        .build();
+
+    assert!(from_bytes::<V>(payload.as_slice()).is_ok());
+    Ok(())
+}
+
+#[test]
+fn fixed_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct Inner<'a> {
+        a: &'a [u8],
+    }
+    #[derive(Deserialize)]
+    pub struct Level<'a> {
+        #[serde(borrow)]
+        inner: [Inner<'a>; 3],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("inner", Tag::Compound, 3)
+        .byte_array("a", &[1, 2, 3])
+        .end_compound()
+        .byte_array("a", &[4, 5, 6])
+        .end_compound()
+        .byte_array("a", &[7, 8, 9])
+        .end_compound() // end of list
+        .end_compound() // end of outer compound
+        .build();
+
+    let v: Level = from_bytes(payload.as_slice())?;
+    assert_eq!([1, 2, 3], v.inner[0].a);
+    assert_eq!([4, 5, 6], v.inner[1].a);
+    assert_eq!([7, 8, 9], v.inner[2].a);
+    Ok(())
+}
+
+// #[test]
+// fn slice_of_compond_with_borrow() -> Result<()> {
+//     #[derive(Deserialize)]
+//     struct Inner<'a> {
+//         a: &'a [u8],
+//     }
+
+//     #[derive(Deserialize)]
+//     pub struct Level<'a> {
+//         #[serde(borrow)]
+//         inner: Inners<'a>,
+//     }
+
+//     struct Inners<'a>(&'a [Inner<'a>]);
+
+//     struct InnersVisitor<'a>(&'a ());
+
+//     impl<'de: 'a, 'a> serde::de::Visitor<'de> for InnersVisitor<'a> {
+//         type Value = Inners<'a>;
+
+//         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+//             write!(formatter, "a sequence")
+//         }
+
+//         fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+//         where
+//             A: SeqAccess<'de>,
+//         {
+//             let el: Option<Inner<'a>> = seq.next_element()?;
+
+//             Ok(Inners(&[el.unwrap()]))
+//         }
+//     }
+
+//     impl<'de: 'a, 'a> serde::de::Deserialize<'de> for Inners<'a> {
+//         fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+//         where
+//             D: serde::de::Deserializer<'de>,
+//         {
+//             deserializer.deserialize_seq(InnersVisitor(&()))
+//         }
+//     }
+
+//     let payload = Builder::new()
+//         .start_compound("object")
+//         .start_list("inner", Tag::Compound, 3)
+//         .byte_array("a", &[1, 2, 3])
+//         .end_compound()
+//         .byte_array("a", &[4, 5, 6])
+//         .end_compound()
+//         .byte_array("a", &[7, 8, 9])
+//         .end_compound() // end of list
+//         .end_compound() // end of outer compound
+//         .build();
+
+//     let v: Level = from_bytes(payload.as_slice())?;
+//     assert_eq!([1, 2, 3], v.inner.0[0].a);
+//     assert_eq!([4, 5, 6], v.inner.0[1].a);
+//     assert_eq!([7, 8, 9], v.inner.0[2].a);
+//     Ok(())
+// }
+
+/*
+
+TODOs:
+
+* arrays
+* ignore arrays
+* deserialize_any
+* tuple could come from a List of compounds.
+* custom blockstates type. newtype struct?
+* untagged enums. Important for palette in Anvil format
+
+*/

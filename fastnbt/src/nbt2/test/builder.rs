@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use super::super::*;
 
 pub struct Builder {
@@ -64,6 +66,13 @@ impl Builder {
 
     pub fn double(self, name: &str, n: f64) -> Self {
         self.tag(Tag::Double).name(name).double_payload(n)
+    }
+
+    pub fn byte_array(self, name: &str, bs: &[i8]) -> Self {
+        self.tag(Tag::ByteArray)
+            .name(name)
+            .int_payload(bs.len().try_into().unwrap())
+            .byte_array_payload(bs)
     }
 
     pub fn string_payload(self, s: &str) -> Self {
