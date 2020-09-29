@@ -317,6 +317,45 @@ fn list_of_compounds() -> Result<()> {
 
     #[derive(Deserialize)]
     struct V {
+        inner: Option<Vec<Inner>>,
+        after: i8,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("inner", Tag::Compound, 3)
+        .byte("a", 1)
+        .start_compound("ignored")
+        .end_compound()
+        .end_compound()
+        .byte("a", 2)
+        .end_compound()
+        .byte("a", 3)
+        .end_compound()
+        .byte("after", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+
+    assert_eq!(
+        v.inner,
+        Some(vec![Inner { a: 1 }, Inner { a: 2 }, Inner { a: 3 }])
+    );
+    assert_eq!(v.after, 123);
+    Ok(())
+}
+
+#[test]
+fn complex_nesting() -> Result<()> {
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Inner {
+        a: u32,
+        b: Option<Vec<i32>>,
+    }
+
+    #[derive(Deserialize)]
+    struct V {
         inner: Vec<Inner>,
     }
 
@@ -324,17 +363,33 @@ fn list_of_compounds() -> Result<()> {
         .start_compound("object")
         .start_list("inner", Tag::Compound, 3)
         .byte("a", 1)
+        .start_list("b", Tag::Int, 2)
+        .int_payload(1)
+        .int_payload(2)
+        .start_compound("ignored")
+        .end_compound()
         .end_compound()
         .byte("a", 2)
         .end_compound()
         .byte("a", 3)
         .end_compound()
+        .byte("after", 123)
         .end_compound()
         .build();
 
     let v: V = from_bytes(payload.as_slice()).unwrap();
 
-    assert_eq!(v.inner, [Inner { a: 1 }, Inner { a: 2 }, Inner { a: 3 }]);
+    assert_eq!(
+        v.inner,
+        vec![
+            Inner {
+                a: 1,
+                b: Some(vec![1, 2])
+            },
+            Inner { a: 2, b: None },
+            Inner { a: 3, b: None }
+        ]
+    );
     Ok(())
 }
 
@@ -508,28 +563,6 @@ fn byte_array_from_nbt_byte_array() -> Result<()> {
 
 #[test]
 fn newtype_struct() -> Result<()> {
-    #[derive(Deserialize)]
-    struct Inner(u8);
-
-    #[derive(Deserialize)]
-    struct V {
-        a: Inner,
-    }
-
-    let payload = Builder::new()
-        .start_compound("object")
-        .byte("a", 123)
-        .end_compound()
-        .build();
-
-    let v: V = from_bytes(payload.as_slice())?;
-    assert_eq!(v.a.0, 123);
-
-    Ok(())
-}
-
-#[test]
-fn tuple_errors() -> Result<()> {
     #[derive(Deserialize)]
     struct Inner(u8);
 

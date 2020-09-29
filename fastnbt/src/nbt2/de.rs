@@ -389,7 +389,8 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.ignore_value(self.current_values_tag()?)?;
+        let tag = self.current_values_tag()?;
+        self.ignore_value(tag)?;
         visitor.visit_unit()
     }
 
@@ -425,7 +426,9 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
 
                 // Going to pretend we're in a list to reuse the ListAccess.
                 self.layers.push(Layer::List(non_array_tag, size));
-                visitor.visit_seq(ListAccess::new(self, size))
+                let r = visitor.visit_seq(ListAccess::new(self, size));
+                self.layers.pop().unwrap();
+                r
             }
             Tag::List => {
                 // We should be just after the point of reading the name of the list.
@@ -435,7 +438,9 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
 
                 self.layers.push(Layer::List(element_tag, size));
 
-                visitor.visit_seq(ListAccess::new(self, size))
+                let r = visitor.visit_seq(ListAccess::new(self, size));
+                self.layers.pop().unwrap();
+                r
             }
             _ => Err(Error::Message(format!("expected seq, got {:?}", tag))),
         }
@@ -511,7 +516,9 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
             .clone();
 
         match layer {
-            Layer::Compound(Some(tag)) => self.ignore_value(tag)?,
+            Layer::Compound(Some(tag)) => {
+                self.ignore_value(tag)?;
+            }
             Layer::Compound(None) => todo!("compound(none)"), // ???
             Layer::List(_, _) => {
                 todo!();
@@ -549,7 +556,7 @@ impl<'a, 'de> MapAccess<'de> for CompoundAccess<'a, 'de> {
 
         // Set the current layers next expected type.
         // TODO: Can probably do this by mutating top layer rather than pop/push.
-        self.de.layers.pop();
+        self.de.layers.pop().unwrap();
         self.de.layers.push(Layer::Compound(Some(tag)));
 
         // Should just be ready to read the name.
@@ -602,9 +609,10 @@ impl<'a, 'de> SeqAccess<'de> for ListAccess<'a, 'de> {
                     Ok(None)
                 }
             }
-            Layer::Compound(_) => Err(Error::Message(
-                "expected to be in list, but was in compound".to_owned(),
-            )),
+            Layer::Compound(tag) => Err(Error::Message(format!(
+                "expected to be in list, but was in compound {:?}",
+                tag
+            ))),
         }
     }
 }

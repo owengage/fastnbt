@@ -9,6 +9,7 @@ pub const HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 pub mod biome;
 pub mod bits;
 pub mod draw;
+pub mod types;
 
 #[derive(Debug, TryFromPrimitive)]
 #[repr(u8)]
@@ -109,10 +110,12 @@ impl From<std::io::Error> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[cfg(test)]
 pub struct Builder {
     inner: Vec<u8>,
 }
 
+#[cfg(test)]
 impl Builder {
     pub fn new() -> Self {
         Self { inner: Vec::new() }
