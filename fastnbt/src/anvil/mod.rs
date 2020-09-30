@@ -1,4 +1,5 @@
 use byteorder::{BigEndian, ReadBytesExt};
+use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::io::{Cursor, Read, Seek, SeekFrom};
@@ -30,8 +31,10 @@ pub struct ChunkLocation {
     pub z: usize,
 }
 
+// Encodes how the NBT-Data is compressed
 #[derive(Debug)]
 pub struct ChunkMeta {
+    //  the compressed data is len-1 bytes
     pub len: u32,
     pub compression_scheme: CompressionScheme,
 }
@@ -59,6 +62,7 @@ impl<S: Seek + Read> Region<S> {
         Self { data }
     }
 
+    /// Return the (region-relative) Chunk location (x, z)
     pub fn chunk_location(&mut self, x: usize, z: usize) -> Result<ChunkLocation> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x, z));
@@ -84,7 +88,9 @@ impl<S: Seek + Read> Region<S> {
         })
     }
 
-    pub fn load_chunk(&mut self, offset: &ChunkLocation, dest: &mut [u8]) -> Result<()> {
+    /// Return the raw, compressed data for a chunk at ChunkLocation
+    pub fn load_chunk(&mut self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
+        dest.resize(offset.sector_count * SECTOR_SIZE, 0u8);
         self.data.seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;
@@ -92,7 +98,80 @@ impl<S: Seek + Read> Region<S> {
         self.data.read_exact(dest)?;
         Ok(())
     }
+
+    /// Return the raw, compressed data for a chunk at the (region-relative) Chunk location (x, z)
+    pub fn load_chunk_at_location(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
+        let location = self.chunk_location(x, z)?;
+
+        // 0,0 chunk location means the chunk isn't present.
+        if location.begin_sector != 0 && location.sector_count != 0 {
+            let mut buf = Vec::new();
+            self.load_chunk(&location, &mut buf)?;
+            Ok(buf)
+        } else {
+            Err(Error::ChunkNotFound)
+        }
+    }
+
+    /// Return the raw, uncompressed NBT data for a chunk at the (region-relative) Chunk location (x, z)
+    ///
+    /// Can be further processed with `nbt::Parser::new()` or even with `Blob::from_reader()` of hematite_nbt.
+    pub fn load_chunk_nbt_at_location(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
+        let data = self.load_chunk_at_location(x, z)?;
+        Ok(decompress_chunk(&data))
+    }
+
+/// Call f function with earch uncompressed, non-empty chunk
+pub fn for_each_chunk(&mut self, mut f: impl FnMut(usize, usize, &Vec<u8> )) -> Result<()>{
+    let mut offsets = Vec::<ChunkLocation>::new();
+
+    // Build list of existing chunks
+    for x in 0..32 {
+        for z in 0..32 {
+            let loc = self.chunk_location(x, z)?;
+            // 0,0 chunk location means the chunk isn't present.
+            // cannot decide if this means we should return an error from chunk_location() or not.
+            if loc.begin_sector != 0 && loc.sector_count != 0 {
+                offsets.push(loc);
+            }
+        }
+    }
+    // sort for efficient file seeks during processing
+    offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
+    offsets.shrink_to_fit();
+
+    let mut buf = Vec::new();
+    while !offsets.is_empty() {
+        let location: ChunkLocation = offsets.pop().ok_or(0).unwrap();
+        // TODO: move outside the loop
+        self.load_chunk(&location, &mut buf)?;
+        let raw = decompress_chunk(&buf);
+
+        f(location.x, location.z, &raw)
+    
+    }
+    Ok(())
 }
+
+}
+
+// Read Information Bytes of Minecraft Chunk and decompress it
+fn decompress_chunk(data: &Vec<u8>) -> Vec<u8> {
+    // Metadata encodes the length in bytes and the compression type
+    let meta = ChunkMeta::new(data.as_slice()).unwrap();
+
+    // compressed data starts at byte 5
+    let inbuf = &mut &data[5..];
+    let mut decoder = match meta.compression_scheme {
+        CompressionScheme::Zlib => ZlibDecoder::new(inbuf),
+        _ => panic!("unknown compression scheme (gzip?)"),
+    };
+    let mut outbuf = Vec::new();
+    // read the whole Chunk
+    decoder.read_to_end(&mut outbuf).unwrap();
+    outbuf
+}
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -100,6 +179,7 @@ pub enum Error {
     IO(std::io::Error),
     InvalidOffset(usize, usize),
     InvalidChunkMeta,
+    ChunkNotFound,
 }
 
 impl From<std::io::Error> for Error {

@@ -1,7 +1,6 @@
 use super::*;
 use crate::nbt::{self};
 use crate::nbt2;
-use flate2::read::ZlibDecoder;
 use types::Chunk;
 
 pub trait RegionDrawer {
@@ -110,151 +109,15 @@ pub fn parse_region<F: RegionDrawer + ?Sized>(
     mut region: Region<std::fs::File>,
     draw_to: &mut F,
 ) -> DrawResult<()> {
-    let mut offsets = Vec::<ChunkLocation>::new();
-
-    for x in 0..32 {
-        for z in 0..32 {
-            let loc = region.chunk_location(x, z)?;
-
-            // 0,0 chunk location means the chunk isn't present.
-            // cannot decide if this means we should return an error from chunk_location() or not.
-            if loc.begin_sector != 0 && loc.sector_count != 0 {
-                offsets.push(loc);
-            }
-        }
-    }
-
-    offsets.sort_by(|o1, o2| o1.begin_sector.cmp(&o2.begin_sector));
-
-    for off in offsets {
-        let mut buf = vec![0; off.sector_count * SECTOR_SIZE];
-        region.load_chunk(&off, &mut buf[..])?;
-
-        let data = decompress_chunk(buf.as_slice())?;
-        let chunk: DrawResult<types::Chunk> = Ok(nbt2::de::from_bytes(data.as_slice())?);
-
+    let closure = |x: usize, z: usize, buf: &Vec<u8>| {
+        let chunk: DrawResult<types::Chunk> = Ok(nbt2::de::from_bytes(buf.as_slice()).unwrap());
         match chunk {
-            Ok(mut chunk) => draw_to.draw(off.x, off.z, &mut chunk),
+            Ok(mut chunk) => draw_to.draw(x, z, &mut chunk),
             Err(DrawError::MissingHeightMap) => {} // skip this chunk.
-            Err(e) => return Err(e),
-        };
-    }
-
-    Ok(())
-}
-
-pub fn decompress_chunk(data: &[u8]) -> DrawResult<Vec<u8>> {
-    let meta = super::ChunkMeta::new(data)?;
-
-    let buf = &data[5..];
-    let mut decoder = match meta.compression_scheme {
-        CompressionScheme::Zlib => ZlibDecoder::new(buf),
-        _ => panic!("unknown compression scheme (gzip?)"),
+            Err(e) => panic!(e),
+        }
     };
 
-    // Try to reduce number of allocations, decompressed is going to be at least the size of
-    // the original data, you'd hope.
-    let mut buf = Vec::with_capacity(buf.len());
-    decoder.read_to_end(&mut buf)?;
-    Ok(buf)
+    region.for_each_chunk(closure)?;
+    Ok(())
 }
-
-// fn process_palette<R: Read>(parser: &mut nbt::Parser<R>, size: usize) -> DrawResult<Vec<String>> {
-//     let mut names = Vec::<String>::new();
-
-//     for _ in 0..size {
-//         let v = parser.next().map_err(|_| Error::InsufficientData)?; // start compound
-
-//         match v {
-//             nbt::Value::Compound(None) => {}
-//             _ => return Err(DrawError::InvalidPalette),
-//         }
-
-//         // Find name, skipping the rest of the stuff.
-//         loop {
-//             let v = parser.next()?;
-
-//             match v {
-//                 Value::Compound(_) => {
-//                     nbt::skip_compound(parser)?;
-//                 } // if we find a nested compound, skip it.
-//                 Value::String(Some(name), str) if name == "Name" => {
-//                     names.push(str);
-//                     break;
-//                 }
-//                 Value::CompoundEnd => return Err(DrawError::InvalidPalette), // didn't find name.
-//                 Value::List(_, _, _) => return Err(DrawError::InvalidPalette),
-//                 _ => {}
-//             }
-//         }
-
-//         // Loop until we find the End.
-//         nbt::skip_compound(parser)?;
-//     }
-
-//     Ok(names)
-// }
-
-// fn process_section<R: Read>(mut parser: &mut nbt::Parser<R>) -> DrawResult<Option<Section>> {
-//     nbt::find_compound(&mut parser, None)?;
-//     let mut states = Vec::<i64>::new();
-//     let mut palette = Vec::<String>::new();
-//     let mut y = None;
-
-//     loop {
-//         let value = parser.next()?;
-
-//         match value {
-//             Value::List(Some(ref name), _, n) if name == "Palette" => {
-//                 palette = process_palette(&mut parser, n as usize)?;
-//             }
-//             Value::LongArray(Some(ref name), s) if name == "BlockStates" => {
-//                 states = s;
-//             }
-//             Value::Byte(Some(ref name), b) if name == "Y" => {
-//                 y = Some(b);
-//             }
-//             Value::Compound(_) => {
-//                 // don't enter another compound.
-//                 nbt::skip_compound(&mut parser)?;
-//             }
-//             Value::CompoundEnd => {
-//                 // Sections might be empty if there are no blocks
-//                 // Also see sections with y = -1 with no data.
-//                 return Ok(None);
-//             }
-//             _ => {}
-//         }
-
-//         // Do we have a palette and blockstate?
-//         if states.len() > 0 && palette.len() > 0 && y.is_some() {
-//             let expanded = bits::expand_blockstates(&states[..], palette.len());
-//             nbt::skip_compound(&mut parser)?;
-//             return Ok(Some(Section {
-//                 states: expanded,
-//                 palette,
-//                 y: y.unwrap() as u8, // know y.is_some() above.
-//             }));
-//         }
-//     }
-// }
-
-// fn process_heightmap<R: Read>(mut parser: &mut nbt::Parser<R>) -> DrawResult<Option<Vec<u16>>> {
-//     loop {
-//         match parser.next()? {
-//             Value::LongArray(Some(ref name), data) if name == "WORLD_SURFACE" => {
-//                 nbt::skip_compound(&mut parser)?;
-//                 return Ok(Some(bits::expand_heightmap(data.as_slice())));
-//             }
-//             Value::Compound(_) => {
-//                 // don't enter another compound.
-//                 nbt::skip_compound(&mut parser)?;
-//             }
-//             Value::CompoundEnd => {
-//                 // No heightmap found, it happens.
-//                 return Ok(None);
-//             }
-//             _ => {}
-//         }
-//     }
-// }

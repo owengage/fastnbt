@@ -5,6 +5,7 @@ use fastnbt::anvil::types::Chunk;
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -207,6 +208,7 @@ fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
             let ext = path.extension();
             ext.is_some() && ext.unwrap() == "mca"
         })
+        .filter(|path| { fs::metadata(path).unwrap().len() > 0 })
         .collect();
 
     Ok(paths)
@@ -214,9 +216,9 @@ fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
 
 fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
     let filename = region.file_name()?.to_str()?;
-    let mut parts = filename.split('.').skip(1);
-    let x = parts.next()?.parse::<isize>().ok()?;
+    let mut parts = filename.split('.').rev().skip(1);
     let z = parts.next()?.parse::<isize>().ok()?;
+    let x = parts.next()?.parse::<isize>().ok()?;
     Some((x, z))
 }
 
