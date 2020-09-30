@@ -224,15 +224,15 @@ fn main() -> Result<()> {
         }
     }
 
-
     let mut palette = HashMap::new();
 
     for (id, tex) in &textured_blocks {
-        
         // // This is sometimes minecraft:block/blah, sometimes block/blah.
-        let col = textures.get(tex).or_else(|| textures.get(&("minecraft:".to_owned() + &tex)));
+        let col = textures
+            .get(tex)
+            .or_else(|| textures.get(&("minecraft:".to_owned() + &tex)));
 
-         match col {        
+        match col {
             Some(c) => {
                 palette.insert(id, c);
             }

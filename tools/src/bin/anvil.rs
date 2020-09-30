@@ -1,7 +1,7 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use fastnbt::anvil::biome::Biome;
 use fastnbt::anvil::draw::{parse_region, RegionDrawer, RegionMap, Rgb};
-use fastnbt::anvil::types::Chunk;
+use fastnbt::anvil::Chunk;
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
@@ -208,7 +208,7 @@ fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
             let ext = path.extension();
             ext.is_some() && ext.unwrap() == "mca"
         })
-        .filter(|path| { fs::metadata(path).unwrap().len() > 0 })
+        .filter(|path| fs::metadata(path).unwrap().len() > 0)
         .collect();
 
     Ok(paths)

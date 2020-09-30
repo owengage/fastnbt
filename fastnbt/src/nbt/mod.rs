@@ -1,11 +1,13 @@
 use num_enum::TryFromPrimitive;
 
+/// Serde deserialisation.
 pub mod de;
-pub mod error;
-pub mod stream;
 
-#[cfg(test)]
-mod test;
+/// Serde error and result type.
+pub mod error;
+
+/// Allows streaming of NBT data without prior knowledge of the structure.
+pub mod stream;
 
 /// The NBT tag. This does not carry the value or the name.
 #[derive(Debug, TryFromPrimitive, PartialEq, Clone, Copy)]
@@ -25,3 +27,6 @@ pub enum Tag {
     IntArray = 11,
     LongArray = 12,
 }
+
+#[cfg(test)]
+mod test;

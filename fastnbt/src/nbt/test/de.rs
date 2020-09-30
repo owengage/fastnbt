@@ -75,14 +75,14 @@ fn simple_short_to_u16() -> Result<()> {
 fn negative_short_to_u16_errors() -> Result<()> {
     #[derive(Deserialize)]
     struct V {
-        abc: u16,
+        _abc: u16,
     }
 
     let payload = Builder::new()
         .tag(Tag::Compound)
         .name("object")
         .tag(Tag::Short)
-        .name("abc")
+        .name("_abc")
         .short_payload(-1)
         .tag(Tag::End)
         .build();

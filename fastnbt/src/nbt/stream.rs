@@ -50,11 +50,14 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// The following takes a stream of GZip compressed data from stdin and dumps it out in Rust's `Debug` format, with
 /// some indentation to help see the structure.
 ///
-/// ```man
+/// ```
+/// use fastnbt::nbt::stream::{self, Value};
+/// use flate2::read::GzDecoder;
+///
 /// let stdin = std::io::stdin();
 /// let decoder = GzDecoder::new(stdin);
 ///
-/// let mut parser = nbt::Parser::new(decoder);
+/// let mut parser = stream::Parser::new(decoder);
 /// let mut indent = 0;
 ///
 /// loop {
@@ -65,16 +68,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///         }
 ///         Ok(value) => {
 ///             match value {
-///                 nbt::Value::CompoundEnd => indent -= 4,
-///                 nbt::Value::ListEnd => indent -= 4,
+///                 Value::CompoundEnd => indent -= 4,
+///                 Value::ListEnd => indent -= 4,
 ///                 _ => {}
 ///             }
 ///
 ///             println!("{:indent$}{:?}", "", value, indent = indent);
 ///
 ///             match value {
-///                 nbt::Value::Compound(_) => indent += 4,
-///                 nbt::Value::List(_, _, _) => indent += 4,
+///                 Value::Compound(_) => indent += 4,
+///                 Value::List(_, _, _) => indent += 4,
 ///                 _ => {}
 ///             }
 ///         }
@@ -88,22 +91,22 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///
 /// ```
-/// use fastnbt::nbt::{self, Value};
+/// use fastnbt::nbt::stream::{self, Value};
 /// use fastnbt::anvil::bits;
 ///
-/// # fn f() -> nbt::Result<Option<Vec<u16>>> {
+/// # fn f() -> stream::Result<Option<Vec<u16>>> {
 /// let mut parser = /* ... */
-/// # nbt::Parser::new(&[1u8,2,3][..]);
+/// # stream::Parser::new(&[1u8,2,3][..]);
 ///
 /// loop {
 ///     match parser.next()? {
 ///         Value::LongArray(Some(ref name), data) if name == "WORLD_SURFACE" => {
-///             nbt::skip_compound(&mut parser)?;
+///             stream::skip_compound(&mut parser)?;
 ///             return Ok(Some(bits::expand_heightmap(data.as_slice())));
 ///         }
 ///         Value::Compound(_) => {
 ///             // don't enter another compound.
-///             nbt::skip_compound(&mut parser)?;
+///             stream::skip_compound(&mut parser)?;
 ///         }
 ///         Value::CompoundEnd => {
 ///             // No heightmap found, it happens.
@@ -128,9 +131,7 @@ impl<R: Read> Parser<R> {
     }
 
     pub fn next(&mut self) -> Result<Value> {
-        let v = self.next_inner();
-        //println!("{:?}", v);
-        v
+        self.next_inner()
     }
 
     /// Get the next value from the reader. Returns EOF if the stream ended sucessfully, and
