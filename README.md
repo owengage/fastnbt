@@ -4,9 +4,11 @@ Documentation: [docs.rs](https://docs.rs/crate/fastnbt)
 
 A fast (or trying to be!) parser for *Minecraft: Java Edition*'s NBT and Anvil formats.
 
+Supports Serde deserialization. Implemented in a way to try and avoid memory allocations. Strings can be deserialized as `&str`, as well as deserialising the block states of chunks to `&[u8]`.
+
 Aim to support only the latest version of Minecraft. Works with 1.16 worlds at the moment. Endevour to support old chunks in 1.16 worlds, but not extracting textures from older versions due to the added complexity it would require.
 
-The `anvil` binary can render your world leveraging all of your CPU. On a Ryzen 3600X 6-core, with a reasonably complex world, it can render a map of 256 *regions* in under 10 seconds. That's about 30k chunks every second.
+The `anvil` binary can render your world leveraging all of your CPU. My 1.5 GiB world is fully rendered to a 14000x14000 PNG in about 4.5 seconds. What about yours?
 
 ```bash
 cargo install fastnbt-tools
@@ -59,7 +61,7 @@ For the library
 
 ```toml
 [dependencies]
-fastnbt = "0.6.0"
+fastnbt = "0.7.0"
 ```
 
 For the `anvil` executable
