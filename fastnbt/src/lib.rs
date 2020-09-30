@@ -12,7 +12,8 @@ pub mod anvil;
 
 /// For handling NBT data, which Minecraft uses for most data storage.
 ///
-/// `Parser` has some usage examples which might be helpful.
+/// `de` contains a standard Serde deserializer to let you deserialize NBT into structs.
+///
+/// `stream` contains a parser to let you manually parse NBT, rather than putting it into a `struct`.
+/// This can let you for example simply dump a bunch of NBT without knowing the size or structure.
 pub mod nbt;
-
-pub mod nbt2;

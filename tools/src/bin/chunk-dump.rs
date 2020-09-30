@@ -3,7 +3,7 @@ use flate2::read::ZlibDecoder;
 use std::io::Read;
 
 use fastnbt::anvil::types::Chunk;
-use fastnbt::nbt2::de::from_bytes;
+use fastnbt::nbt::de::from_bytes;
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();

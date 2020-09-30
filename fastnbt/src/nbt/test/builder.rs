@@ -1,4 +1,6 @@
-use super::*;
+use std::convert::TryInto;
+
+use super::super::*;
 
 pub struct Builder {
     payload: Vec<u8>,
@@ -21,6 +23,56 @@ impl Builder {
         self.payload.extend_from_slice(len_bytes);
         self.payload.extend_from_slice(name.as_bytes());
         self
+    }
+
+    pub fn start_compound(self, name: &str) -> Self {
+        self.tag(Tag::Compound).name(name)
+    }
+
+    pub fn end_compound(self) -> Self {
+        self.tag(Tag::End)
+    }
+
+    pub fn start_list(self, name: &str, element_tag: Tag, size: i32) -> Self {
+        self.tag(Tag::List)
+            .name(name)
+            .tag(element_tag)
+            .int_payload(size)
+    }
+
+    pub fn byte(self, name: &str, b: i8) -> Self {
+        self.tag(Tag::Byte).name(name).byte_payload(b)
+    }
+
+    pub fn short(self, name: &str, b: i16) -> Self {
+        self.tag(Tag::Short).name(name).short_payload(b)
+    }
+
+    pub fn int(self, name: &str, b: i32) -> Self {
+        self.tag(Tag::Int).name(name).int_payload(b)
+    }
+
+    pub fn long(self, name: &str, b: i64) -> Self {
+        self.tag(Tag::Long).name(name).long_payload(b)
+    }
+
+    pub fn string(self, name: &str, s: &str) -> Self {
+        self.tag(Tag::String).name(name).string_payload(s)
+    }
+
+    pub fn float(self, name: &str, n: f32) -> Self {
+        self.tag(Tag::Float).name(name).float_payload(n)
+    }
+
+    pub fn double(self, name: &str, n: f64) -> Self {
+        self.tag(Tag::Double).name(name).double_payload(n)
+    }
+
+    pub fn byte_array(self, name: &str, bs: &[i8]) -> Self {
+        self.tag(Tag::ByteArray)
+            .name(name)
+            .int_payload(bs.len().try_into().unwrap())
+            .byte_array_payload(bs)
     }
 
     pub fn string_payload(self, s: &str) -> Self {

@@ -1,6 +1,5 @@
 use super::*;
-use crate::nbt::{self};
-use crate::nbt2;
+use crate::nbt;
 use types::Chunk;
 
 pub trait RegionDrawer {
@@ -72,17 +71,10 @@ pub type Rgb = [u8; 3];
 #[derive(Debug)]
 pub enum DrawError {
     ParseAnvil(super::Error),
-    ParseNbt(nbt::Error),
-    ParseNbt2(nbt2::error::Error),
+    ParseNbt(nbt::error::Error),
     IO(std::io::Error),
     MissingHeightMap,
     InvalidPalette,
-}
-
-impl From<nbt::Error> for DrawError {
-    fn from(err: nbt::Error) -> DrawError {
-        DrawError::ParseNbt(err)
-    }
 }
 
 impl From<super::Error> for DrawError {
@@ -91,9 +83,9 @@ impl From<super::Error> for DrawError {
     }
 }
 
-impl From<crate::nbt2::error::Error> for DrawError {
-    fn from(err: crate::nbt2::error::Error) -> DrawError {
-        DrawError::ParseNbt2(err)
+impl From<crate::nbt::error::Error> for DrawError {
+    fn from(err: crate::nbt::error::Error) -> DrawError {
+        DrawError::ParseNbt(err)
     }
 }
 
@@ -110,7 +102,7 @@ pub fn parse_region<F: RegionDrawer + ?Sized>(
     draw_to: &mut F,
 ) -> DrawResult<()> {
     let closure = |x: usize, z: usize, buf: &Vec<u8>| {
-        let chunk: DrawResult<types::Chunk> = Ok(nbt2::de::from_bytes(buf.as_slice()).unwrap());
+        let chunk: DrawResult<types::Chunk> = Ok(nbt::de::from_bytes(buf.as_slice()).unwrap());
         match chunk {
             Ok(mut chunk) => draw_to.draw(x, z, &mut chunk),
             Err(DrawError::MissingHeightMap) => {} // skip this chunk.
