@@ -5,7 +5,7 @@ use flate2::read::ZlibDecoder;
 use types::Chunk;
 
 pub trait RegionDrawer {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk);
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk);
 }
 
 pub struct RegionMap<T> {
@@ -134,7 +134,7 @@ pub fn parse_region<F: RegionDrawer + ?Sized>(
         let chunk: DrawResult<types::Chunk> = Ok(nbt2::de::from_bytes(data.as_slice())?);
 
         match chunk {
-            Ok(chunk) => draw_to.draw(off.x, off.z, &chunk),
+            Ok(mut chunk) => draw_to.draw(off.x, off.z, &mut chunk),
             Err(DrawError::MissingHeightMap) => {} // skip this chunk.
             Err(e) => return Err(e),
         };

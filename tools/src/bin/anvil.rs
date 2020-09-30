@@ -35,15 +35,15 @@ impl<'a, P: BlockPalette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
 }
 
 impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
         let data = self.map.chunk_mut(xc_rel, zc_rel);
 
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.height_of(x, z).unwrap_or(64);
                 let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
-                let material = chunk.id_of(x, height, z);
                 let biome = chunk.biome_of(x, height, z);
+                let material = chunk.id_of(x, height, z);
 
                 // TODO: If material is grass block (and others), we need to colour it based on biome.
                 let colour = self.palette.pick(material.unwrap_or(""), biome);
@@ -151,7 +151,7 @@ struct RegionBiomeDrawer<'a> {
 }
 
 impl<'a> RegionDrawer for RegionBiomeDrawer<'a> {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
         let data = (*self.map).chunk_mut(xc_rel, zc_rel);
 
         for z in 0..16 {

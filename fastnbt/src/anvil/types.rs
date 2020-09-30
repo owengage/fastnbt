@@ -16,7 +16,7 @@ pub struct Chunk<'a> {
 }
 
 impl<'a> Chunk<'a> {
-    pub fn id_of(&self, x: usize, y: usize, z: usize) -> Option<&str> {
+    pub fn id_of(&mut self, x: usize, y: usize, z: usize) -> Option<&str> {
         if self.level.sections.is_empty() {
             return None;
         }
@@ -26,50 +26,41 @@ impl<'a> Chunk<'a> {
         if self.level.sections[0].y != 0 {}
         let containing_section_y = (y / 16) as isize - (self.level.sections[0].y as isize);
 
-        let sec = self.level.sections.get(containing_section_y as usize);
+        let sec = self.level.sections.get_mut(containing_section_y as usize);
 
         if let Some(sec) = sec {
             if (sec.y as usize) * 16 > y {}
             let sec_y = y - sec.y as usize * 16;
             let state_index = (sec_y as usize * 16 * 16) + x * 16 + z;
 
-            // eprintln!("sec len {}", self.level.sections.len());
-            // eprintln!(
-            //     "sec y {}, y {}, inner y {}, index {}",
-            //     sec.y, y, sec_y, state_index
-            // );
+            if sec.unpacked_states == None {
+                let bits_per_item = super::bits::bits_per_block(sec.palette.as_ref()?.len());
+                let mut buf = vec![0; 16 * 16 * 16];
 
-            let bits_per_item = super::bits::bits_per_block(sec.palette.as_ref()?.len());
-            let mut buf = [0; 16 * 16 * 16];
+                sec.block_states
+                    .as_ref()?
+                    .unpack_into(bits_per_item, &mut buf[..]);
 
-            // TODO: do expansion once.
-            sec.block_states
-                .as_ref()?
-                .unpack_into(bits_per_item, &mut buf[..]);
+                sec.unpacked_states = Some(buf);
+            }
 
-            // println!(
-            //     "secs {}, sec y {}, y {}, inner y {}, index {}",
-            //     self.level.sections.len(),
-            //     sec.y,
-            //     y,
-            //     sec_y,
-            //     state_index
-            // );
-
-            if state_index > buf.len() {}
-            let pal_index = buf[state_index] as usize;
+            let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
             Some(sec.palette.as_ref()?[pal_index].name)
         } else {
             None
         }
     }
 
-    pub fn height_of(&self, x: usize, z: usize) -> Option<usize> {
-        let heights = self.level.heightmaps.motion_blocking.as_ref()?;
-        let mut buf = [0u16; 16 * 16];
+    pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
+        let ref mut maps = self.level.heightmaps;
 
-        heights.unpack_into(9, &mut buf[..]);
-        Some(buf[x * 16 + z] as usize)
+        if maps.unpacked_motion_blocking == None {
+            let mut buf = vec![0u16; 16 * 16];
+            maps.motion_blocking.as_ref()?.unpack_into(9, &mut buf[..]);
+            maps.unpacked_motion_blocking = Some(buf);
+        }
+
+        Some(maps.unpacked_motion_blocking.as_ref()?[x * 16 + z] as usize)
     }
 
     pub fn biome_of(&self, x: usize, _y: usize, z: usize) -> Option<Biome> {
@@ -127,6 +118,9 @@ pub struct Heightmaps<'a> {
     pub motion_blocking_no_leaves: Option<PackedBits<'a>>,
     pub ocean_floor: Option<PackedBits<'a>>,
     pub world_surface: Option<PackedBits<'a>>,
+
+    #[serde(skip)]
+    unpacked_motion_blocking: Option<Vec<u16>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -137,6 +131,9 @@ pub struct Section<'a> {
     #[serde(borrow)]
     pub block_states: Option<PackedBits<'a>>,
     pub palette: Option<Vec<Block<'a>>>,
+
+    #[serde(skip)]
+    unpacked_states: Option<Vec<u16>>,
 }
 
 #[derive(Deserialize, Debug)]
