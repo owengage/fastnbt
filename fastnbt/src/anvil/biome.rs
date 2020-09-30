@@ -1,7 +1,7 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 // Values from https://minecraft.gamepedia.com/Java_Edition_data_value#Biomes
-#[derive(TryFromPrimitive, IntoPrimitive)]
+#[derive(TryFromPrimitive, IntoPrimitive, Debug)]
 #[repr(i32)] // i32 as in corresponding NBT.
 pub enum Biome {
     Ocean = 0,

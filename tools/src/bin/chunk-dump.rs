@@ -4,14 +4,14 @@ use flate2::read::ZlibDecoder;
 use std::io;
 use std::io::Read;
 
-use fastnbt::anvil2::Chunk;
+use fastnbt::anvil::types::Chunk;
 use fastnbt::nbt2::de::from_bytes;
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     //let file = std::fs::File::open(args[0].clone()).unwrap();
     let file =
-        std::fs::File::open("/home/ogage/minecloud/cliff-side/world/region/r.0.0.mca").unwrap();
+        std::fs::File::open("/home/ogage/.minecraft/saves/New World/region/r.0.0.mca").unwrap();
 
     let mut region = anvil::Region::new(file);
     let loc = region.chunk_location(0, 0).unwrap();

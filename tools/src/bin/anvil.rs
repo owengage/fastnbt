@@ -1,6 +1,7 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use fastnbt::anvil::biome::Biome;
-use fastnbt::anvil::draw::{parse_region, Chunk, RegionDrawer, RegionMap, Rgb};
+use fastnbt::anvil::draw::{parse_region, RegionDrawer, RegionMap, Rgb};
+use fastnbt::anvil::types::Chunk;
 use fastnbt::anvil::Region;
 use image;
 use rayon::prelude::*;
@@ -39,15 +40,13 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
 
         for z in 0..16 {
             for x in 0..16 {
-                let height = chunk.height_of(x, z);
+                let height = chunk.height_of(x, z).unwrap_or(64);
                 let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
                 let material = chunk.id_of(x, height, z);
                 let biome = chunk.biome_of(x, height, z);
 
                 // TODO: If material is grass block (and others), we need to colour it based on biome.
-                let colour = match material {
-                    _ => self.palette.pick(material, biome),
-                };
+                let colour = self.palette.pick(material.unwrap_or(""), biome);
 
                 let pixel = &mut data[x * 16 + z];
                 *pixel = colour;
@@ -55,6 +54,7 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
         }
     }
 }
+
 struct FullPalette {
     blockstates: std::collections::HashMap<String, [u8; 3]>,
     grass: image::RgbImage,
@@ -156,8 +156,8 @@ impl<'a> RegionDrawer for RegionBiomeDrawer<'a> {
 
         for z in 0..16 {
             for x in 0..16 {
-                let y = chunk.height_of(x, z);
-                let biome = chunk.biome_of(x, y, z).unwrap();
+                let y = chunk.height_of(x, z).unwrap_or(64);
+                let biome = chunk.biome_of(x, y, z).unwrap_or(Biome::TheVoid);
 
                 // TODO:  If material is grass block (and others), we need to colour it based on biome.
                 let colour = match biome {

@@ -74,19 +74,11 @@ impl<'de> Deserializer<'de> {
     }
 
     fn consume_float(&mut self) -> Result<f32> {
-        Ok(match self.layers.last() {
-            Some(Layer::Compound(Some(Tag::Float))) => self.input.read_f32::<BigEndian>()?,
-            Some(Layer::List(Tag::Double, _)) => self.input.read_f32::<BigEndian>()?,
-            _ => return Err(Error::Message("expected float".to_owned())),
-        })
+        Ok(self.input.read_f32::<BigEndian>()?)
     }
 
     fn consume_double(&mut self) -> Result<f64> {
-        Ok(match self.layers.last() {
-            Some(Layer::Compound(Some(Tag::Double))) => self.input.read_f64::<BigEndian>()?,
-            Some(Layer::List(Tag::Double, _)) => self.input.read_f64::<BigEndian>()?,
-            _ => return Err(Error::Message("expected double float".to_owned())),
-        })
+        Ok(self.input.read_f64::<BigEndian>()?)
     }
 
     fn ignore_value(&mut self, tag: Tag) -> Result<()> {

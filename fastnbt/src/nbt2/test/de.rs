@@ -473,6 +473,34 @@ fn ignore_compound() -> Result<()> {
 }
 
 #[test]
+fn ignore_primitives_in_ignored_compound() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        a: u8,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_compound("ignoreall")
+        .float("ignored", 1.23)
+        .double("ignored", 1.234)
+        .byte("ig", 1)
+        .short("ig", 2)
+        .int("ig", 3)
+        .long("ig", 4)
+        .string("ig", "hello")
+        .end_compound()
+        .byte("a", 123)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.a, 123);
+
+    Ok(())
+}
+
+#[test]
 fn ignore_list() -> Result<()> {
     #[derive(Deserialize)]
     struct V {
