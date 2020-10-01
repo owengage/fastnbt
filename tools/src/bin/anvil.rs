@@ -21,11 +21,18 @@ trait IntoMap {
 struct RegionBlockDrawer<'a, P: BlockPalette + ?Sized> {
     map: RegionMap<Rgb>,
     palette: &'a P,
+    processed_chunks: usize,
+    painted_pixels: usize,
 }
 
 impl<'a, P: BlockPalette + ?Sized> RegionBlockDrawer<'a, P> {
     pub fn new(map: RegionMap<Rgb>, palette: &'a P) -> Self {
-        Self { map, palette }
+        Self {
+            map,
+            palette,
+            processed_chunks: 0,
+            painted_pixels: 0,
+        }
     }
 }
 
@@ -38,6 +45,7 @@ impl<'a, P: BlockPalette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
 impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
         let data = self.map.chunk_mut(xc_rel, zc_rel);
+        self.processed_chunks += 1;
 
         for z in 0..16 {
             for x in 0..16 {
@@ -51,6 +59,7 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
 
                 let pixel = &mut data[x * 16 + z];
                 *pixel = colour;
+                self.painted_pixels += 1;
             }
         }
     }
@@ -344,6 +353,10 @@ fn render(args: &ArgMatches) -> Result<()> {
     let pal: std::sync::Arc<dyn BlockPalette + Send + Sync> =
         get_palette(args.value_of("palette"))?.into();
 
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let processed_chunks = AtomicUsize::new(0);
+    let painted_pixels = AtomicUsize::new(0);
+
     let region_maps: Vec<Option<RegionMap<Rgb>>> = paths
         .into_par_iter()
         .map(|path| {
@@ -358,6 +371,9 @@ fn render(args: &ArgMatches) -> Result<()> {
                 let mut drawer = RegionBlockDrawer::new(map, &*pal);
                 parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
+                processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
+                painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
+
                 Some(drawer.into_map())
             } else {
                 None
@@ -365,7 +381,11 @@ fn render(args: &ArgMatches) -> Result<()> {
         })
         .collect();
 
-    println!("writing map.png");
+    println!("{} regions", region_maps.len());
+    println!("{} chunks", processed_chunks.load(Ordering::SeqCst));
+    println!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
+
+    println!("1 map.png");
     let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
 
     for region_map in region_maps {
