@@ -80,7 +80,7 @@ For the library
 
 ```toml
 [dependencies]
-fastnbt = "0.7.0"
+fastnbt = "0.8.0"
 ```
 
 For the `anvil` executable
