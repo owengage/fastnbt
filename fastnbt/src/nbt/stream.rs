@@ -1,3 +1,5 @@
+//! Allows streaming of NBT data without prior knowledge of the structure.
+
 use super::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::{convert::TryFrom, io::Read};
@@ -51,7 +53,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// some indentation to help see the structure.
 ///
 /// ```
-/// use fastnbt::nbt::stream::{self, Value};
+/// use fastnbt::stream::{self, Value};
 /// use flate2::read::GzDecoder;
 ///
 /// let stdin = std::io::stdin();
@@ -91,7 +93,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///
 /// ```
-/// use fastnbt::nbt::stream::{self, Value};
+/// use fastnbt::stream::{self, Value};
 /// use fastnbt::anvil::bits;
 ///
 /// # fn f() -> stream::Result<Option<Vec<u16>>> {

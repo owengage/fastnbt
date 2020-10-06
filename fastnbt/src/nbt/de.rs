@@ -1,3 +1,8 @@
+//! A conventional `serde` deserializer module.
+//!
+//! `from_bytes` can be used to convert NBT data into a Rust `struct`. You can not deserialize into
+//! primitive types directly eg `from_bytes::<u32>(...)` due to the NBT data format itself.
+
 use super::error::{Error, Result};
 use super::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -7,6 +12,89 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::str;
 
+/// Deserializer for getting a `T` from some NBT data. Quite often you will need to rename fields using
+/// serde, as most Minecraft NBT data has inconsistent naming. The examples below show this with
+/// the `rename_all` attribute. See `serde`s other attributes for more.
+///
+/// You can take advantage of the lifetime of the input data to save allocations for things like
+/// strings. You can also deserialize any Array or List of primitive type as `&'a [u8]` to avoid
+/// allocating this data. See example below.
+///
+/// # Example of deserializing player.dat
+///
+/// ```
+/// use serde::Deserialize;
+///
+/// #[derive(Deserialize, Debug)]
+/// #[serde(rename_all = "PascalCase")]
+/// struct PlayerDat {
+///     data_version: i32,
+///     inventory: Vec<InventorySlot>,
+///     ender_items: Vec<InventorySlot>,
+/// }
+///
+/// #[derive(Deserialize, Debug)]
+/// struct InventorySlot {
+///     id: String,
+/// }
+/// ```
+///
+/// # Examples of avoiding allocation
+///
+/// We can easily avoid allocations of `String`s using `&'a str` where `'a` is the lifetime of the
+/// input data.
+///
+/// ```
+/// use serde::Deserialize;
+
+/// #[derive(Deserialize, Debug)]
+/// struct InventorySlot<'a> {
+///     id: &'a str, // we avoid allocating a string here.
+/// }
+/// ```
+///
+/// Here we're avoiding allocating memory for the various heightmaps found in chunk data.
+/// The [`PackedBits`] type is used as a wrapper for the way Minecraft's Anvil format packs various
+/// lists of numbers.
+///
+/// [`PackedBits`]: ../../anvil/bits/struct.PackedBits.html
+///
+/// ```
+/// use fastnbt::anvil::bits::PackedBits;
+/// use serde::Deserialize;
+///
+///
+/// #[derive(Deserialize, Debug)]
+/// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// pub struct Heightmaps<'a> {
+///     #[serde(borrow)]
+///     pub motion_blocking: Option<PackedBits<'a>>,
+///     pub motion_blocking_no_leaves: Option<PackedBits<'a>>,
+///     pub ocean_floor: Option<PackedBits<'a>>,
+///     pub world_surface: Option<PackedBits<'a>>,
+///
+///     #[serde(skip)]
+///     unpacked_motion_blocking: Option<Vec<u16>>,
+/// }
+/// ```
+/// # Example from region file
+///
+/// ```no_run
+/// use fastnbt::anvil::{Chunk, Region};
+/// use fastnbt::de::from_bytes;
+///
+/// fn main() {
+///     let args: Vec<_> = std::env::args().skip(1).collect();
+///     let file = std::fs::File::open(args[0].clone()).unwrap();
+///
+///     let mut region = Region::new(file);
+///     let data = region.load_chunk(0, 0).unwrap();
+///
+///     let chunk: Chunk = from_bytes(data.as_slice()).unwrap();
+///
+///     println!("{:?}", chunk);
+/// }
+/// ```
 pub struct Deserializer<'de> {
     input: &'de [u8],
     layers: Vec<Layer>,
@@ -21,6 +109,9 @@ impl<'de> Deserializer<'de> {
     }
 }
 
+/// Deserialize into a `T` from some NBT data. See [`Deserializer`] for more information.
+///
+/// [`Deserializer`]: ./struct.Deserializer.html
 pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
 where
     T: Deserialize<'a>,

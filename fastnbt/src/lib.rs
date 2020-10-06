@@ -1,19 +1,20 @@
-//! Aims to allow fast parsing of NBT and Anvil data from Minecraft: Java Edition.
+//! Aims to allow fast parsing of NBT and Anvil data from *Minecraft: Java Edition*.
 //!
-//! Some examples can be found in `nbt::Parser`'s documentation. The `fastnbt-tools` crate contains
-//! executables based on this crate which might serve as more complex examples.
+//! A `serde` compatible deserializer can be found in the `nbt` module. This deserialiser works on
+//! an in-memory `&[u8]`, meaning you need all of the NBT data in memory. This has the advantage of
+//! allowing you to avoid memory allocations in some cases. See the `nbt::de` module for more information.
+//!
+//! If you require accessing large amount of NBT data that you do not want to keep in memory, you can use
+//! the `nbt::stream` module. This does not allow you to deserialize into Rust `struct`s, but does allow
+//! low memory footprint processing on NBT data.
+//!
+//! `nbt::stream` is also useful when you do not know the structure ahead of time.
 //!
 //! Both this crate and the tools crate are under one [fastnbt Github repository](https://github.com/owengage/fastnbt)
 
-/// For handling Minecraft's region format, Anvil.
-///
-/// `anvil::Region` can be given a `Read` and `Seek` type eg a file in order to extract chunk data.
 pub mod anvil;
+mod nbt;
 
-/// For handling NBT data, which Minecraft uses for most data storage.
-///
-/// `de` contains a standard Serde deserializer to let you deserialize NBT into structs.
-///
-/// `stream` contains a parser to let you manually parse NBT, rather than putting it into a `struct`.
-/// This can let you for example simply dump a bunch of NBT without knowing the size or structure.
-pub mod nbt;
+pub use nbt::de;
+pub use nbt::error;
+pub use nbt::stream;

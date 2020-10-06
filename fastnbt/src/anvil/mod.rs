@@ -1,10 +1,18 @@
+//! For handling Minecraft's region format, Anvil.
+//!
+//! `anvil::Region` can be given a `Read` and `Seek` type eg a file in order to extract chunk data.
+
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::io::{Read, Seek, SeekFrom};
 
+/// the size in bytes of a 'sector' in a region file. Sectors are Minecraft's size unit
+/// for chunks. For example, a chunk might be `3 * SECTOR_SIZE` bytes.
 pub const SECTOR_SIZE: usize = 4096;
+
+/// the size of the region file header.
 pub const HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 
 pub mod biome;
@@ -14,6 +22,7 @@ pub mod draw;
 mod types;
 pub use types::{Block, Chunk, Level, Section};
 
+/// Various compression schemes that NBT data is typically compressed with.
 #[derive(Debug, TryFromPrimitive)]
 #[repr(u8)]
 pub enum CompressionScheme {
@@ -22,10 +31,12 @@ pub enum CompressionScheme {
     Uncompressed = 3,
 }
 
+/// A Minecraft Region.
 pub struct Region<S: Seek + Read> {
     data: S,
 }
 
+/// The location of chunk data within a Region file.
 #[derive(Debug, PartialEq)]
 pub struct ChunkLocation {
     pub begin_sector: usize,
@@ -34,7 +45,7 @@ pub struct ChunkLocation {
     pub z: usize,
 }
 
-// Encodes how the NBT-Data is compressed
+/// Encodes how the NBT-Data is compressed
 #[derive(Debug)]
 pub struct ChunkMeta {
     //  the compressed data is len-1 bytes

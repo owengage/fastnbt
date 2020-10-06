@@ -1,12 +1,14 @@
+//! For handling NBT data, which Minecraft uses for most data storage.
+//!
+//! `de` contains a standard Serde deserializer to let you deserialize NBT into structs.
+//!
+//! `stream` contains a parser to let you manually parse NBT, rather than putting it into a `struct`.
+//! This can let you for example simply dump a bunch of NBT without knowing the size or structure.
+
 use num_enum::TryFromPrimitive;
 
-/// Serde deserialisation.
 pub mod de;
-
-/// Serde error and result type.
 pub mod error;
-
-/// Allows streaming of NBT data without prior knowledge of the structure.
 pub mod stream;
 
 /// The NBT tag. This does not carry the value or the name.

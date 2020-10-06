@@ -1,3 +1,5 @@
+//! functionality relating to Minecraft biomes.
+
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 // Values from https://minecraft.gamepedia.com/Java_Edition_data_value#Biomes

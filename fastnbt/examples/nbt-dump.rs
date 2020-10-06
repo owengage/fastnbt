@@ -1,6 +1,5 @@
-use fastnbt::nbt;
+use fastnbt::stream;
 use flate2::read::GzDecoder;
-use nbt::stream;
 use std::io;
 
 //

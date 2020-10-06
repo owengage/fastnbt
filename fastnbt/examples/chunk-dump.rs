@@ -1,5 +1,5 @@
 use fastnbt::anvil::{Chunk, Region};
-use fastnbt::nbt::de::from_bytes;
+use fastnbt::de::from_bytes;
 
 //
 // This loads a region file, extracts a chunk from it, and uses serde to

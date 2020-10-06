@@ -1,5 +1,5 @@
-use fastnbt::nbt::de::from_bytes;
-use fastnbt::nbt::error::Result;
+use fastnbt::de::from_bytes;
+use fastnbt::error::Result;
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::io::Read;

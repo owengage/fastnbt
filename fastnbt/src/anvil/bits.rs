@@ -1,3 +1,5 @@
+//! functionality around bit manipulations specific to the Anvil file format.
+
 use bit_field::{BitArray, BitField};
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Deserialize;

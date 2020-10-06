@@ -5,6 +5,8 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Deserialize;
 
 use super::biome::Biome;
+
+/// A Minecraft chunk.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct Chunk<'a> {
@@ -91,6 +93,7 @@ impl<'a> Chunk<'a> {
     }
 }
 
+/// A level describes the contents of the chunk in the world.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct Level<'a> {
@@ -110,6 +113,7 @@ pub struct Level<'a> {
     pub sections: Vec<Section<'a>>,
 }
 
+/// Various heightmaps kept up to date by Minecraft.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct Heightmaps<'a> {
@@ -123,6 +127,7 @@ pub struct Heightmaps<'a> {
     unpacked_motion_blocking: Option<Vec<u16>>,
 }
 
+/// A vertical section of a chunk (ie a 16x16x16 block cube)
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct Section<'a> {
@@ -136,6 +141,7 @@ pub struct Section<'a> {
     unpacked_states: Option<Vec<u16>>,
 }
 
+/// A block within the world.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct Block<'a> {

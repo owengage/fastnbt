@@ -1,3 +1,4 @@
+//! functionality for drawing maps.
 use super::*;
 use crate::nbt;
 use types::Chunk;
@@ -37,36 +38,6 @@ impl<T: Clone> RegionMap<T> {
 }
 
 pub type Rgb = [u8; 3];
-
-// pub struct RegionHeightmapDrawer<'a> {
-//     map: &'a mut RegionMap<Rgb>,
-// }
-
-// impl<'a> RegionHeightmapDrawer<'a> {
-//     pub fn new(map: &'a mut RegionMap<Rgb>) -> Self {
-//         Self { map }
-//     }
-// }
-
-// impl<'a> RegionDrawer for RegionHeightmapDrawer<'a> {
-//     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &Chunk) {
-//         let data = (*self.map).chunk_mut(xc_rel, zc_rel);
-
-//         for z in 0..16 {
-//             for x in 0..16 {
-//                 const SEA_LEVEL: u16 = 63;
-//                 let height = chunk.heights[x * 16 + z];
-
-//                 if height <= SEA_LEVEL {
-//                     data[x * 16 + z] = [height as u8, height as u8, 150];
-//                 } else {
-//                     let height = (height - 63) * 2;
-//                     data[x * 16 + z] = [height as u8, 150, height as u8];
-//                 }
-//             }
-//         }
-//     }
-// }
 
 #[derive(Debug)]
 pub enum DrawError {

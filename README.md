@@ -1,20 +1,19 @@
-# fastnbt
+# fastnbt project
 
 Documentation: [docs.rs](https://docs.rs/crate/fastnbt)
 
-A fast (or trying to be!) parser for *Minecraft: Java Edition*'s NBT and Anvil formats.
+This repository contains multiple related projects.
 
-* Serde based deserialisation into structs from in-memory bytes.
-* `Read` based parser for large files while keeping a low memory footprint.
-* `fastnbt-tools` contains executables to render your world.
+* [fastnbt](fastnbt/README.md): Fast (or trying to be!) deserailizer and parser for *Minecraft: Java Edition*'s NBT and Anvil formats.
+* [fastnbt-tools](tools/README.md): Various tools for NBT/Anvil, notably a map renderer.
 
 Aim to support only the latest version of Minecraft. Works with 1.16 worlds at the moment. Endevour to support old chunks in 1.16 worlds, but not extracting textures from older versions due to the added complexity it would require.
-
-Serde deserialization is implemented in a way to try and avoid memory allocations. Strings can be deserialized as `&str`, as well as deserialising the block states of chunks to `&[u8]`.
 
 The `anvil` binary can render your world leveraging all of your CPU. My 3.2 GiB world with 271k chunks is fully rendered to a 14000x17000 PNG in about 7 seconds. What about yours?
 
 ![alt rendered map](demo.png)
+
+# Render your map
 
 ```bash
 cargo install fastnbt-tools
@@ -43,6 +42,8 @@ anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.
 ```
 
 # Development priorities
+
+These are the proirities for the project when it comes to development. Ideally we never sacrifice an earlier priority for the sake of a later one.
 
 1. Correctness. Worlds are rendered as accurately as possible.
 2. Speed. Worlds are rendered as fast as possible.
