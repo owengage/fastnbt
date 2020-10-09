@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::nbt::de::from_bytes;
 use crate::nbt::error::{Error, Result};
 use crate::nbt::Tag;
@@ -849,6 +851,31 @@ fn type_mismatch_int_from_str() -> Result<()> {
         Error::TypeMismatch(Tag::String, "integral"),
         res.unwrap_err()
     );
+
+    Ok(())
+}
+
+#[test]
+fn basic_palette_item() -> Result<()> {
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct PaletteItem {
+        name: String,
+        properties: HashMap<String, String>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_compound("Properties")
+        .string("lit", "false")
+        .end_compound()
+        .string("Name", "minecraft:redstone_ore")
+        .end_compound()
+        .build();
+
+    let res: PaletteItem = from_bytes(payload.as_slice())?;
+
+    assert_eq!(res.name, "minecraft:redstone_ore");
 
     Ok(())
 }

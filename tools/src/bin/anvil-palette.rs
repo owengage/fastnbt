@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use fastnbt::tex::{Blockstate, Model, Variant, Variants};
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
@@ -28,39 +28,6 @@ fn avg_colour(path: &Path) -> Result<[u8; 3]> {
         (avg[1] / count as f64).sqrt() as u8,
         (avg[2] / count as f64).sqrt() as u8,
     ])
-}
-
-#[derive(Deserialize, Debug)]
-struct Variant {
-    model: String,
-    x: Option<usize>,
-    y: Option<usize>,
-    uvlock: Option<bool>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-enum Variants {
-    Single(Variant),
-    Many(Vec<Variant>),
-}
-
-#[derive(Deserialize, Debug)]
-struct Blockstate {
-    variants: Option<HashMap<String, Variants>>,
-    multipart: Option<Vec<Part>>,
-}
-
-#[derive(Deserialize, Debug)]
-struct Part {
-    when: Option<serde_json::Value>,
-    apply: Variants,
-}
-
-#[derive(Deserialize, Debug)]
-struct Model {
-    parent: Option<String>,
-    textures: Option<HashMap<String, String>>,
 }
 
 fn load_blockstates(blockstates_path: &Path) -> Result<HashMap<String, Blockstate>> {
@@ -186,7 +153,7 @@ fn find_model_in_variant(var: &Variant, models: &HashMap<String, Model>) -> Resu
 }
 
 fn find_texture(state: &Blockstate, models: &HashMap<String, Model>) -> Result<String> {
-    if let Some(ref v) = state.variants {
+    if let Blockstate::Variants(ref v) = state {
         for (_vname, variant) in v {
             return match variant {
                 Variants::Single(ref var) => find_model_in_variant(var, models),

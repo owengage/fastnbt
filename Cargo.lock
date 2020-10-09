@@ -175,6 +175,7 @@ dependencies = [
  "flate2",
  "num_enum",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{collections::HashMap, convert::TryFrom};
 
 use crate::anvil::bits::PackedBits;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -146,4 +146,5 @@ pub struct Section<'a> {
 #[serde(rename_all = "PascalCase")]
 pub struct Block<'a> {
     pub name: &'a str,
+    pub properties: Option<HashMap<&'a str, &'a str>>,
 }

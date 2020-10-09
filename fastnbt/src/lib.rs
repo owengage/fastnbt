@@ -13,6 +13,8 @@
 //! Both this crate and the tools crate are under one [fastnbt Github repository](https://github.com/owengage/fastnbt)
 
 pub mod anvil;
+pub mod tex;
+
 mod nbt;
 
 pub use nbt::de;
