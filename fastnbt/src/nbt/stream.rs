@@ -94,7 +94,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///
 /// ```
 /// use fastnbt::stream::{self, Value};
-/// use fastnbt::anvil::bits;
+/// use fastnbt::anvil::expand_heightmap;
 ///
 /// # fn f() -> stream::Result<Option<Vec<u16>>> {
 /// let mut parser = /* ... */
@@ -104,7 +104,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 ///     match parser.next()? {
 ///         Value::LongArray(Some(ref name), data) if name == "WORLD_SURFACE" => {
 ///             stream::skip_compound(&mut parser)?;
-///             return Ok(Some(bits::expand_heightmap(data.as_slice())));
+///             return Ok(Some(expand_heightmap(data.as_slice())));
 ///         }
 ///         Value::Compound(_) => {
 ///             // don't enter another compound.
