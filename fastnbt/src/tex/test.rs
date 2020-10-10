@@ -25,6 +25,49 @@ fn cube_model() -> Model {
     .unwrap()
 }
 
+fn block_model() -> Model {
+    serde_json::from_str(
+        r##"
+        {
+            "gui_light": "side",
+            "display": {
+                "gui": {
+                    "rotation": [ 30, 225, 0 ],
+                    "translation": [ 0, 0, 0],
+                    "scale":[ 0.625, 0.625, 0.625 ]
+                },
+                "ground": {
+                    "rotation": [ 0, 0, 0 ],
+                    "translation": [ 0, 3, 0],
+                    "scale":[ 0.25, 0.25, 0.25 ]
+                },
+                "fixed": {
+                    "rotation": [ 0, 0, 0 ],
+                    "translation": [ 0, 0, 0],
+                    "scale":[ 0.5, 0.5, 0.5 ]
+                },
+                "thirdperson_righthand": {
+                    "rotation": [ 75, 45, 0 ],
+                    "translation": [ 0, 2.5, 0],
+                    "scale": [ 0.375, 0.375, 0.375 ]
+                },
+                "firstperson_righthand": {
+                    "rotation": [ 0, 45, 0 ],
+                    "translation": [ 0, 0, 0 ],
+                    "scale": [ 0.40, 0.40, 0.40 ]
+                },
+                "firstperson_lefthand": {
+                    "rotation": [ 0, 225, 0 ],
+                    "translation": [ 0, 0, 0 ],
+                    "scale": [ 0.40, 0.40, 0.40 ]
+                }
+            }
+        }        
+        "##,
+    )
+    .unwrap()
+}
+
 fn cube_all_model() -> Model {
     serde_json::from_str(
         r##"
@@ -77,8 +120,8 @@ fn cobblestone_blockstate() -> Blockstate {
 fn cobblestone_texture() -> Texture {
     [1; 1024]
 }
-#[test]
-fn cobblestone() {
+
+fn cobblestone_renderer() -> Renderer {
     let blockstates = vec![("minecraft:cobblestone".to_owned(), cobblestone_blockstate())]
         .into_iter()
         .collect();
@@ -89,6 +132,7 @@ fn cobblestone() {
             cobblestone_model(),
         ),
         ("block/cube".to_owned(), cube_model()),
+        ("block/block".to_owned(), block_model()),
         ("minecraft:block/cube_all".to_owned(), cube_all_model()),
     ]
     .into_iter()
@@ -101,8 +145,28 @@ fn cobblestone() {
     .into_iter()
     .collect();
 
-    let mut renderer = Renderer::new(blockstates, models, textures);
+    Renderer::new(blockstates, models, textures)
+}
+#[test]
+fn cobblestone() {
+    let mut renderer = cobblestone_renderer();
     let tex = renderer.get_top("minecraft:cobblestone", "").unwrap();
 
     assert_eq!(tex, cobblestone_texture());
+}
+#[test]
+fn flatten_cobblestone_model_to_cube_generic() {
+    let renderer = cobblestone_renderer();
+    let model = renderer
+        .flatten_model("minecraft:block/cobblestone")
+        .unwrap();
+
+    let textures = model.textures.unwrap();
+    assert_eq!("minecraft:block/cobblestone", textures["up"]);
+    assert_eq!("minecraft:block/cobblestone", textures["down"]);
+    assert_eq!("minecraft:block/cobblestone", textures["north"]);
+    assert_eq!("minecraft:block/cobblestone", textures["south"]);
+    assert_eq!("minecraft:block/cobblestone", textures["west"]);
+    assert_eq!("minecraft:block/cobblestone", textures["east"]);
+    assert_eq!("#up", model.elements.unwrap()[0].faces["up"].texture)
 }
