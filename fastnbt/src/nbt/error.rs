@@ -6,7 +6,7 @@ pub enum Error {
     IO(String),
     InvalidTag(u8),
     InvalidName,
-    UnexpectedNegativeInt,
+    IntegralOutOfRange,
     TypeMismatch(Tag, &'static str), // expected type by tag, expected serde type.
     Eof,
 }
@@ -30,7 +30,7 @@ impl Display for Error {
                 "expecting {}, found type to have tag {:?}",
                 s, t
             )),
-            Error::UnexpectedNegativeInt => f.write_str("unexpected negative integer"),
+            Error::IntegralOutOfRange => f.write_str("integral value did not fit in receiver type"),
             Error::Eof => f.write_str("unexpected end of input"),
         }
     }
@@ -43,8 +43,8 @@ impl From<std::io::Error> for Error {
 }
 
 impl From<std::num::TryFromIntError> for Error {
-    fn from(e: std::num::TryFromIntError) -> Self {
-        Error::Message(format!("{}", e))
+    fn from(_e: std::num::TryFromIntError) -> Self {
+        Error::IntegralOutOfRange
     }
 }
 

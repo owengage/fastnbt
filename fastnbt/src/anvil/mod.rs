@@ -16,10 +16,14 @@ pub const SECTOR_SIZE: usize = 4096;
 pub const HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 
 pub mod biome;
-pub mod bits;
 pub mod draw;
 
+mod bits;
 mod types;
+
+pub use bits::{
+    expand_blockstates, expand_generic_1_15, expand_generic_1_16, expand_heightmap, PackedBits,
+};
 pub use types::{Block, Chunk, Level, Section};
 
 /// Various compression schemes that NBT data is typically compressed with.
@@ -31,7 +35,7 @@ pub enum CompressionScheme {
     Uncompressed = 3,
 }
 
-/// A Minecraft Region.
+/// A Minecraft Region. Allows access to chunk data, handling decompression.
 pub struct Region<S: Seek + Read> {
     data: S,
 }
@@ -102,6 +106,45 @@ impl<S: Seek + Read> Region<S> {
         })
     }
 
+    /// Return the raw, uncompressed NBT data for a chunk at the
+    /// (region-relative) Chunk location (x, z). Region's hold 32 by 32 chunks.
+    ///
+    /// Can be further processed with [`stream::Parser`] or even with
+    /// `Blob::from_reader()` of hematite_nbt.
+    ///
+    /// [`stream::Parser`]: ../stream/struct.Parser.html
+    pub fn load_chunk(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
+        let data = self.load_raw_chunk_at(x, z)?;
+        Ok(decompress_chunk(&data))
+    }
+
+    /// Call function with each uncompressed, non-empty chunk, calls f(x, z, data).
+    pub fn for_each_chunk(&mut self, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> Result<()> {
+        let mut offsets = Vec::<ChunkLocation>::new();
+
+        // Build list of existing chunks
+        for x in 0..32 {
+            for z in 0..32 {
+                let loc = self.chunk_location(x, z)?;
+                // 0,0 chunk location means the chunk isn't present.
+                // cannot decide if this means we should return an error from chunk_location() or not.
+                if loc.begin_sector != 0 && loc.sector_count != 0 {
+                    offsets.push(loc);
+                }
+            }
+        }
+
+        // sort so we linearly seek through the file.
+        // might make things easier on a HDD [citation needed]
+        offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
+
+        for offset in offsets {
+            let chunk = self.load_chunk(offset.x, offset.x)?;
+            f(offset.x, offset.z, &chunk);
+        }
+        Ok(())
+    }
+
     /// Return the raw, compressed data for a chunk at ChunkLocation
     fn load_raw_chunk(&mut self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
         dest.resize(offset.sector_count * SECTOR_SIZE, 0u8);
@@ -125,42 +168,6 @@ impl<S: Seek + Read> Region<S> {
         } else {
             Err(Error::ChunkNotFound)
         }
-    }
-
-    /// Return the raw, uncompressed NBT data for a chunk at the (region-relative) Chunk location (x, z)
-    ///
-    /// Can be further processed with `nbt::Parser::new()` or even with `Blob::from_reader()` of hematite_nbt.
-    pub fn load_chunk(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
-        let data = self.load_raw_chunk_at(x, z)?;
-        Ok(decompress_chunk(&data))
-    }
-
-    /// Call f function with earch uncompressed, non-empty chunk
-    pub fn for_each_chunk(&mut self, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> Result<()> {
-        let mut offsets = Vec::<ChunkLocation>::new();
-
-        // Build list of existing chunks
-        for x in 0..32 {
-            for z in 0..32 {
-                let loc = self.chunk_location(x, z)?;
-                // 0,0 chunk location means the chunk isn't present.
-                // cannot decide if this means we should return an error from chunk_location() or not.
-                if loc.begin_sector != 0 && loc.sector_count != 0 {
-                    offsets.push(loc);
-                }
-            }
-        }
-        // sort for efficient file seeks during processing
-        offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
-        offsets.shrink_to_fit();
-
-        while !offsets.is_empty() {
-            let location: ChunkLocation = offsets.pop().ok_or(0).unwrap();
-            // TODO: move outside the loop
-            let chunk = self.load_chunk(location.x, location.z)?;
-            f(location.x, location.z, &chunk)
-        }
-        Ok(())
     }
 }
 

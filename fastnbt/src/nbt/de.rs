@@ -12,13 +12,21 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::str;
 
-/// Deserializer for getting a `T` from some NBT data. Quite often you will need to rename fields using
-/// serde, as most Minecraft NBT data has inconsistent naming. The examples below show this with
-/// the `rename_all` attribute. See `serde`s other attributes for more.
+/// Deserializer for getting a `T` from some NBT data. Quite often you will need
+/// to rename fields using serde, as most Minecraft NBT data has inconsistent
+/// naming. The examples below show this with the `rename_all` attribute. See
+/// `serde`s other attributes for more.
 ///
-/// You can take advantage of the lifetime of the input data to save allocations for things like
-/// strings. You can also deserialize any Array or List of primitive type as `&'a [u8]` to avoid
-/// allocating this data. See example below.
+/// You can take advantage of the lifetime of the input data to save allocations
+/// for things like strings. You can also deserialize any Array or List of
+/// primitive type as `&'a [u8]` to avoid allocating this data. See example
+/// below.
+///
+/// When deserializing integral types, the values are range checked to prevent
+/// overflow from occurring. If an overflow does occur you will get a
+/// [`Error::IntegralOutOfRange`] error.
+///
+/// [`Error::IntegralOutOfRange`]: ../error/enum.Error.html#variant.IntegralOutOfRange
 ///
 /// # Example of deserializing player.dat
 ///
@@ -41,8 +49,8 @@ use std::str;
 ///
 /// # Examples of avoiding allocation
 ///
-/// We can easily avoid allocations of `String`s using `&'a str` where `'a` is the lifetime of the
-/// input data.
+/// We can easily avoid allocations of `String`s using `&'a str` where `'a` is
+/// the lifetime of the input data.
 ///
 /// ```
 /// use serde::Deserialize;
@@ -57,10 +65,10 @@ use std::str;
 /// The [`PackedBits`] type is used as a wrapper for the way Minecraft's Anvil format packs various
 /// lists of numbers.
 ///
-/// [`PackedBits`]: ../../anvil/bits/struct.PackedBits.html
+/// [`PackedBits`]: ../../anvil/struct.PackedBits.html
 ///
 /// ```
-/// use fastnbt::anvil::bits::PackedBits;
+/// use fastnbt::anvil::PackedBits;
 /// use serde::Deserialize;
 ///
 ///
