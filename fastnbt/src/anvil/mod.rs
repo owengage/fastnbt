@@ -139,9 +139,10 @@ impl<S: Seek + Read> Region<S> {
         offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
 
         for offset in offsets {
-            let chunk = self.load_chunk(offset.x, offset.x)?;
+            let chunk = self.load_chunk(offset.x, offset.z)?;
             f(offset.x, offset.z, &chunk);
         }
+
         Ok(())
     }
 
