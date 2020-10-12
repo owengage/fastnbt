@@ -18,7 +18,7 @@ pub struct Chunk<'a> {
 }
 
 impl<'a> Chunk<'a> {
-    pub fn id_of(&mut self, x: usize, y: usize, z: usize) -> Option<&str> {
+    pub fn id_of(&mut self, x: usize, y: usize, z: usize) -> Option<String> {
         if self.level.sections.is_empty() {
             return None;
         }
@@ -47,7 +47,7 @@ impl<'a> Chunk<'a> {
             }
 
             let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
-            Some(sec.palette.as_ref()?[pal_index].name)
+            Some(sec.palette.as_ref()?[pal_index].encoded_id())
         } else {
             None
         }
@@ -147,4 +147,23 @@ pub struct Section<'a> {
 pub struct Block<'a> {
     pub name: &'a str,
     pub properties: Option<HashMap<&'a str, &'a str>>,
+}
+
+impl<'a> Block<'a> {
+    fn encoded_id(&self) -> String {
+        // todo sort
+        match self.properties {
+            None => self.name.to_string() + "|",
+            Some(ref props) => {
+                let mut id = self.name.to_string();
+                let mut sep = "|";
+                for (k, v) in props {
+                    id = id + sep + k + ":" + v;
+                    sep = ",";
+                }
+
+                id
+            }
+        }
+    }
 }

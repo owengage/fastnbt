@@ -1,9 +1,19 @@
-use fastnbt::tex::{Blockstate, Model, Renderer, Variant, Variants};
-use std::collections::HashMap;
+use fastnbt::tex::{Blockstate, Model, Render, Renderer, Texture, Variant, Variants};
 use std::error::Error;
 use std::path::Path;
+use std::{collections::HashMap, fmt::Display};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+#[derive(Debug)]
+struct ErrorMessage(&'static str);
+impl std::error::Error for ErrorMessage {}
+
+impl Display for ErrorMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 fn avg_colour(path: &Path) -> Result<[u8; 3]> {
     let img = image::open(path)?;
@@ -28,6 +38,38 @@ fn avg_colour(path: &Path) -> Result<[u8; 3]> {
         (avg[1] / count as f64).sqrt() as u8,
         (avg[2] / count as f64).sqrt() as u8,
     ])
+}
+
+fn avg_colour_raw(rgba_data: &[u8]) -> Result<[u8; 3]> {
+    let mut avg = [0f64; 3];
+    let mut count = 0;
+
+    for p in rgba_data.chunks(4) {
+        // alpha is reasonable.
+        if p[3] > 128 {
+            avg[0] = avg[0] + ((p[0] as u64) * (p[0] as u64)) as f64;
+            avg[1] = avg[1] + ((p[1] as u64) * (p[1] as u64)) as f64;
+            avg[2] = avg[2] + ((p[2] as u64) * (p[2] as u64)) as f64;
+            count = count + 1;
+        }
+    }
+
+    Ok([
+        (avg[0] / count as f64).sqrt() as u8,
+        (avg[1] / count as f64).sqrt() as u8,
+        (avg[2] / count as f64).sqrt() as u8,
+    ])
+}
+
+fn load_texture(path: &Path) -> Result<Texture> {
+    let img = image::open(path)?;
+    let img = img.to_rgba();
+
+    if img.dimensions() == (16, 16) {
+        Ok(img.into_raw())
+    } else {
+        Err(Box::new(ErrorMessage("texture was not 16 by 16")))
+    }
 }
 
 fn load_blockstates(blockstates_path: &Path) -> Result<HashMap<String, Blockstate>> {
@@ -82,7 +124,7 @@ fn load_models(path: &Path) -> Result<HashMap<String, Model>> {
     Ok(models)
 }
 
-fn load_textures(path: &Path) -> Result<HashMap<String, [u8; 3]>> {
+fn load_textures(path: &Path) -> Result<HashMap<String, Texture>> {
     let mut tex = HashMap::new();
 
     for entry in std::fs::read_dir(path)? {
@@ -90,17 +132,20 @@ fn load_textures(path: &Path) -> Result<HashMap<String, [u8; 3]>> {
         let path = entry.path();
 
         if path.is_file() && path.extension().ok_or("invalid ext")?.to_string_lossy() == "png" {
-            let colour = avg_colour(&path)?;
+            let texture = load_texture(&path);
 
-            tex.insert(
-                "minecraft:block/".to_owned()
-                    + path
-                        .file_stem()
-                        .ok_or(format!("invalid file name: {}", path.display()))?
-                        .to_str()
-                        .ok_or(format!("nonunicode file name: {}", path.display()))?,
-                colour,
-            );
+            match texture {
+                Err(_) => continue,
+                Ok(texture) => tex.insert(
+                    "minecraft:block/".to_owned()
+                        + path
+                            .file_stem()
+                            .ok_or(format!("invalid file name: {}", path.display()))?
+                            .to_str()
+                            .ok_or(format!("nonunicode file name: {}", path.display()))?,
+                    texture,
+                ),
+            };
         }
     }
 
@@ -170,25 +215,77 @@ fn main() -> Result<()> {
     let root = Path::new(&args[0]);
     let assets = root.to_owned().join("assets").join("minecraft");
 
+    let textures = load_textures(&assets.join("textures").join("block"))?;
     let blockstates = load_blockstates(&assets.join("blockstates"))?;
     let models = load_models(&assets.join("models").join("block"))?;
-    //let textures = load_textures(&assets.join("textures").join("block"))?;
 
-    let renderer = Renderer::new(blockstates, models.clone(), HashMap::new());
+    let mut renderer = Renderer::new(blockstates.clone(), models.clone(), textures);
     let mut failed = 0;
     let mut success = 0;
 
-    for name in models.keys() {
-        let res = renderer.flatten_model(name);
-        match res {
-            Ok(model) => {
-                eprintln!("{}: {:#?}", name, model);
-                success += 1
+    let mut palette = HashMap::new();
+
+    for name in blockstates
+        .keys()
+        .filter(|name| args.get(1).map(|s| s == *name).unwrap_or(true))
+    {
+        let bs = &blockstates[name];
+
+        match bs {
+            Blockstate::Variants(vars) => {
+                for (props, _) in vars {
+                    let res = renderer.get_top(name, props);
+                    match res {
+                        Ok(texture) => {
+                            println!("{}", name);
+                            // image::save_buffer(
+                            //     format!("textures/{}:{}.png", name, props),
+                            //     texture.as_slice(),
+                            //     16,
+                            //     16,
+                            //     image::ColorType::Rgba8,
+                            // )?;
+                            let col = avg_colour_raw(texture.as_slice())?;
+                            palette.insert((*name).clone() + "|" + props, col);
+
+                            success += 1;
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                            failed += 1;
+                        }
+                    };
+                }
             }
-            Err(_) => failed += 1,
+            _ => continue,
         }
     }
 
-    eprintln!("success {:?}, failed {:?}", success, failed);
+    let f = std::fs::File::create("palette.tar")?;
+    let mut ar = tar::Builder::new(f);
+
+    let grass_colourmap = &assets.join("textures").join("colormap").join("grass.png");
+    ar.append_file(
+        "grass-colourmap.png",
+        &mut std::fs::File::open(grass_colourmap)?,
+    )?;
+
+    let foliage_colourmap = &assets.join("textures").join("colormap").join("foliage.png");
+    ar.append_file(
+        "foliage-colourmap.png",
+        &mut std::fs::File::open(foliage_colourmap)?,
+    )?;
+
+    let palette_data = serde_json::to_vec(&palette)?;
+    let mut header = tar::Header::new_gnu();
+    header.set_size(palette_data.len() as u64);
+    header.set_cksum();
+    header.set_mode(0o666);
+    ar.append_data(&mut header, "blockstates.json", palette_data.as_slice())?;
+
+    // finishes the archive.
+    ar.into_inner()?;
+
+    println!("success {:?}, failed {:?}", success, failed);
     Ok(())
 }

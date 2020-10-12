@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 mod test;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Variant {
     pub model: String,
     pub x: Option<usize>,
@@ -12,21 +12,21 @@ pub struct Variant {
     pub uvlock: Option<bool>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Variants {
     Single(Variant),
     Many(Vec<Variant>),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Blockstate {
     Variants(HashMap<String, Variants>),
     Multipart(Vec<Part>),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Part {
     //when: Option<serde_json::Value>,
     pub apply: Variants,
@@ -52,7 +52,7 @@ pub struct Face {
     uv: Option<[f32; 4]>,
 }
 
-pub type Texture = [u8; 4 * 16 * 16]; // RGBA 16x16 image.
+pub type Texture = Vec<u8>; // RGBA 16x16 image.
 
 #[derive(Debug)]
 pub enum Error {
@@ -61,14 +61,22 @@ pub enum Error {
     MissingVariant(String, String),
     MissingModel(String),
     MissingModelTextures, // Missing textures object in model when we expected them.
-    MissingTexture(String), // Missing the actual texture, ie the PNG.
-    MissingTextureVariable, // A texture variable eg '#all' had no value assigned.
+    MissingTexture(String, String, String), // Missing the actual texture, ie the PNG.
+    MissingElements(String, String, String),
+    MissingTextureVariable(String, String, String, String), // A texture variable eg '#all' had no value assigned.
 }
 
 fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
     match parent.textures {
         Some(ref mut parent_textures) => {
             let child_textures = child.textures.as_ref().ok_or(Error::MissingModelTextures)?;
+
+            // Insert all the childs textures into the parent.
+            // Textures can be referenced in a parent model that are only
+            // defined in child models so we need to copy them down.
+            for (k, v) in child_textures.iter() {
+                parent_textures.insert(k.clone(), v.clone());
+            }
 
             // We need to record the textures we do have, as they will probably
             // be variables for textures in the parent model.
@@ -81,7 +89,12 @@ fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
                     Some(rest) => {
                         *tvalue = child_textures
                             .get(rest) // we just checked with 'starts_with'.
-                            .ok_or(Error::MissingTextureVariable)?
+                            .ok_or(Error::MissingTextureVariable(
+                                "?".to_owned(),
+                                "?".to_owned(),
+                                "?".to_owned(),
+                                (*tvalue).clone(),
+                            ))?
                             .clone()
                     }
                     None => {}
@@ -135,9 +148,48 @@ impl Renderer {
         }
     }
 
-    fn model_get_top(&self, id: &str, encoded_props: &str, model: &str) -> Result<Texture> {
-        let model = self.flatten_model(model)?;
-        self.extract_texture(&model.textures.unwrap()["up"])
+    fn model_get_top(&self, id: &str, encoded_props: &str, model_name: &str) -> Result<Texture> {
+        let model = self.flatten_model(model_name)?;
+        // Look at elements. Try just looking in the first one for 'up'.
+
+        let els = &model.elements.ok_or(Error::MissingElements(
+            id.to_owned(),
+            encoded_props.to_owned(),
+            model_name.to_owned(),
+        ))?;
+
+        let el = els.get(0).ok_or(Error::MissingElements(
+            id.to_owned(),
+            encoded_props.to_owned(),
+            model_name.to_owned(),
+        ))?;
+
+        let face = el.faces.get("up").ok_or(Error::MissingElements(
+            id.to_owned(),
+            encoded_props.to_owned(),
+            model_name.to_owned(),
+        ))?;
+
+        let tex = &face.texture;
+
+        let tex = match tex.strip_prefix("#") {
+            Some(rest) => {
+                model
+                    .textures
+                    .ok_or(Error::MissingModelTextures)?
+                    .get(rest) // we just checked with 'starts_with'.
+                    .ok_or(Error::MissingTextureVariable(
+                        id.to_owned(),
+                        encoded_props.to_owned(),
+                        model_name.to_owned(),
+                        (*tex).clone(),
+                    ))?
+                    .clone()
+            }
+            None => (*tex).clone(),
+        };
+
+        self.extract_texture(&tex)
     }
 
     fn get_model(&self, model: &str) -> Result<&Model> {
@@ -162,7 +214,11 @@ impl Renderer {
         self.textures
             .get(tex_name)
             .map(|t| t.clone())
-            .ok_or(Error::MissingTexture(tex_name.to_string()))
+            .ok_or(Error::MissingTexture(
+                "?".to_owned(),
+                "?".to_owned(),
+                tex_name.to_string(),
+            ))
     }
 }
 

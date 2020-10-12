@@ -5,7 +5,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Deserialize;
 /// PackedBits can be used in place of blockstates in chunks to avoid
 /// allocating memory for them when they might not be needed. This object by
-/// default just retrains a reference to the data in the input, and `unpack_into`
+/// default just retains a reference to the data in the input, and `unpack_into`
 /// can be used to get the unpacked version when needed.
 #[derive(Deserialize, Debug)]
 pub struct PackedBits<'a>(&'a [u8]);

@@ -53,9 +53,10 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
                 let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome_of(x, height, z);
                 let material = chunk.id_of(x, height, z);
+                //println!("mat {:?}", material);
 
                 // TODO: If material is grass block (and others), we need to colour it based on biome.
-                let colour = self.palette.pick(material.unwrap_or(""), biome);
+                let colour = self.palette.pick(&material.unwrap_or("".to_owned()), biome);
 
                 let pixel = &mut data[x * 16 + z];
                 *pixel = colour;
@@ -316,6 +317,8 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>
         grass: grass?,
         foliage: foliage?,
     };
+
+    println!("{:#?}", p.blockstates);
 
     Ok(Box::new(p))
 }
