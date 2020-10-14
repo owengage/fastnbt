@@ -111,6 +111,8 @@ pub struct Level<'a> {
     // Ideally this would be done as a slice to avoid allocating the vector.
     // But there's no where to 'put' the slice of sections.
     pub sections: Vec<Section<'a>>,
+
+    pub status: &'a str,
 }
 
 /// Various heightmaps kept up to date by Minecraft.
@@ -151,19 +153,32 @@ pub struct Block<'a> {
 
 impl<'a> Block<'a> {
     fn encoded_id(&self) -> String {
-        // todo sort
         match self.properties {
             None => self.name.to_string() + "|",
             Some(ref props) => {
                 let mut id = self.name.to_string();
                 let mut sep = "|";
+
+                // need to sort the properties for a consistent ID
+                let mut props = props
+                    .iter()
+                    .filter(|(k, _)| **k != "waterlogged") // TODO: Handle water logging. See note below
+                    .collect::<Vec<_>>();
+                props.sort();
+
                 for (k, v) in props {
-                    id = id + sep + k + ":" + v;
+                    id = id + sep + k + "=" + v;
                     sep = ",";
                 }
 
                 id
             }
         }
+
+        // Note: If we want to handle water logging, we're going to have to
+        // remove the filter here and handle it in whatever parses the encoded
+        // ID itself. This will probably be pretty ugly. It can probably be
+        // contained in the palette generation code entirely, so shouldn't
+        // impact speed to hard.
     }
 }

@@ -219,6 +219,8 @@ fn main() -> Result<()> {
     let blockstates = load_blockstates(&assets.join("blockstates"))?;
     let models = load_models(&assets.join("models").join("block"))?;
 
+    println!("{:#?}", textures.keys());
+
     let mut renderer = Renderer::new(blockstates.clone(), models.clone(), textures);
     let mut failed = 0;
     let mut success = 0;

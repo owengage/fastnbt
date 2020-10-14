@@ -47,16 +47,25 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
         let data = self.map.chunk_mut(xc_rel, zc_rel);
         self.processed_chunks += 1;
 
+        //println!("{}", chunk.level.status);
+
+        if chunk.level.status != "full" {
+            // Chunks that have been fully generated will have a 'full' status.
+            // Skip chunks that don't, the way they render is really unpredictable.
+            return;
+        }
+
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.height_of(x, z).unwrap_or(64);
                 let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome_of(x, height, z);
                 let material = chunk.id_of(x, height, z);
-                //println!("mat {:?}", material);
 
-                // TODO: If material is grass block (and others), we need to colour it based on biome.
-                let colour = self.palette.pick(&material.unwrap_or("".to_owned()), biome);
+                let colour = match material {
+                    Some(material) => self.palette.pick(&material, biome),
+                    None => [0, 0, 0], // if no ID is given the block doesn't actually exist in the world.
+                };
 
                 let pixel = &mut data[x * 16 + z];
                 *pixel = colour;
@@ -119,38 +128,74 @@ impl FullPalette {
 
 impl BlockPalette for FullPalette {
     fn pick(&self, block_id: &str, biome: Option<Biome>) -> [u8; 3] {
-        // If the block id is something like grass, we should pull the colour from the colour map.
-        match block_id {
-            "minecraft:grass_block" => return self.pick_grass(biome),
-            "minecraft:oak_leaves" => return self.pick_foliage(biome),
-            "minecraft:jungle_leaves" => return self.pick_foliage(biome),
-            "minecraft:acacia_leaves" => return self.pick_foliage(biome),
-            "minecraft:dark_oak_leaves" => return self.pick_foliage(biome),
-            "minecraft:water" => return self.pick_water(biome),
+        // A bunch of blocks in the game seem to be special cased outside of the
+        // blockstate/model mechanism. For example leaves get coloured based on
+        // the tree type and the biome type, but this is not encoded in the
+        // blockstate or the model.
+        //
+        // This means we have to do a bunch of complex conditional logic in one
+        // of the most called functions. Yuck.
 
-            // Specific colours defined.
-            "minecraft:birch_leaves" => return [0x80, 0xa7, 0x55],
-            "minecraft:spruce_leaves" => return [0x61, 0x99, 0x61],
+        //println!("block: {}", block_id);
 
-            // FIXME: How do we colour snow?
-            "minecraft:snow" => return [250, 250, 250],
+        match block_id.strip_prefix("minecraft:") {
+            Some(id) => {
+                if id.starts_with("grass_block|snowy=false") {
+                    return self.pick_grass(biome);
+                }
 
-            // FIXME: We should probably render the floor under the vine. We cheat here and render it like
-            // foliage.
-            "minecraft:vine" => return self.pick_foliage(biome),
+                if id.starts_with("water") {
+                    return self.pick_water(biome);
+                }
 
-            // Occurs a lot for the end, as layer 0 will be air a lot.
-            // Rendering it black makes sense in the end, but might look weird if it ends up elsewhere.
-            "minecraft:air" => return [0, 0, 0],
+                if id.starts_with("oak_leaves|")
+                    || id.starts_with("jungle_leaves|")
+                    || id.starts_with("acacia_leaves|")
+                    || id.starts_with("dark_oak_leaves|")
+                {
+                    return self.pick_foliage(biome);
+                }
 
-            _ => {}
+                if id.starts_with("birch_leaves|") {
+                    return [0x80, 0xa7, 0x55]; // game hardcodes this
+                }
+
+                if id.starts_with("spruce_leaves|") {
+                    return [0x61, 0x99, 0x61]; // game hardcodes this
+                }
+
+                // Kelp and seagrass don't look like much from the top as
+                // they're flat. Maybe in future hard code a green tint to make
+                // it show up?
+                if id.starts_with("kelp|") || id.starts_with("sea_grass|") {
+                    return self.pick_water(biome);
+                }
+
+                if id.starts_with("snow|") || id == "grass_block|snowy=true" {
+                    return self.pick("minecraft:snow_block|", biome); // TODO: Do this properly.
+                }
+
+                // Occurs a lot for the end, as layer 0 will be air in the void.
+                // Rendering it black makes sense in the end, but might look
+                // weird if it ends up elsewhere.
+                if id == "air|" {
+                    return [0, 0, 0];
+                }
+
+                if id == "cave_air|" {
+                    return [255, 0, 0]; // when does this happen??
+                }
+
+                // Otherwise fall through to the general mechanism.
+            }
+            None => {}
         }
 
         let col = self.blockstates.get(block_id);
         match col {
             Some(c) => *c,
             None => {
-                // println!("could not draw {}", block_id);
+                //println!("could not draw {}", block_id);
                 [255, 0, 255]
             }
         }
@@ -257,10 +302,10 @@ fn auto_size(paths: &Vec<PathBuf>) -> Option<Rectangle> {
 
 fn make_bounds(size: (isize, isize), off: (isize, isize)) -> Rectangle {
     Rectangle {
-        xmin: off.0 - size.0 / 2,
-        xmax: off.0 + size.0 / 2,
-        zmin: off.1 - size.1 / 2,
-        zmax: off.1 + size.1 / 2,
+        xmin: off.0 - (size.0 + 0) / 2, // size + 1 makes sure that a size of 1,1
+        xmax: off.0 + (size.0 + 1) / 2, // produces bounds of size 1,1 rather than
+        zmin: off.1 - (size.1 + 0) / 2, // the 0,0 you would get without it.
+        zmax: off.1 + (size.1 + 1) / 2,
     }
 }
 
@@ -317,8 +362,6 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>
         grass: grass?,
         foliage: foliage?,
     };
-
-    println!("{:#?}", p.blockstates);
 
     Ok(Box::new(p))
 }

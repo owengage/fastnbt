@@ -118,7 +118,7 @@ fn cobblestone_blockstate() -> Blockstate {
 }
 
 fn cobblestone_texture() -> Texture {
-    [1; 1024]
+    vec![1, 2, 3]
 }
 
 fn cobblestone_renderer() -> Renderer {

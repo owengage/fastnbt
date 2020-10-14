@@ -67,6 +67,10 @@ pub enum Error {
 }
 
 fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
+    if parent.textures.is_none() {
+        parent.textures = Some(HashMap::new());
+    }
+
     match parent.textures {
         Some(ref mut parent_textures) => {
             let child_textures = child.textures.as_ref().ok_or(Error::MissingModelTextures)?;
@@ -100,28 +104,21 @@ fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
                     None => {}
                 }
             }
-
-            Ok(parent)
         }
-        None => {
-            // We're in a model with no textures. This likely means that we're
-            // at a model that describes the actual geometry of the textures
-            // now.
-            parent.textures = child.textures.clone();
+        None => {}
+    }
 
-            // Copy any geometry elements from child to parent.
-            match parent.elements {
-                None => parent.elements = child.elements.clone(),
-                Some(ref mut pels) => {
-                    for el in child.elements.iter().flatten() {
-                        pels.push(el.clone());
-                    }
-                }
+    // Copy any geometry elements from child to parent.
+    match parent.elements {
+        None => parent.elements = child.elements.clone(),
+        Some(ref mut pels) => {
+            for el in child.elements.iter().flatten() {
+                pels.push(el.clone());
             }
-
-            Ok(parent)
         }
     }
+
+    Ok(parent)
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -211,14 +208,19 @@ impl Renderer {
     }
 
     fn extract_texture(&self, tex_name: &str) -> Result<Texture> {
-        self.textures
-            .get(tex_name)
-            .map(|t| t.clone())
-            .ok_or(Error::MissingTexture(
-                "?".to_owned(),
-                "?".to_owned(),
-                tex_name.to_string(),
-            ))
+        // Sometimes the texture is not prefixed with `minecraft:`, so if the
+        // initial look up fails we can prepend it with this and check that too.
+        match self.textures.get(tex_name) {
+            Some(tex) => Ok(tex.clone()), // TODO: We keep cloning these textures, which are Vectors.
+            None => match self.textures.get(&("minecraft:".to_string() + tex_name)) {
+                Some(tex) => Ok(tex.clone()),
+                None => Err(Error::MissingTexture(
+                    "?".to_owned(),
+                    "?".to_owned(),
+                    tex_name.to_string(),
+                )),
+            },
+        }
     }
 }
 
@@ -244,7 +246,13 @@ impl Render for Renderer {
                         let model_name = &variant.model;
                         self.model_get_top(id, encoded_props, model_name)
                     }
-                    Variants::Many(variants) => Err(Error::Unsupported),
+                    Variants::Many(variants) => {
+                        // TODO: Should probably actually pick one at random or
+                        // something. How does the game actually decide which
+                        // variant to use?
+                        let model_name = &variants[0].model;
+                        self.model_get_top(id, encoded_props, model_name)
+                    }
                 }
             }
             Blockstate::Multipart(_) => Err(Error::Unsupported),
