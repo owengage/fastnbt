@@ -47,13 +47,17 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
         let data = self.map.chunk_mut(xc_rel, zc_rel);
         self.processed_chunks += 1;
 
-        //println!("{}", chunk.level.status);
-
         if chunk.level.status != "full" {
             // Chunks that have been fully generated will have a 'full' status.
-            // Skip chunks that don't, the way they render is really unpredictable.
+            // Skip chunks that don't; the way they render is unpredictable.
             return;
         }
+
+        // if xc_rel < 29 || xc_rel > 30 || zc_rel > 19 || zc_rel < 18 {
+        //     return;
+        // }
+
+        //println!("{:#?}", chunk);
 
         for z in 0..16 {
             for x in 0..16 {
@@ -63,9 +67,11 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
                 let material = chunk.id_of(x, height, z);
 
                 let colour = match material {
-                    Some(material) => self.palette.pick(&material, biome),
+                    Some(ref material) => self.palette.pick(&material, biome),
                     None => [0, 0, 0], // if no ID is given the block doesn't actually exist in the world.
                 };
+
+                //println!("{:?}: {:?}", material, colour);
 
                 let pixel = &mut data[x * 16 + z];
                 *pixel = colour;

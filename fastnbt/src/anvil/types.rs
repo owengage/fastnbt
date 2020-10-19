@@ -19,38 +19,25 @@ pub struct Chunk<'a> {
 
 impl<'a> Chunk<'a> {
     pub fn id_of(&mut self, x: usize, y: usize, z: usize) -> Option<String> {
-        if self.level.sections.is_empty() {
-            return None;
+        let sec = self.get_section_for_y(y)?;
+
+        if (sec.y as usize) * 16 > y {}
+        let sec_y = y - sec.y as usize * 16;
+        let state_index = (sec_y as usize * 16 * 16) + x * 16 + z;
+
+        if sec.unpacked_states == None {
+            let bits_per_item = super::bits::bits_per_block(sec.palette.as_ref()?.len());
+            let mut buf = vec![0; 16 * 16 * 16];
+
+            sec.block_states
+                .as_ref()?
+                .unpack_into(bits_per_item, &mut buf[..]);
+
+            sec.unpacked_states = Some(buf);
         }
 
-        // First section is sometimes y = -1.
-        // If that's the case we want to add one to the section we attempt to get.
-        if self.level.sections[0].y != 0 {}
-        let containing_section_y = (y / 16) as isize - (self.level.sections[0].y as isize);
-
-        let sec = self.level.sections.get_mut(containing_section_y as usize);
-
-        if let Some(sec) = sec {
-            if (sec.y as usize) * 16 > y {}
-            let sec_y = y - sec.y as usize * 16;
-            let state_index = (sec_y as usize * 16 * 16) + x * 16 + z;
-
-            if sec.unpacked_states == None {
-                let bits_per_item = super::bits::bits_per_block(sec.palette.as_ref()?.len());
-                let mut buf = vec![0; 16 * 16 * 16];
-
-                sec.block_states
-                    .as_ref()?
-                    .unpack_into(bits_per_item, &mut buf[..]);
-
-                sec.unpacked_states = Some(buf);
-            }
-
-            let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
-            Some(sec.palette.as_ref()?[pal_index].encoded_id())
-        } else {
-            None
-        }
+        let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
+        Some(sec.palette.as_ref()?[pal_index].encoded_id())
     }
 
     pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
@@ -91,6 +78,36 @@ impl<'a> Chunk<'a> {
             None
         }
     }
+
+    fn calculate_sec_map(&mut self) {
+        self.level.sec_map = Some(HashMap::new());
+        let map = self.level.sec_map.as_mut().unwrap();
+
+        for (i, sec) in self.level.sections.iter().enumerate() {
+            map.insert(sec.y, i);
+        }
+    }
+
+    fn get_section_for_y(&mut self, y: usize) -> Option<&mut Section<'a>> {
+        if self.level.sections.is_empty() {
+            return None;
+        }
+
+        if self.level.sec_map.is_none() {
+            self.calculate_sec_map();
+        }
+
+        let containing_section_y = y / 16;
+        let section_index = self
+            .level
+            .sec_map
+            .as_ref()
+            .unwrap() // calculate_sec_map() make sure this is valid.
+            .get(&(containing_section_y as i8))?;
+
+        let sec = self.level.sections.get_mut(*section_index);
+        sec
+    }
 }
 
 /// A level describes the contents of the chunk in the world.
@@ -113,6 +130,9 @@ pub struct Level<'a> {
     pub sections: Vec<Section<'a>>,
 
     pub status: &'a str,
+
+    #[serde(skip)]
+    sec_map: Option<HashMap<i8, usize>>,
 }
 
 /// Various heightmaps kept up to date by Minecraft.
