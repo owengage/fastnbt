@@ -1,24 +1,30 @@
-use fastnbt::tex::{Blockstate, Model, Variant, Variants};
-use std::collections::HashMap;
+use fastnbt::tex::{Blockstate, Model, Render, Renderer, Texture};
 use std::error::Error;
 use std::path::Path;
+use std::{collections::HashMap, fmt::Display};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-fn avg_colour(path: &Path) -> Result<[u8; 3]> {
-    let img = image::open(path)?;
-    let img = img.to_rgba();
-    //.ok_or(format!("image was not RGBA: {}", path.display()))?;
+#[derive(Debug)]
+struct ErrorMessage(&'static str);
+impl std::error::Error for ErrorMessage {}
 
+impl Display for ErrorMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+fn avg_colour(rgba_data: &[u8]) -> Result<[u8; 3]> {
     let mut avg = [0f64; 3];
     let mut count = 0;
 
-    for p in img.pixels() {
+    for p in rgba_data.chunks(4) {
         // alpha is reasonable.
-        if p.0[3] > 128 {
-            avg[0] = avg[0] + ((p.0[0] as u64) * (p.0[0] as u64)) as f64;
-            avg[1] = avg[1] + ((p.0[1] as u64) * (p.0[1] as u64)) as f64;
-            avg[2] = avg[2] + ((p.0[2] as u64) * (p.0[2] as u64)) as f64;
+        if p[3] > 128 {
+            avg[0] = avg[0] + ((p[0] as u64) * (p[0] as u64)) as f64;
+            avg[1] = avg[1] + ((p[1] as u64) * (p[1] as u64)) as f64;
+            avg[2] = avg[2] + ((p[2] as u64) * (p[2] as u64)) as f64;
             count = count + 1;
         }
     }
@@ -28,6 +34,17 @@ fn avg_colour(path: &Path) -> Result<[u8; 3]> {
         (avg[1] / count as f64).sqrt() as u8,
         (avg[2] / count as f64).sqrt() as u8,
     ])
+}
+
+fn load_texture(path: &Path) -> Result<Texture> {
+    let img = image::open(path)?;
+    let img = img.to_rgba();
+
+    if img.dimensions() == (16, 16) {
+        Ok(img.into_raw())
+    } else {
+        Err(Box::new(ErrorMessage("texture was not 16 by 16")))
+    }
 }
 
 fn load_blockstates(blockstates_path: &Path) -> Result<HashMap<String, Blockstate>> {
@@ -82,7 +99,7 @@ fn load_models(path: &Path) -> Result<HashMap<String, Model>> {
     Ok(models)
 }
 
-fn load_textures(path: &Path) -> Result<HashMap<String, [u8; 3]>> {
+fn load_textures(path: &Path) -> Result<HashMap<String, Texture>> {
     let mut tex = HashMap::new();
 
     for entry in std::fs::read_dir(path)? {
@@ -90,79 +107,24 @@ fn load_textures(path: &Path) -> Result<HashMap<String, [u8; 3]>> {
         let path = entry.path();
 
         if path.is_file() && path.extension().ok_or("invalid ext")?.to_string_lossy() == "png" {
-            let colour = avg_colour(&path)?;
+            let texture = load_texture(&path);
 
-            tex.insert(
-                "minecraft:block/".to_owned()
-                    + path
-                        .file_stem()
-                        .ok_or(format!("invalid file name: {}", path.display()))?
-                        .to_str()
-                        .ok_or(format!("nonunicode file name: {}", path.display()))?,
-                colour,
-            );
+            match texture {
+                Err(_) => continue,
+                Ok(texture) => tex.insert(
+                    "minecraft:block/".to_owned()
+                        + path
+                            .file_stem()
+                            .ok_or(format!("invalid file name: {}", path.display()))?
+                            .to_str()
+                            .ok_or(format!("nonunicode file name: {}", path.display()))?,
+                    texture,
+                ),
+            };
         }
     }
 
     Ok(tex)
-}
-
-fn find_model_in_variant(var: &Variant, models: &HashMap<String, Model>) -> Result<String> {
-    let model = models
-        .get(&var.model)
-        .ok_or(format!("did not find {}", &var.model))?;
-
-    if let Some(ref textures) = model.textures {
-        if let Some(t) = textures.get("all") {
-            return Ok(t.clone());
-        }
-
-        if let Some(t) = textures.get("top") {
-            return Ok(t.clone());
-        }
-
-        if let Some(t) = textures.get("plant") {
-            return Ok(t.clone());
-        }
-
-        if let Some(t) = textures.get("texture") {
-            return Ok(t.clone());
-        }
-
-        if let Some(t) = textures.get("particle") {
-            return Ok(t.clone());
-        }
-
-        if let Some(t) = textures.get("fan") {
-            return Ok(t.clone());
-        }
-        if let Some(t) = textures.get("cross") {
-            return Ok(t.clone());
-        }
-        if let Some(t) = textures.get("side") {
-            // eg logs, has side and end.
-            return Ok(t.clone());
-        }
-        if let Some(t) = textures.get("crop") {
-            // eg wheat
-            return Ok(t.clone());
-        }
-    }
-
-    Err("did not understand model")?
-}
-
-fn find_texture(state: &Blockstate, models: &HashMap<String, Model>) -> Result<String> {
-    if let Blockstate::Variants(ref v) = state {
-        for (_vname, variant) in v {
-            return match variant {
-                Variants::Single(ref var) => find_model_in_variant(var, models),
-                Variants::Many(vars) => find_model_in_variant(&vars[0], models),
-            };
-        }
-    };
-
-    Err("did not understand blockstate")?
 }
 
 fn main() -> Result<()> {
@@ -170,58 +132,43 @@ fn main() -> Result<()> {
     let root = Path::new(&args[0]);
     let assets = root.to_owned().join("assets").join("minecraft");
 
+    let textures = load_textures(&assets.join("textures").join("block"))?;
     let blockstates = load_blockstates(&assets.join("blockstates"))?;
     let models = load_models(&assets.join("models").join("block"))?;
-    let textures = load_textures(&assets.join("textures").join("block"))?;
 
-    let mut textured_blocks = HashMap::<String, String>::new();
-
-    for (name, state) in &blockstates {
-        let texture = find_texture(state, &models);
-
-        match texture {
-            Ok(texture) => {
-                textured_blocks.insert(name.clone(), texture.clone());
-            }
-            Err(e) => {
-                if std::env::var_os("VERBOSE").is_some() {
-                    eprintln!("{}: {}", name, e);
-                }
-            }
-        }
-    }
+    let mut renderer = Renderer::new(blockstates.clone(), models.clone(), textures);
+    let mut failed = 0;
+    let mut success = 0;
 
     let mut palette = HashMap::new();
 
-    for (id, tex) in &textured_blocks {
-        // // This is sometimes minecraft:block/blah, sometimes block/blah.
-        let col = textures
-            .get(tex)
-            .or_else(|| textures.get(&("minecraft:".to_owned() + &tex)));
+    for name in blockstates
+        .keys()
+        .filter(|name| args.get(1).map(|s| s == *name).unwrap_or(true))
+    {
+        let bs = &blockstates[name];
 
-        match col {
-            Some(c) => {
-                palette.insert(id, c);
+        match bs {
+            Blockstate::Variants(vars) => {
+                for (props, _) in vars {
+                    let res = renderer.get_top(name, props);
+                    match res {
+                        Ok(texture) => {
+                            let col = avg_colour(texture.as_slice())?;
+                            palette.insert((*name).clone() + "|" + props, col);
+
+                            success += 1;
+                        }
+                        Err(e) => {
+                            println!("did not understand: {:?}", e);
+                            failed += 1;
+                        }
+                    };
+                }
             }
-            None => {
-                //palette.insert(id, &[255u8, 0, 255])
-            }
-        };
+            _ => continue,
+        }
     }
-
-    eprintln!("found {} blockstates", blockstates.len());
-    eprintln!("found {} models", models.len());
-    eprintln!("found {} textures", textures.len());
-    eprintln!(
-        "understood {} out of {} blockstates",
-        textured_blocks.len(),
-        blockstates.len()
-    );
-    eprintln!(
-        "textured {} out of {} blockstates",
-        palette.len(),
-        blockstates.len()
-    );
 
     let f = std::fs::File::create("palette.tar")?;
     let mut ar = tar::Builder::new(f);
@@ -247,5 +194,12 @@ fn main() -> Result<()> {
 
     // finishes the archive.
     ar.into_inner()?;
+
+    println!(
+        "succeeded in understanding {} of {} possible blocks (failed on {})",
+        success,
+        success + failed,
+        failed,
+    );
     Ok(())
 }

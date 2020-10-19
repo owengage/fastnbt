@@ -53,12 +53,6 @@ impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
             return;
         }
 
-        // if xc_rel < 29 || xc_rel > 30 || zc_rel > 19 || zc_rel < 18 {
-        //     return;
-        // }
-
-        //println!("{:#?}", chunk);
-
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.height_of(x, z).unwrap_or(64);
@@ -173,7 +167,10 @@ impl BlockPalette for FullPalette {
                 // Kelp and seagrass don't look like much from the top as
                 // they're flat. Maybe in future hard code a green tint to make
                 // it show up?
-                if id.starts_with("kelp|") || id.starts_with("sea_grass|") {
+                if id.starts_with("kelp|")
+                    || id.starts_with("seagrass|")
+                    || id.starts_with("tall_seagrass|")
+                {
                     return self.pick_water(biome);
                 }
 
