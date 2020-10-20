@@ -8,41 +8,65 @@ use serde::Deserialize;
 /// default just retains a reference to the data in the input, and `unpack_into`
 /// can be used to get the unpacked version when needed.
 #[derive(Deserialize, Debug)]
-pub struct PackedBits<'a>(&'a [u8]);
+pub struct PackedBits<'a>(pub &'a [u8]);
 
 impl<'a> PackedBits<'a> {
     pub fn unpack_into(&self, bits_per_item: usize, buf: &mut [u16]) {
-        let mut data = self.0;
+        let data = self.0;
 
         if buf.len() * bits_per_item == data.len() * 8 {
-            // if 1.15 style packing
-
-            // TODO: Get around having to allocate here.
-            let mut v = vec![];
-            while let Ok(datum) = data.read_u64::<BigEndian>() {
-                v.push(datum);
-            }
-
-            for i in 0..buf.len() {
-                let begin = i * bits_per_item;
-                let end = begin + bits_per_item;
-                buf[i] = v.get_bits(begin..end) as u16;
-            }
+            self.unpack_1_15(bits_per_item, buf)
         } else {
-            // 1.16 style packing
-            let mut buf_i = 0;
-            let values_per_64bits = 64 / bits_per_item;
+            self.unpack_1_16(bits_per_item, buf)
+        }
+    }
 
-            while let Ok(datum) = data.read_u64::<BigEndian>() {
-                for i in 0..values_per_64bits {
-                    let v = datum.get_bits(i * bits_per_item..(i + 1) * bits_per_item);
-                    buf[buf_i] = v as u16;
-                    buf_i += 1;
-                    if buf_i >= buf.len() {
-                        break;
-                    }
+    pub fn unpack_heights_into(&self, buf: &mut [u16]) {
+        self.unpack_1_16(9, buf);
+
+        // Sanity check, are all values in range?
+        // If not it might be a rogue 1.15 format.
+        if !buf.iter().all(|h| *h < 256) {
+            self.unpack_1_15(9, buf);
+        }
+    }
+
+    fn unpack_1_16(&self, bits_per_item: usize, buf: &mut [u16]) {
+        // 1.16 style packing
+        //println!("1.16 packing {}", data.len());
+        let mut data = self.0;
+
+        let mut buf_i = 0;
+        let values_per_64bits = 64 / bits_per_item;
+
+        while let Ok(datum) = data.read_u64::<BigEndian>() {
+            for i in 0..values_per_64bits {
+                let v = datum.get_bits(i * bits_per_item..(i + 1) * bits_per_item);
+                buf[buf_i] = v as u16;
+                buf_i += 1;
+                if buf_i >= buf.len() {
+                    break;
                 }
             }
+        }
+    }
+
+    fn unpack_1_15(&self, bits_per_item: usize, buf: &mut [u16]) {
+        // NB Should come into here.
+        let mut data = self.0;
+
+        // if 1.15 style packing
+        //println!("1.15 packing {}", data.len());
+        // TODO: Get around having to allocate here.
+        let mut v = vec![];
+        while let Ok(datum) = data.read_u64::<BigEndian>() {
+            v.push(datum);
+        }
+
+        for i in 0..buf.len() {
+            let begin = i * bits_per_item;
+            let end = begin + bits_per_item;
+            buf[i] = v.get_bits(begin..end) as u16;
         }
     }
 }

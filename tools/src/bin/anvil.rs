@@ -1,250 +1,14 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fastnbt::anvil::biome::Biome;
-use fastnbt::anvil::draw::{parse_region, RegionDrawer, RegionMap, Rgb};
-use fastnbt::anvil::Chunk;
 use fastnbt::anvil::Region;
+use fastnbt::anvil::RenderedPalette;
+use fastnbt::anvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
+use fastnbt::anvil::{IntoMap, Palette};
 use image;
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-trait BlockPalette {
-    fn pick(&self, block_id: &str, biome: Option<Biome>) -> Rgb;
-}
-
-trait IntoMap {
-    fn into_map(self) -> RegionMap<Rgb>;
-}
-
-struct RegionBlockDrawer<'a, P: BlockPalette + ?Sized> {
-    map: RegionMap<Rgb>,
-    palette: &'a P,
-    processed_chunks: usize,
-    painted_pixels: usize,
-}
-
-impl<'a, P: BlockPalette + ?Sized> RegionBlockDrawer<'a, P> {
-    pub fn new(map: RegionMap<Rgb>, palette: &'a P) -> Self {
-        Self {
-            map,
-            palette,
-            processed_chunks: 0,
-            painted_pixels: 0,
-        }
-    }
-}
-
-impl<'a, P: BlockPalette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
-    fn into_map(self) -> RegionMap<Rgb> {
-        self.map
-    }
-}
-
-impl<'a, P: BlockPalette + ?Sized> RegionDrawer for RegionBlockDrawer<'a, P> {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
-        let data = self.map.chunk_mut(xc_rel, zc_rel);
-        self.processed_chunks += 1;
-
-        if chunk.level.status != "full" {
-            // Chunks that have been fully generated will have a 'full' status.
-            // Skip chunks that don't; the way they render is unpredictable.
-            return;
-        }
-
-        for z in 0..16 {
-            for x in 0..16 {
-                let height = chunk.height_of(x, z).unwrap_or(64);
-                let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
-                let biome = chunk.biome_of(x, height, z);
-                let material = chunk.id_of(x, height, z);
-
-                let colour = match material {
-                    Some(ref material) => self.palette.pick(&material, biome),
-                    None => [0, 0, 0], // if no ID is given the block doesn't actually exist in the world.
-                };
-
-                //println!("{:?}: {:?}", material, colour);
-
-                let pixel = &mut data[x * 16 + z];
-                *pixel = colour;
-                self.painted_pixels += 1;
-            }
-        }
-    }
-}
-
-struct FullPalette {
-    blockstates: std::collections::HashMap<String, [u8; 3]>,
-    grass: image::RgbImage,
-    foliage: image::RgbImage,
-}
-
-impl FullPalette {
-    fn pick_grass(&self, b: Option<Biome>) -> [u8; 3] {
-        b.map(|b| {
-            let climate = fastnbt::anvil::biome::climate(b);
-            let t = climate.temperature.min(1.).max(0.);
-            let r = climate.rainfall.min(1.).max(0.) * t;
-
-            let t = 255 - (t * 255.).ceil() as u32;
-            let r = 255 - (r * 255.).ceil() as u32;
-
-            self.grass.get_pixel(t, r).0
-        })
-        .unwrap_or([0, 0, 0])
-    }
-
-    fn pick_foliage(&self, b: Option<Biome>) -> [u8; 3] {
-        b.map(|b| {
-            let climate = fastnbt::anvil::biome::climate(b);
-            let t = climate.temperature.min(1.).max(0.);
-            let r = climate.rainfall.min(1.).max(0.) * t;
-
-            let t = 255 - (t * 255.).ceil() as u32;
-            let r = 255 - (r * 255.).ceil() as u32;
-
-            self.foliage.get_pixel(t, r).0
-        })
-        .unwrap_or([0, 0, 0])
-    }
-
-    fn pick_water(&self, b: Option<Biome>) -> [u8; 3] {
-        b.map(|b| match b {
-            Biome::Swamp => [0x61, 0x7B, 0x64],
-            Biome::River => [0x3F, 0x76, 0xE4],
-            Biome::Ocean => [0x3F, 0x76, 0xE4],
-            Biome::LukewarmOcean => [0x45, 0xAD, 0xF2],
-            Biome::WarmOcean => [0x43, 0xD5, 0xEE],
-            Biome::ColdOcean => [0x3D, 0x57, 0xD6],
-            Biome::FrozenRiver => [0x39, 0x38, 0xC9],
-            Biome::FrozenOcean => [0x39, 0x38, 0xC9],
-            _ => [0x3f, 0x76, 0xe4],
-        })
-        .unwrap_or([0x3f, 0x76, 0xe4])
-    }
-}
-
-impl BlockPalette for FullPalette {
-    fn pick(&self, block_id: &str, biome: Option<Biome>) -> [u8; 3] {
-        // A bunch of blocks in the game seem to be special cased outside of the
-        // blockstate/model mechanism. For example leaves get coloured based on
-        // the tree type and the biome type, but this is not encoded in the
-        // blockstate or the model.
-        //
-        // This means we have to do a bunch of complex conditional logic in one
-        // of the most called functions. Yuck.
-
-        //println!("block: {}", block_id);
-
-        match block_id.strip_prefix("minecraft:") {
-            Some(id) => {
-                if id.starts_with("grass_block|snowy=false") {
-                    return self.pick_grass(biome);
-                }
-
-                if id.starts_with("water") {
-                    return self.pick_water(biome);
-                }
-
-                if id.starts_with("oak_leaves|")
-                    || id.starts_with("jungle_leaves|")
-                    || id.starts_with("acacia_leaves|")
-                    || id.starts_with("dark_oak_leaves|")
-                {
-                    return self.pick_foliage(biome);
-                }
-
-                if id.starts_with("birch_leaves|") {
-                    return [0x80, 0xa7, 0x55]; // game hardcodes this
-                }
-
-                if id.starts_with("spruce_leaves|") {
-                    return [0x61, 0x99, 0x61]; // game hardcodes this
-                }
-
-                // Kelp and seagrass don't look like much from the top as
-                // they're flat. Maybe in future hard code a green tint to make
-                // it show up?
-                if id.starts_with("kelp|")
-                    || id.starts_with("seagrass|")
-                    || id.starts_with("tall_seagrass|")
-                {
-                    return self.pick_water(biome);
-                }
-
-                if id.starts_with("snow|") || id == "grass_block|snowy=true" {
-                    return self.pick("minecraft:snow_block|", biome); // TODO: Do this properly.
-                }
-
-                // Occurs a lot for the end, as layer 0 will be air in the void.
-                // Rendering it black makes sense in the end, but might look
-                // weird if it ends up elsewhere.
-                if id == "air|" {
-                    return [0, 0, 0];
-                }
-
-                if id == "cave_air|" {
-                    return [255, 0, 0]; // when does this happen??
-                }
-
-                // Otherwise fall through to the general mechanism.
-            }
-            None => {}
-        }
-
-        let col = self.blockstates.get(block_id);
-        match col {
-            Some(c) => *c,
-            None => {
-                //println!("could not draw {}", block_id);
-                [255, 0, 255]
-            }
-        }
-    }
-}
-
-struct RegionBiomeDrawer<'a> {
-    map: &'a mut RegionMap<Rgb>,
-}
-
-impl<'a> RegionDrawer for RegionBiomeDrawer<'a> {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
-        let data = (*self.map).chunk_mut(xc_rel, zc_rel);
-
-        for z in 0..16 {
-            for x in 0..16 {
-                let y = chunk.height_of(x, z).unwrap_or(64);
-                let biome = chunk.biome_of(x, y, z).unwrap_or(Biome::TheVoid);
-
-                // TODO:  If material is grass block (and others), we need to colour it based on biome.
-                let colour = match biome {
-                    Biome::Ocean => [0, 0, 200],
-                    Biome::DeepOcean => [0, 0, 150],
-                    Biome::ColdOcean
-                    | Biome::DeepColdOcean
-                    | Biome::DeepFrozenOcean
-                    | Biome::DeepLukewarmOcean
-                    | Biome::DeepWarmOcean
-                    | Biome::FrozenOcean
-                    | Biome::LukewarmOcean
-                    | Biome::WarmOcean => [0, 0, 255],
-                    Biome::River | Biome::FrozenRiver => [0, 0, 255],
-                    Biome::Beach => [100, 50, 50],
-
-                    b => {
-                        let b: i32 = b.into();
-                        [b as u8, b as u8, b as u8]
-                    }
-                };
-
-                let pixel = &mut data[x * 16 + z];
-                *pixel = colour;
-            }
-        }
-    }
-}
 
 fn parse_coord(coord: &str) -> Option<(isize, isize)> {
     let mut s = coord.split(",");
@@ -320,7 +84,7 @@ struct Rectangle {
     zmax: isize,
 }
 
-fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>> {
+fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
     let path = match path {
         Some(path) => Path::new(path),
         None => panic!("no palette"),
@@ -340,27 +104,28 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn BlockPalette + Sync + Send>
                 let mut buf = vec![];
                 file.read_to_end(&mut buf)?;
 
-                grass =
-                    Ok(image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgb());
+                grass = Ok(
+                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba(),
+                );
             }
             "foliage-colourmap.png" => {
                 use std::io::Read;
                 let mut buf = vec![];
                 file.read_to_end(&mut buf)?;
 
-                foliage =
-                    Ok(image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgb());
+                foliage = Ok(
+                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba(),
+                );
             }
             "blockstates.json" => {
-                let json: std::collections::HashMap<String, [u8; 3]> =
-                    serde_json::from_reader(file)?;
+                let json: std::collections::HashMap<String, Rgba> = serde_json::from_reader(file)?;
                 blockstates = Ok(json);
             }
             _ => {}
         }
     }
 
-    let p = FullPalette {
+    let p = RenderedPalette {
         blockstates: blockstates?,
         grass: grass?,
         foliage: foliage?,
@@ -390,7 +155,7 @@ fn render(args: &ArgMatches) -> Result<()> {
         _ => panic!(),
     };
 
-    print!("Bounds: {:?}", bounds);
+    println!("Bounds: {:?}", bounds);
 
     let x_range = bounds.xmin..bounds.xmax;
     let z_range = bounds.zmin..bounds.zmax;
@@ -399,14 +164,14 @@ fn render(args: &ArgMatches) -> Result<()> {
     let dx = x_range.len();
     let dz = z_range.len();
 
-    let pal: std::sync::Arc<dyn BlockPalette + Send + Sync> =
+    let pal: std::sync::Arc<dyn Palette + Send + Sync> =
         get_palette(args.value_of("palette"))?.into();
 
     use std::sync::atomic::{AtomicUsize, Ordering};
     let processed_chunks = AtomicUsize::new(0);
     let painted_pixels = AtomicUsize::new(0);
 
-    let region_maps: Vec<Option<RegionMap<Rgb>>> = paths
+    let region_maps: Vec<Option<RegionMap<Rgba>>> = paths
         .into_par_iter()
         .map(|path| {
             let (x, z) = coords_from_region(&path).unwrap();
@@ -416,7 +181,7 @@ fn render(args: &ArgMatches) -> Result<()> {
                 let file = std::fs::File::open(path).ok()?;
                 let region = Region::new(file);
 
-                let map = RegionMap::new(x, z, [0, 0, 0]);
+                let map = RegionMap::new(x, z, [0, 0, 0, 0]);
                 let mut drawer = RegionBlockDrawer::new(map, &*pal);
                 parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
@@ -453,7 +218,7 @@ fn render(args: &ArgMatches) -> Result<()> {
                             let pixel = heightmap[z * 16 + x];
                             let x = xcp * 16 + x as isize;
                             let z = zcp * 16 + z as isize;
-                            img.put_pixel(x as u32, z as u32, image::Rgb(pixel))
+                            img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
                         }
                     }
                 }
@@ -462,88 +227,6 @@ fn render(args: &ArgMatches) -> Result<()> {
     }
 
     img.save("map.png").unwrap();
-    Ok(())
-}
-
-fn biomes(args: &ArgMatches) -> Result<()> {
-    let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
-    let dim: &str = args.value_of("dimension").unwrap();
-
-    let subpath = match dim {
-        "end" => "DIM1/region",
-        "nether" => "DIM-1/region",
-        _ => "region",
-    };
-
-    let paths = region_paths(&world.join(subpath))
-        .or(Err(format!("no region files found for {} dimension", dim)))?;
-
-    let bounds = match (args.value_of("size"), args.value_of("offset")) {
-        (Some(size), Some(offset)) => {
-            make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
-        }
-        (None, _) => auto_size(&paths).unwrap(),
-        _ => panic!(),
-    };
-
-    print!("Bounds: {:?}", bounds);
-
-    let x_range = bounds.xmin..bounds.xmax;
-    let z_range = bounds.zmin..bounds.zmax;
-
-    let region_len: usize = 32 * 16;
-    let dx = x_range.len();
-    let dz = z_range.len();
-
-    let region_maps: Vec<Option<RegionMap<Rgb>>> = paths
-        .into_par_iter()
-        .map(|path| {
-            let (x, z) = coords_from_region(&path).unwrap();
-
-            if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                println!("parsing region x: {}, z: {}", x, z);
-                let file = std::fs::File::open(path).ok()?;
-                let region = Region::new(file);
-
-                let mut map = RegionMap::new(x, z, [0, 0, 0]);
-                let mut drawer = RegionBiomeDrawer { map: &mut map };
-                parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
-
-                Some(map)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    println!("writing biome.png");
-    let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
-
-    for region_map in region_maps {
-        if let Some(map) = region_map {
-            let xrp = map.x_region - x_range.start;
-            let zrp = map.z_region - z_range.start;
-
-            for xc in 0..32 {
-                for zc in 0..32 {
-                    let heightmap = map.chunk(xc, zc);
-                    let xcp = xrp * 32 + xc as isize;
-                    let zcp = zrp * 32 + zc as isize;
-
-                    for z in 0..16 {
-                        for x in 0..16 {
-                            let pixel = heightmap[z * 16 + x];
-                            let x = xcp * 16 + x as isize;
-                            let z = zcp * 16 + z as isize;
-                            img.put_pixel(x as u32, z as u32, image::Rgb(pixel))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    img.save("biome.png").unwrap();
     Ok(())
 }
 
@@ -579,35 +262,10 @@ fn main() -> Result<()> {
                         .required(false),
                 ),
         )
-        .subcommand(
-            SubCommand::with_name("biomes")
-                .arg(Arg::with_name("world").takes_value(true).required(true))
-                .arg(
-                    Arg::with_name("size")
-                        .long("size")
-                        .takes_value(true)
-                        .required(false),
-                )
-                .arg(
-                    Arg::with_name("offset")
-                        .long("offset")
-                        .takes_value(true)
-                        .required(false)
-                        .default_value("0,0"),
-                )
-                .arg(
-                    Arg::with_name("dimension")
-                        .long("dimension")
-                        .takes_value(true)
-                        .required(false)
-                        .default_value("overworld"),
-                ),
-        )
         .get_matches();
 
     match matches.subcommand() {
         ("render", Some(args)) => render(args)?,
-        ("biomes", Some(args)) => biomes(args)?,
         _ => println!("{}", matches.usage()),
     };
 

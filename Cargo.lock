@@ -173,6 +173,7 @@ dependencies = [
  "bit_field",
  "byteorder",
  "flate2",
+ "image",
  "num_enum",
  "serde",
  "serde_json",

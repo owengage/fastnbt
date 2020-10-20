@@ -1,4 +1,7 @@
-use fastnbt::tex::{Blockstate, Model, Render, Renderer, Texture};
+use fastnbt::{
+    anvil::Rgba,
+    tex::{Blockstate, Model, Render, Renderer, Texture},
+};
 use std::error::Error;
 use std::path::Path;
 use std::{collections::HashMap, fmt::Display};
@@ -15,7 +18,7 @@ impl Display for ErrorMessage {
     }
 }
 
-fn avg_colour(rgba_data: &[u8]) -> Result<[u8; 3]> {
+fn avg_colour(rgba_data: &[u8]) -> Result<Rgba> {
     let mut avg = [0f64; 3];
     let mut count = 0;
 
@@ -33,6 +36,7 @@ fn avg_colour(rgba_data: &[u8]) -> Result<[u8; 3]> {
         (avg[0] / count as f64).sqrt() as u8,
         (avg[1] / count as f64).sqrt() as u8,
         (avg[2] / count as f64).sqrt() as u8,
+        255,
     ])
 }
 

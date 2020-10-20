@@ -16,15 +16,14 @@ pub const SECTOR_SIZE: usize = 4096;
 pub const HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 
 pub mod biome;
-pub mod draw;
 
 mod bits;
+mod render;
 mod types;
 
-pub use bits::{
-    expand_blockstates, expand_generic_1_15, expand_generic_1_16, expand_heightmap, PackedBits,
-};
-pub use types::{Block, Chunk, Level, Section};
+pub use bits::*;
+pub use render::*;
+pub use types::*;
 
 /// Various compression schemes that NBT data is typically compressed with.
 #[derive(Debug, TryFromPrimitive)]

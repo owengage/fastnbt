@@ -10,11 +10,83 @@ use super::biome::Biome;
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct Chunk<'a> {
-    #[serde(rename = "DataVersion")]
     pub data_version: i32,
 
     #[serde(borrow)]
     pub level: Level<'a>,
+}
+
+/// A level describes the contents of the chunk in the world.
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct Level<'a> {
+    #[serde(rename = "xPos")]
+    pub x_pos: i32,
+
+    #[serde(rename = "zPos")]
+    pub z_pos: i32,
+
+    pub biomes: Option<&'a [u8]>,
+
+    #[serde(borrow)]
+    pub heightmaps: Option<Heightmaps<'a>>,
+
+    // Old chunk formats can store a plain heightmap in an IntArray here.
+    #[serde(rename = "HeightMap")]
+    pub old_heightmap: Option<Vec<i32>>,
+
+    /// Ideally this would be done as a slice to avoid allocating the vector.
+    /// But there's no where to 'put' the slice of sections.
+    ///
+    /// Can be empty if the chunk hasn't been generated properly yet.
+    pub sections: Option<Vec<Section<'a>>>,
+
+    // Status of the chunk. Typically anything except 'full' means the chunk
+    // hasn't been fully generated yet. We use this to skip chunks on map edges
+    // that haven't been fully generated yet.
+    pub status: &'a str,
+
+    // Maps the y value from each section to the index in the `sections` field.
+    // Makes it quicker to find the correct section when all you have is the height.
+    #[serde(skip)]
+    sec_map: Option<HashMap<i8, usize>>,
+}
+
+/// Various heightmaps kept up to date by Minecraft.
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct Heightmaps<'a> {
+    #[serde(borrow)]
+    pub motion_blocking: Option<PackedBits<'a>>,
+    pub motion_blocking_no_leaves: Option<PackedBits<'a>>,
+    pub ocean_floor: Option<PackedBits<'a>>,
+    pub world_surface: Option<PackedBits<'a>>,
+
+    #[serde(skip)]
+    unpacked_motion_blocking: Option<[u16; 16 * 16]>,
+}
+
+/// A vertical section of a chunk (ie a 16x16x16 block cube)
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct Section<'a> {
+    pub y: i8,
+
+    #[serde(borrow)]
+    pub block_states: Option<PackedBits<'a>>,
+    pub palette: Option<Vec<Block<'a>>>,
+
+    // Perhaps a little large to potentially end up on the stack? 8 KiB.
+    #[serde(skip)]
+    unpacked_states: Option<[u16; 16 * 16 * 16]>,
+}
+
+/// A block within the world.
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct Block<'a> {
+    pub name: &'a str,
+    pub properties: Option<HashMap<&'a str, &'a str>>,
 }
 
 impl<'a> Chunk<'a> {
@@ -27,13 +99,13 @@ impl<'a> Chunk<'a> {
 
         if sec.unpacked_states == None {
             let bits_per_item = super::bits::bits_per_block(sec.palette.as_ref()?.len());
-            let mut buf = vec![0; 16 * 16 * 16];
+            sec.unpacked_states = Some([0; 16 * 16 * 16]);
+
+            let buf = sec.unpacked_states.as_mut()?;
 
             sec.block_states
                 .as_ref()?
                 .unpack_into(bits_per_item, &mut buf[..]);
-
-            sec.unpacked_states = Some(buf);
         }
 
         let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
@@ -43,13 +115,30 @@ impl<'a> Chunk<'a> {
     pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
         let ref mut maps = self.level.heightmaps;
 
-        if maps.unpacked_motion_blocking == None {
-            let mut buf = vec![0u16; 16 * 16];
-            maps.motion_blocking.as_ref()?.unpack_into(9, &mut buf[..]);
-            maps.unpacked_motion_blocking = Some(buf);
-        }
+        match maps {
+            Some(maps) => {
+                if maps.unpacked_motion_blocking == None {
+                    maps.unpacked_motion_blocking = Some([0; 256]);
+                    let buf = maps.unpacked_motion_blocking.as_mut()?;
+                    maps.motion_blocking
+                        .as_ref()?
+                        .unpack_heights_into(&mut buf[..]);
+                    // println!("heightmap expanded {:?}", maps.unpacked_motion_blocking);
+                    // println!(
+                    //     "heightmap {:?}, len {}",
+                    //     maps.motion_blocking,
+                    //     maps.motion_blocking.as_ref()?.0.len()
+                    // );
+                }
 
-        Some(maps.unpacked_motion_blocking.as_ref()?[x * 16 + z] as usize)
+                Some(maps.unpacked_motion_blocking.as_ref()?[x * 16 + z] as usize)
+            }
+            None => self // Older style heightmap found. Much simplr, just an int per column.
+                .level
+                .old_heightmap
+                .as_ref()
+                .map(|v| v[x * 16 + z] as usize),
+        }
     }
 
     pub fn biome_of(&self, x: usize, _y: usize, z: usize) -> Option<Biome> {
@@ -83,13 +172,13 @@ impl<'a> Chunk<'a> {
         self.level.sec_map = Some(HashMap::new());
         let map = self.level.sec_map.as_mut().unwrap();
 
-        for (i, sec) in self.level.sections.iter().enumerate() {
+        for (i, sec) in self.level.sections.iter().flatten().enumerate() {
             map.insert(sec.y, i);
         }
     }
 
     fn get_section_for_y(&mut self, y: usize) -> Option<&mut Section<'a>> {
-        if self.level.sections.is_empty() {
+        if self.level.sections.as_ref()?.is_empty() {
             return None;
         }
 
@@ -105,70 +194,9 @@ impl<'a> Chunk<'a> {
             .unwrap() // calculate_sec_map() make sure this is valid.
             .get(&(containing_section_y as i8))?;
 
-        let sec = self.level.sections.get_mut(*section_index);
+        let sec = self.level.sections.as_mut()?.get_mut(*section_index);
         sec
     }
-}
-
-/// A level describes the contents of the chunk in the world.
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct Level<'a> {
-    #[serde(rename = "xPos")]
-    pub x_pos: i32,
-
-    #[serde(rename = "zPos")]
-    pub z_pos: i32,
-
-    pub biomes: Option<&'a [u8]>,
-
-    #[serde(borrow)]
-    pub heightmaps: Heightmaps<'a>,
-
-    // Ideally this would be done as a slice to avoid allocating the vector.
-    // But there's no where to 'put' the slice of sections.
-    pub sections: Vec<Section<'a>>,
-
-    pub status: &'a str,
-
-    #[serde(skip)]
-    sec_map: Option<HashMap<i8, usize>>,
-}
-
-/// Various heightmaps kept up to date by Minecraft.
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub struct Heightmaps<'a> {
-    #[serde(borrow)]
-    pub motion_blocking: Option<PackedBits<'a>>,
-    pub motion_blocking_no_leaves: Option<PackedBits<'a>>,
-    pub ocean_floor: Option<PackedBits<'a>>,
-    pub world_surface: Option<PackedBits<'a>>,
-
-    #[serde(skip)]
-    unpacked_motion_blocking: Option<Vec<u16>>,
-}
-
-/// A vertical section of a chunk (ie a 16x16x16 block cube)
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct Section<'a> {
-    pub y: i8,
-
-    #[serde(borrow)]
-    pub block_states: Option<PackedBits<'a>>,
-    pub palette: Option<Vec<Block<'a>>>,
-
-    #[serde(skip)]
-    unpacked_states: Option<Vec<u16>>,
-}
-
-/// A block within the world.
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct Block<'a> {
-    pub name: &'a str,
-    pub properties: Option<HashMap<&'a str, &'a str>>,
 }
 
 impl<'a> Block<'a> {
