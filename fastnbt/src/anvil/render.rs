@@ -1,3 +1,5 @@
+use std::io::{Read, Seek};
+
 use crate::nbt;
 
 use super::{
@@ -87,10 +89,13 @@ impl From<std::io::Error> for DrawError {
 
 pub type DrawResult<T> = std::result::Result<T, DrawError>;
 
-pub fn parse_region<F: ChunkRender + ?Sized>(
-    mut region: Region<std::fs::File>,
+pub fn parse_region<F: ChunkRender + ?Sized, RS>(
+    mut region: Region<RS>,
     draw_to: &mut F,
-) -> DrawResult<()> {
+) -> DrawResult<()>
+where
+    RS: Read + Seek,
+{
     let closure = |x: usize, z: usize, buf: &Vec<u8>| {
         let chunk = nbt::de::from_bytes(buf.as_slice());
         match chunk {
