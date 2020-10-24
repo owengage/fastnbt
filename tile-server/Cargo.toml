@@ -1,0 +1,13 @@
+[package]
+name = "fastnbt-tile-server"
+description = "tile server for anvil"
+version = "0.8.0"
+authors = ["Owen Gage <owengage@gmail.com>"]
+edition = "2018"
+license = "MIT"
+publish = false
+
+[dependencies]
+fastnbt = { path = "../fastnbt", version = "0.8.0" }
+rocket = { version = "0.4" }
+rocket_contrib = "0.4"

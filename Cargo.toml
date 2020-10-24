@@ -3,4 +3,5 @@
 members = [
     "fastnbt",
     "tools",
+    "tile-server"
 ]

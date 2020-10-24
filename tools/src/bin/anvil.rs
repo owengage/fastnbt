@@ -230,6 +230,93 @@ fn render(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn tiles(args: &ArgMatches) -> Result<()> {
+    let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
+    let dim: &str = args.value_of("dimension").unwrap();
+
+    let subpath = match dim {
+        "end" => "DIM1/region",
+        "nether" => "DIM-1/region",
+        _ => "region",
+    };
+
+    let paths = region_paths(&world.join(subpath))
+        .or(Err(format!("no region files found for {} dimension", dim)))?;
+
+    let bounds = match (args.value_of("size"), args.value_of("offset")) {
+        (Some(size), Some(offset)) => {
+            make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
+        }
+        (None, _) => auto_size(&paths).unwrap(),
+        _ => panic!(),
+    };
+
+    println!("Bounds: {:?}", bounds);
+
+    let x_range = bounds.xmin..bounds.xmax;
+    let z_range = bounds.zmin..bounds.zmax;
+
+    let region_len: usize = 32 * 16;
+
+    let pal: std::sync::Arc<dyn Palette + Send + Sync> =
+        get_palette(args.value_of("palette"))?.into();
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let processed_chunks = AtomicUsize::new(0);
+    let painted_pixels = AtomicUsize::new(0);
+
+    paths
+        .into_par_iter()
+        .map(|path| {
+            let (x, z) = coords_from_region(&path).unwrap();
+
+            if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
+                println!("parsing region x: {}, z: {}", x, z);
+                let file = std::fs::File::open(path).ok()?;
+                let region = Region::new(file);
+
+                let map = RegionMap::new(x, z, [0, 0, 0, 0]);
+                let mut drawer = RegionBlockDrawer::new(map, &*pal);
+                parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
+
+                processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
+                painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
+
+                Some(drawer.into_map())
+            } else {
+                None
+            }
+        })
+        .filter_map(|region| region)
+        .for_each(|region| {
+            let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
+
+            for xc in 0..32 {
+                for zc in 0..32 {
+                    let heightmap = region.chunk(xc, zc);
+                    let xcp = xc as isize;
+                    let zcp = zc as isize;
+
+                    for z in 0..16 {
+                        for x in 0..16 {
+                            let pixel = heightmap[z * 16 + x];
+                            let x = xcp * 16 + x as isize;
+                            let z = zcp * 16 + z as isize;
+                            img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
+                        }
+                    }
+                }
+            }
+
+            img.save(format!("tiles/{}.{}.png", region.x_region, region.z_region))
+                .unwrap();
+        });
+
+    println!("{} chunks", processed_chunks.load(Ordering::SeqCst));
+    println!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let matches = App::new("anvil-fast")
         .subcommand(
@@ -262,10 +349,41 @@ fn main() -> Result<()> {
                         .required(false),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("tiles")
+                .arg(Arg::with_name("world").takes_value(true).required(true))
+                .arg(
+                    Arg::with_name("size")
+                        .long("size")
+                        .takes_value(true)
+                        .required(false),
+                )
+                .arg(
+                    Arg::with_name("offset")
+                        .long("offset")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("0,0"),
+                )
+                .arg(
+                    Arg::with_name("dimension")
+                        .long("dimension")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("overworld"),
+                )
+                .arg(
+                    Arg::with_name("palette")
+                        .long("palette")
+                        .takes_value(true)
+                        .required(false),
+                ),
+        )
         .get_matches();
 
     match matches.subcommand() {
         ("render", Some(args)) => render(args)?,
+        ("tiles", Some(args)) => tiles(args)?,
         _ => println!("{}", matches.usage()),
     };
 

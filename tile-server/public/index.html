@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>fastnbt tile server</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+        integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+        crossorigin="" />
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        #mapid {
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mapid"></div>
+
+    <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+        crossorigin=""></script>
+
+    <script>
+        var mymap = L.map("mapid", {
+            crs: L.CRS.Simple
+        }).setView([0, 0], 4);
+        L.tileLayer('/tiles/cliff-side/{x}.{y}.png', {
+            attribution: 'fastnbt',
+            minNativeZoom: 4,
+            maxNativeZoom: 4,
+            tileSize: 512,
+            noWrap: true,
+        }).addTo(mymap);
+
+    </script>
+</body>
+
+</html>
