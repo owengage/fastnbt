@@ -1,22 +1,7 @@
-class WorkerPool {
-    constructor(count, onMessage) {
-        this.workers = [];
-        this.messageCount = 0;
-        for (let i = 0; i < count; i++) {
-            const worker = new Worker('./worker.bundle.js');
-            worker.onmessage = onMessage;
-            worker.onerror = console.error;
-            this.workers.push(worker);
-        }
-    }
+import leaflet from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-    postMessage(data) {
-        const i = this.messageCount % this.workers.length;
-        this.messageCount++;
-
-        this.workers[i].postMessage(data);
-    }
-}
+import WorkerPool from './worker-pool';
 
 const workers = new WorkerPool(navigator.hardwareConcurrency, e => {
     const { fileName, data } = e.data
@@ -40,8 +25,7 @@ const tileCache = {};
 let files = [];
 const callbacks = {};
 
-
-var CanvasLayer = L.GridLayer.extend({
+var MinecraftLayer = leaflet.GridLayer.extend({
     createTile: function (coords, done) {
         // in minecraft x/z is the floor, but in leaflet x/y is.
         const fileName = `r.${coords.x}.${coords.y}.mca`
@@ -55,7 +39,7 @@ var CanvasLayer = L.GridLayer.extend({
 
         const file = files.find(file => file.name == fileName);
 
-        var tile = L.DomUtil.create('canvas', 'leaflet-tile');
+        var tile = leaflet.DomUtil.create('canvas', 'leaflet-tile');
         var size = this.getTileSize();
         tile.width = size.x;
         tile.height = size.y;
@@ -87,11 +71,11 @@ function handleFiles() {
     mymap.eachLayer(layer => layer.redraw());
 };
 
-var mymap = L.map("mapid", {
-    crs: L.CRS.Simple
+var mymap = leaflet.map("map", {
+    crs: leaflet.CRS.Simple
 }).setView([0, 0], 1);
 
-mymap.addLayer(new CanvasLayer({
+mymap.addLayer(new MinecraftLayer({
     minNativeZoom: 1,
     maxNativeZoom: 1,
     tileSize: 512,
