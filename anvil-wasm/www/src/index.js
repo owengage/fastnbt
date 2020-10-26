@@ -6,8 +6,6 @@ import WorkerPool from './worker-pool';
 const workers = new WorkerPool(navigator.hardwareConcurrency, e => {
     const { fileName, data } = e.data
     if (e.data.fileName) {
-        console.log('rendered:', fileName);
-
         const { tile, done } = callbacks[fileName];
 
         const imageData = new Uint8ClampedArray(data);
@@ -33,7 +31,6 @@ var MinecraftLayer = leaflet.GridLayer.extend({
         // Check the cache for the tile first.
         const cached = tileCache[fileName];
         if (cached) {
-            console.log("cached:", fileName);
             return cached.tile
         }
 
@@ -48,7 +45,6 @@ var MinecraftLayer = leaflet.GridLayer.extend({
         reader.onload = ev => {
             const region = ev.target.result;
 
-            console.log("rendering:", fileName);
             workers.postMessage({
                 fileName,
                 region: region,
