@@ -1,19 +1,12 @@
-use std::{collections::HashMap, io::Cursor};
+use std::io::Cursor;
 
-use fastnbt::anvil::{biome::Biome, parse_region, Region, RegionBlockDrawer, RenderedPalette};
-use fastnbt::anvil::{Chunk, RegionMap};
-use fastnbt::de::from_bytes;
+use fastnbt::anvil::RegionMap;
+use fastnbt::anvil::{parse_region, Region, RegionBlockDrawer, RenderedPalette};
 use palette::get_palette;
 use wasm_bindgen::prelude::*;
 
 mod biome;
 mod palette;
-
-// When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
-// allocator.
-#[cfg(feature = "wee_alloc")]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[wasm_bindgen]
 extern "C" {

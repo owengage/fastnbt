@@ -17,8 +17,16 @@ module.exports = {
     experiments: {
         asyncWebAssembly: true,
     },
+    resolve: {
+        extensions: ['.wasm', '.ts', '.js', '.mjs']
+    },
     module: {
         rules: [
+            {
+                test: /\.tsx?$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
             {
                 test: /\.css$/,
                 use: [

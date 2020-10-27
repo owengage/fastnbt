@@ -1,9 +1,10 @@
 import { force_init } from "./pkg/anvil_wasm_bg.wasm";
+
 export * from "./pkg/anvil_wasm_bg.js";
 
 force_init();
 
-import { TileRenderer } from "./pkg/anvil_wasm_bg";
+import { TileRenderer } from "./pkg/anvil_wasm";
 
 const tileRenderer = TileRenderer.new();
 
@@ -14,6 +15,6 @@ onmessage = e => {
 
     postMessage({
         fileName,
-        data,
-    });
+        data: data.buffer,
+    }, [data.buffer]);
 }

@@ -18,13 +18,13 @@ const workers = new WorkerPool(navigator.hardwareConcurrency, e => {
     }
 });
 
-const tileCache = {};
+const tileCache: any = {};
 
-let files = [];
-const callbacks = {};
+let files: File[] = [];
+const callbacks: any = {};
 
 var MinecraftLayer = leaflet.GridLayer.extend({
-    createTile: function (coords, done) {
+    createTile: function (coords: any, done: any) {
         // in minecraft x/z is the floor, but in leaflet x/y is.
         const fileName = `r.${coords.x}.${coords.y}.mca`
 
@@ -38,12 +38,12 @@ var MinecraftLayer = leaflet.GridLayer.extend({
 
         var tile = leaflet.DomUtil.create('canvas', 'leaflet-tile');
         var size = this.getTileSize();
-        tile.width = size.x;
-        tile.height = size.y;
+        (<any>tile).width = size.x;
+        (<any>tile).height = size.y;
 
         const reader = new FileReader();
         reader.onload = ev => {
-            const region = ev.target.result;
+            const region = ev.target?.result;
 
             workers.postMessage({
                 fileName,
@@ -60,18 +60,20 @@ var MinecraftLayer = leaflet.GridLayer.extend({
     }
 });
 
-const inputElement = document.getElementById("region_files");
+const inputElement = document.getElementById("region_files")!;
 inputElement.addEventListener("change", handleFiles, false);
-function handleFiles() {
-    files = Array.from(this.files);
-    mymap.eachLayer(layer => layer.redraw());
+function handleFiles(this: any) {
+    const el: any = this;
+
+    files = Array.from(el.files);
+    mymap.eachLayer(layer => (<any>layer).redraw());
 };
 
 var mymap = leaflet.map("map", {
     crs: leaflet.CRS.Simple
 }).setView([0, 0], 1);
 
-mymap.addLayer(new MinecraftLayer({
+mymap.addLayer(new (<any>MinecraftLayer)({
     minNativeZoom: 1,
     maxNativeZoom: 1,
     tileSize: 512,

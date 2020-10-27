@@ -1,6 +1,6 @@
 
 export default class WorkerPool {
-    constructor(count, onMessage) {
+    constructor(count: number, onMessage: (this: Worker, ev: MessageEvent<any>) => any) {
         this.workers = [];
         this.messageCount = 0;
         for (let i = 0; i < count; i++) {
@@ -11,10 +11,13 @@ export default class WorkerPool {
         }
     }
 
-    postMessage(data) {
+    postMessage(data: any, transfers: any) {
         const i = this.messageCount % this.workers.length;
         this.messageCount++;
 
-        this.workers[i].postMessage(data);
+        this.workers[i].postMessage(data, transfers);
     }
+
+    private workers: Worker[];
+    private messageCount: number;
 }
