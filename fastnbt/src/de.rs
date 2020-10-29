@@ -65,10 +65,10 @@ use std::str;
 /// The [`PackedBits`] type is used as a wrapper for the way Minecraft's Anvil format packs various
 /// lists of numbers.
 ///
-/// [`PackedBits`]: ../../anvil/struct.PackedBits.html
+/// [`PackedBits`]: ../struct.PackedBits.html
 ///
 /// ```
-/// use fastnbt::anvil::PackedBits;
+/// use fastnbt::PackedBits;
 /// use serde::Deserialize;
 ///
 ///
@@ -87,8 +87,8 @@ use std::str;
 /// ```
 /// # Example from region file
 ///
-/// ```no_run
-/// use fastnbt::anvil::{Chunk, Region};
+/// ```ignore
+/// use fastanvil::{Chunk, Region};
 /// use fastnbt::de::from_bytes;
 ///
 /// fn main() {

@@ -1,8 +1,8 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
-use fastnbt::anvil::Region;
-use fastnbt::anvil::RenderedPalette;
-use fastnbt::anvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
-use fastnbt::anvil::{IntoMap, Palette};
+use fastanvil::Region;
+use fastanvil::RenderedPalette;
+use fastanvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
+use fastanvil::{IntoMap, Palette};
 use image;
 use rayon::prelude::*;
 use std::fs;

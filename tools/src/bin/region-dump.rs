@@ -1,5 +1,5 @@
-use fastnbt::anvil::Region;
-use fastnbt::stream;
+use fastanvil::Region;
+use fastnbt::{Parser, Value};
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
@@ -9,7 +9,7 @@ fn main() {
 
     region
         .for_each_chunk(|_x, _z, data| {
-            let mut parser = stream::Parser::new(data.as_slice());
+            let mut parser = Parser::new(data.as_slice());
             let mut indent = 0;
 
             loop {
@@ -20,16 +20,16 @@ fn main() {
                     }
                     Ok(value) => {
                         match value {
-                            stream::Value::CompoundEnd => indent -= 4,
-                            stream::Value::ListEnd => indent -= 4,
+                            Value::CompoundEnd => indent -= 4,
+                            Value::ListEnd => indent -= 4,
                             _ => {}
                         }
 
                         println!("{:indent$}{:?}", "", value, indent = indent);
 
                         match value {
-                            stream::Value::Compound(_) => indent += 4,
-                            stream::Value::List(_, _, _) => indent += 4,
+                            Value::Compound(_) => indent += 4,
+                            Value::List(_, _, _) => indent += 4,
                             _ => {}
                         }
                     }

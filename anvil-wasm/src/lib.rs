@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
-use fastnbt::anvil::RegionMap;
-use fastnbt::anvil::{parse_region, Region, RegionBlockDrawer, RenderedPalette};
+use fastanvil::RegionMap;
+use fastanvil::{parse_region, Region, RegionBlockDrawer, RenderedPalette};
 use palette::get_palette;
 use wasm_bindgen::prelude::*;
 
@@ -80,7 +80,7 @@ pub fn set_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(start)]
 pub fn force_init() {
     set_panic_hook();
 }

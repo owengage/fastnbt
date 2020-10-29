@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::nbt::de::from_bytes;
-use crate::nbt::error::{Error, Result};
-use crate::nbt::Tag;
+use crate::de::from_bytes;
+use crate::error::{Error, Result};
+use crate::Tag;
 
 use super::builder::Builder;
 use serde::Deserialize;

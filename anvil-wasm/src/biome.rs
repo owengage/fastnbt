@@ -1,4 +1,4 @@
-use fastnbt::anvil::{
+use fastanvil::{
     biome::Biome, Chunk, ChunkRender, IntoMap, Palette, RegionBlockDrawer, RegionMap, Rgba,
 };
 

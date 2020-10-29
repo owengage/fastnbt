@@ -1,6 +1,6 @@
 use super::builder::Builder;
-use crate::nbt::stream::{Error, Name, Parser, Result, Value};
-use crate::nbt::Tag;
+use crate::stream::{Error, Name, Parser, Result, Value};
+use crate::Tag;
 
 fn name(n: &str) -> Name {
     Some(n.to_owned())

@@ -1,4 +1,4 @@
-use fastnbt::tex::{Model, Renderer};
+use fastanvil::tex::{Model, Renderer};
 use std::error::Error;
 use std::path::Path;
 use std::{collections::HashMap, fmt::Display};

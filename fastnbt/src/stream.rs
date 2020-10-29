@@ -53,13 +53,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// some indentation to help see the structure.
 ///
 /// ```
-/// use fastnbt::stream::{self, Value};
+/// use fastnbt::{Parser, Value};
 /// use flate2::read::GzDecoder;
 ///
 /// let stdin = std::io::stdin();
 /// let decoder = GzDecoder::new(stdin);
 ///
-/// let mut parser = stream::Parser::new(decoder);
+/// let mut parser = Parser::new(decoder);
 /// let mut indent = 0;
 ///
 /// loop {
@@ -92,9 +92,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// `WORLD_SURFACE` long array. We avoid entering nested compounds by skipping them if we enter one. We know we have
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///
-/// ```
-/// use fastnbt::stream::{self, Value};
-/// use fastnbt::anvil::expand_heightmap;
+/// ```ignore
+/// use fastnbt::{Parser, Value};
+/// use fastanvil::expand_heightmap;
 ///
 /// # fn f() -> stream::Result<Option<Vec<u16>>> {
 /// let mut parser = /* ... */

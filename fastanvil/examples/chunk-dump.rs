@@ -1,4 +1,4 @@
-use fastnbt::anvil::{Chunk, Region};
+use fastanvil::{Chunk, Region};
 use fastnbt::de::from_bytes;
 
 //

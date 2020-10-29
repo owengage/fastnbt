@@ -1,7 +1,5 @@
 use std::io::{Read, Seek};
 
-use crate::nbt;
-
 use super::{
     biome::{self, Biome},
     Chunk, Region,
@@ -63,7 +61,7 @@ impl<T: Clone> RegionMap<T> {
 #[derive(Debug)]
 pub enum DrawError {
     ParseAnvil(super::Error),
-    ParseNbt(crate::nbt::error::Error),
+    ParseNbt(fastnbt::error::Error),
     IO(std::io::Error),
     MissingHeightMap,
     InvalidPalette,
@@ -75,8 +73,8 @@ impl From<super::Error> for DrawError {
     }
 }
 
-impl From<crate::nbt::error::Error> for DrawError {
-    fn from(err: crate::nbt::error::Error) -> DrawError {
+impl From<fastnbt::error::Error> for DrawError {
+    fn from(err: fastnbt::error::Error) -> DrawError {
         DrawError::ParseNbt(err)
     }
 }
@@ -97,7 +95,7 @@ where
     RS: Read + Seek,
 {
     let closure = |x: usize, z: usize, buf: &Vec<u8>| {
-        let chunk = nbt::de::from_bytes(buf.as_slice());
+        let chunk = fastnbt::de::from_bytes(buf.as_slice());
         match chunk {
             Ok(mut chunk) => draw_to.draw(x, z, &mut chunk),
             Err(e) => {

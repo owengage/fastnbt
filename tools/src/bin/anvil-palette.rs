@@ -1,6 +1,6 @@
-use fastnbt::{
-    anvil::Rgba,
+use fastanvil::{
     tex::{Blockstate, Model, Render, Renderer, Texture},
+    Rgba,
 };
 use std::error::Error;
 use std::path::Path;

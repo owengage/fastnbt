@@ -3,6 +3,7 @@ export default class WorkerPool {
     constructor(count: number, onMessage: (this: Worker, ev: MessageEvent<any>) => any) {
         this.workers = [];
         this.messageCount = 0;
+
         for (let i = 0; i < count; i++) {
             const worker = new Worker('./worker.bundle.js');
             worker.onmessage = onMessage;

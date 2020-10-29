@@ -1,10 +1,7 @@
 import { force_init } from "./pkg/anvil_wasm_bg.wasm";
-
-export * from "./pkg/anvil_wasm_bg.js";
+import { TileRenderer } from "./pkg/anvil_wasm";
 
 force_init();
-
-import { TileRenderer } from "./pkg/anvil_wasm";
 
 const tileRenderer = TileRenderer.new();
 

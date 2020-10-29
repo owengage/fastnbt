@@ -3,7 +3,7 @@ const path = require('path');
 
 module.exports = {
     entry: {
-        main: "./src/bootstrap.js",
+        main: "./src/index.ts",
         worker: "./src/worker.js",
     },
     output: {

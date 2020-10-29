@@ -16,12 +16,11 @@ pub const SECTOR_SIZE: usize = 4096;
 pub const HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 
 pub mod biome;
+pub mod tex;
 
-mod bits;
 mod render;
 mod types;
 
-pub use bits::*;
 pub use render::*;
 pub use types::*;
 
