@@ -2,7 +2,6 @@
 name = "fastanvil"
 description = "Minecraft Anvil library"
 repository = "https://github.com/owengage/fastnbt"
-readme = "README.md"
 version = "0.10.0"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2018"
