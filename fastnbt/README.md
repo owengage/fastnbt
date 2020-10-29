@@ -14,6 +14,11 @@ Serde deserialization is implemented in a way to try and avoid memory allocation
 
 See the `examples` directory for more examples.
 
+```toml
+[dependencies]
+fastnbt = "0.10"
+```
+
 # Serde derserialize example
 
 ```rust
