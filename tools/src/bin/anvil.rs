@@ -3,6 +3,7 @@ use fastanvil::Region;
 use fastanvil::RenderedPalette;
 use fastanvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
 use fastanvil::{IntoMap, Palette};
+use flate2::read::GzDecoder;
 use image;
 use rayon::prelude::*;
 use std::fs;
@@ -91,6 +92,7 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
     };
 
     let f = std::fs::File::open(path)?;
+    let f = GzDecoder::new(f);
     let mut ar = tar::Archive::new(f);
     let mut grass = Err("no grass colour map");
     let mut foliage = Err("no foliage colour map");

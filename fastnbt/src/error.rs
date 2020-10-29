@@ -1,5 +1,7 @@
 use super::Tag;
 use std::fmt::Display;
+
+/// Various errors that can occur suring deserialization.
 #[derive(Debug, PartialEq)]
 pub enum Error {
     Message(String),

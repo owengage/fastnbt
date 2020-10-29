@@ -2,6 +2,7 @@ use fastanvil::{
     tex::{Blockstate, Model, Render, Renderer, Texture},
     Rgba,
 };
+use flate2::write::GzEncoder;
 use std::error::Error;
 use std::path::Path;
 use std::{collections::HashMap, fmt::Display};
@@ -174,7 +175,9 @@ fn main() -> Result<()> {
         }
     }
 
-    let f = std::fs::File::create("palette.tar")?;
+    let f = std::fs::File::create("palette.tar.gz")?;
+    let f = GzEncoder::new(f, Default::default());
+
     let mut ar = tar::Builder::new(f);
 
     let grass_colourmap = &assets.join("textures").join("colormap").join("grass.png");
@@ -197,7 +200,8 @@ fn main() -> Result<()> {
     ar.append_data(&mut header, "blockstates.json", palette_data.as_slice())?;
 
     // finishes the archive.
-    ar.into_inner()?;
+    let f = ar.into_inner()?;
+    f.finish()?;
 
     println!(
         "succeeded in understanding {} of {} possible blocks (failed on {})",

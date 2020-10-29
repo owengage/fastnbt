@@ -23,8 +23,10 @@ dependencies = [
  "console_error_panic_hook",
  "fastanvil",
  "fastnbt",
+ "flate2",
  "image",
  "serde_json",
+ "tar",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]

@@ -1,5 +1,5 @@
-//! Aims to allow fast parsing of NBT and Anvil data from *Minecraft: Java
-//! Edition*.
+//! fastnbt aims for fast parsing of NBT data from *Minecraft: Java
+//! Edition*. This format is used to store many things in Minecraft.
 //!
 //! A `serde` compatible deserializer can be found in the `de` module. This
 //! deserialiser works on an in-memory `&[u8]`, meaning you need all of the NBT
