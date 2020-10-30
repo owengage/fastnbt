@@ -86,11 +86,13 @@ pub struct Section<'a> {
 #[serde(rename_all = "PascalCase")]
 pub struct Block<'a> {
     pub name: &'a str,
-    pub properties: Option<HashMap<&'a str, &'a str>>,
+
+    #[serde(default)]
+    pub properties: HashMap<&'a str, &'a str>,
 }
 
 impl<'a> Chunk<'a> {
-    pub fn id_of(&mut self, x: usize, y: usize, z: usize) -> Option<String> {
+    pub fn block(&mut self, x: usize, y: usize, z: usize) -> Option<&Block> {
         let sec = self.get_section_for_y(y)?;
 
         if (sec.y as usize) * 16 > y {}
@@ -109,7 +111,7 @@ impl<'a> Chunk<'a> {
         }
 
         let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
-        Some(sec.palette.as_ref()?[pal_index].encoded_id())
+        sec.palette.as_ref()?.get(pal_index)
     }
 
     pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
@@ -123,17 +125,11 @@ impl<'a> Chunk<'a> {
                     maps.motion_blocking
                         .as_ref()?
                         .unpack_heights_into(&mut buf[..]);
-                    // println!("heightmap expanded {:?}", maps.unpacked_motion_blocking);
-                    // println!(
-                    //     "heightmap {:?}, len {}",
-                    //     maps.motion_blocking,
-                    //     maps.motion_blocking.as_ref()?.0.len()
-                    // );
                 }
 
                 Some(maps.unpacked_motion_blocking.as_ref()?[x * 16 + z] as usize)
             }
-            None => self // Older style heightmap found. Much simplr, just an int per column.
+            None => self // Older style heightmap found. Much simpler, just an int per column.
                 .level
                 .old_heightmap
                 .as_ref()
@@ -200,28 +196,28 @@ impl<'a> Chunk<'a> {
 }
 
 impl<'a> Block<'a> {
-    fn encoded_id(&self) -> String {
-        match self.properties {
-            None => self.name.to_string() + "|",
-            Some(ref props) => {
-                let mut id = self.name.to_string();
-                let mut sep = "|";
+    /// Creates a string of the format "id|prop1=val1,prop2=val2". The
+    /// properties are ordered lexigraphically. This somewhat matches the way
+    /// Minecraft stores variants in blockstates, but with the block ID/name
+    /// prepended.
+    pub fn encoded_description(&self) -> String {
+        let mut id = self.name.to_string() + "|";
+        let mut sep = "";
 
-                // need to sort the properties for a consistent ID
-                let mut props = props
-                    .iter()
-                    .filter(|(k, _)| **k != "waterlogged") // TODO: Handle water logging. See note below
-                    .collect::<Vec<_>>();
-                props.sort();
+        // need to sort the properties for a consistent ID
+        let mut props = self
+            .properties
+            .iter()
+            .filter(|(k, _)| **k != "waterlogged") // TODO: Handle water logging. See note below
+            .collect::<Vec<_>>();
+        props.sort();
 
-                for (k, v) in props {
-                    id = id + sep + k + "=" + v;
-                    sep = ",";
-                }
-
-                id
-            }
+        for (k, v) in props {
+            id = id + sep + k + "=" + v;
+            sep = ",";
         }
+
+        id
 
         // Note: If we want to handle water logging, we're going to have to
         // remove the filter here and handle it in whatever parses the encoded

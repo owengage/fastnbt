@@ -1,4 +1,9 @@
-use std::io::{Read, Seek};
+use std::{
+    collections::HashMap,
+    io::{Read, Seek},
+};
+
+use crate::Block;
 
 use super::{
     biome::{self, Biome},
@@ -21,7 +26,7 @@ pub trait ChunkRender {
 /// Palette can be used to take a block description to produce a colour that it
 /// should render to.
 pub trait Palette {
-    fn pick(&self, block_description: &str, biome: Option<Biome>) -> Rgba;
+    fn pick(&self, block: &Block, biome: Option<Biome>) -> Rgba;
 }
 
 pub trait IntoMap {
@@ -161,7 +166,13 @@ impl RenderedPalette {
 }
 
 impl Palette for RenderedPalette {
-    fn pick(&self, block_id: &str, biome: Option<Biome>) -> Rgba {
+    fn pick(&self, block: &Block, biome: Option<Biome>) -> Rgba {
+        let missing_colour = [255, 0, 255, 255];
+        let snow_block: Block = Block {
+            name: "minecraft:snow_block",
+            properties: HashMap::new(),
+        };
+
         // A bunch of blocks in the game seem to be special cased outside of the
         // blockstate/model mechanism. For example leaves get coloured based on
         // the tree type and the biome type, but this is not encoded in the
@@ -169,71 +180,63 @@ impl Palette for RenderedPalette {
         //
         // This means we have to do a bunch of complex conditional logic in one
         // of the most called functions. Yuck.
-
-        //println!("block: {}", block_id);
-
-        match block_id.strip_prefix("minecraft:") {
+        match block.name.strip_prefix("minecraft:") {
             Some(id) => {
-                if id.starts_with("grass_block|snowy=false") {
-                    return self.pick_grass(biome);
-                }
+                match id {
+                    "grass_block" => {
+                        let snowy = block
+                            .properties
+                            .get("snowy")
+                            .map(|s| *s == "true")
+                            .unwrap_or(false);
 
-                if id.starts_with("water") {
-                    return self.pick_water(biome);
+                        if snowy {
+                            return self.pick(&snow_block, biome);
+                        } else {
+                            return self.pick_grass(biome);
+                        };
+                    }
+                    "water" => return self.pick_water(biome),
+                    "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves" => {
+                        return self.pick_foliage(biome)
+                    }
+                    "birch_leaves" => {
+                        return [0x80, 0xa7, 0x55, 255]; // game hardcodes this
+                    }
+                    "spruce_leaves" => {
+                        return [0x61, 0x99, 0x61, 255]; // game hardcodes this
+                    }
+                    // Kelp and seagrass don't look like much from the top as
+                    // they're flat. Maybe in future hard code a green tint to make
+                    // it show up?
+                    "kelp" | "seagrass" | "tall_seagrass" => {
+                        return self.pick_water(biome);
+                    }
+                    "snow" => {
+                        return self.pick(&snow_block, biome);
+                    }
+                    // Occurs a lot for the end, as layer 0 will be air in the void.
+                    // Rendering it black makes sense in the end, but might look
+                    // weird if it ends up elsewhere.
+                    "air" => {
+                        return [0, 0, 0, 0];
+                    }
+                    "cave_air" => {
+                        return [255, 0, 0, 255]; // when does this happen??
+                    }
+                    // Otherwise fall through to the general mechanism.
+                    _ => {}
                 }
-
-                if id.starts_with("oak_leaves|")
-                    || id.starts_with("jungle_leaves|")
-                    || id.starts_with("acacia_leaves|")
-                    || id.starts_with("dark_oak_leaves|")
-                {
-                    return self.pick_foliage(biome);
-                }
-
-                if id.starts_with("birch_leaves|") {
-                    return [0x80, 0xa7, 0x55, 255]; // game hardcodes this
-                }
-
-                if id.starts_with("spruce_leaves|") {
-                    return [0x61, 0x99, 0x61, 255]; // game hardcodes this
-                }
-
-                // Kelp and seagrass don't look like much from the top as
-                // they're flat. Maybe in future hard code a green tint to make
-                // it show up?
-                if id.starts_with("kelp|")
-                    || id.starts_with("seagrass|")
-                    || id.starts_with("tall_seagrass|")
-                {
-                    return self.pick_water(biome);
-                }
-
-                if id.starts_with("snow|") || id == "grass_block|snowy=true" {
-                    return self.pick("minecraft:snow_block|", biome); // TODO: Do this properly.
-                }
-
-                // Occurs a lot for the end, as layer 0 will be air in the void.
-                // Rendering it black makes sense in the end, but might look
-                // weird if it ends up elsewhere.
-                if id == "air|" {
-                    return [0, 0, 0, 0];
-                }
-
-                if id == "cave_air|" {
-                    return [255, 0, 0, 255]; // when does this happen??
-                }
-
-                // Otherwise fall through to the general mechanism.
             }
             None => {}
         }
 
-        let col = self.blockstates.get(block_id);
+        let col = self.blockstates.get(&block.encoded_description());
         match col {
             Some(c) => *c,
             None => {
-                //println!("could not draw {}", block_id);
-                [255, 0, 255, 255]
+                //println!("could not draw {}", block.name);
+                missing_colour
             }
         }
     }
@@ -295,10 +298,10 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
 
                 let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome_of(x, height, z);
-                let material = chunk.id_of(x, height, z);
+                let block = chunk.block(x, height, z);
 
-                let colour = match material {
-                    Some(ref material) => self.palette.pick(&material, biome),
+                let colour = match block {
+                    Some(ref block) => self.palette.pick(&block, biome),
                     None => [0, 0, 0, 0], // if no ID is given the block doesn't actually exist in the world.
                 };
 
