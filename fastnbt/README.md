@@ -9,7 +9,13 @@ Includes
 * a serde based deserializer for NBT for deserialising into `struct`s.
 * a parser for low memory and/or NBT with unknown structure.
 
-Serde deserialization is implemented in a way to try and avoid memory allocations. Strings can be deserialized as `&str`, as well as deserialising the block states of chunks to `&[u8]`.
+The derserializer allows you to avoid allocations where possible. Strings can be
+deserialized to `&'a str` where `'a` is the lifetime of the data being
+deserialized. This can also be done for lists of any integral type into 
+`&'a [u8]`. The same applies to the Array types in NBT.
+
+You can then parse the `&[u8]` only when you need it. The `fastanvil` crate has
+a `PackedBits` type that can do this for you.
 
 See the `examples` directory for more examples.
 
