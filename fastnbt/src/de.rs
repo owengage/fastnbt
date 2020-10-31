@@ -67,8 +67,8 @@ use std::str;
 ///
 /// [`PackedBits`]: ../struct.PackedBits.html
 ///
-/// ```
-/// use fastnbt::PackedBits;
+/// ```ignore
+/// use fastanvil::PackedBits;
 /// use serde::Deserialize;
 ///
 ///

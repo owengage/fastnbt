@@ -1,8 +1,9 @@
 use std::{collections::HashMap, convert::TryFrom};
 
 use byteorder::{BigEndian, ReadBytesExt};
-use fastnbt::PackedBits;
 use serde::Deserialize;
+
+use crate::{bits_per_block, PackedBits};
 
 use super::biome::Biome;
 
@@ -100,7 +101,7 @@ impl<'a> Chunk<'a> {
         let state_index = (sec_y as usize * 16 * 16) + x * 16 + z;
 
         if sec.unpacked_states == None {
-            let bits_per_item = fastnbt::bits_per_block(sec.palette.as_ref()?.len());
+            let bits_per_item = bits_per_block(sec.palette.as_ref()?.len());
             sec.unpacked_states = Some([0; 16 * 16 * 16]);
 
             let buf = sec.unpacked_states.as_mut()?;

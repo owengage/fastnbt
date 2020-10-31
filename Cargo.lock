@@ -56,9 +56,9 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bit_field"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a165d606cf084741d4ac3a28fb6e9b1eb0bd31f6cd999098cfddb0b2ab381dc0"
+checksum = "dcb6dd1c2376d2e096796e234a70e17e94cc2d5d54ff8ce42b28cef1d0d359a4"
 
 [[package]]
 name = "bitflags"
@@ -208,6 +208,7 @@ checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 name = "fastanvil"
 version = "0.10.0"
 dependencies = [
+ "bit_field",
  "byteorder",
  "fastnbt",
  "flate2",
@@ -221,10 +222,8 @@ dependencies = [
 name = "fastnbt"
 version = "0.10.0"
 dependencies = [
- "bit_field",
  "byteorder",
  "flate2",
- "num_enum",
  "serde",
 ]
 

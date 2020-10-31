@@ -93,27 +93,29 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///
 /// ```ignore
-/// use fastnbt::{Parser, Value};
+/// use fastnbt::{Parser, Value, skip_compound};
 /// use fastanvil::expand_heightmap;
 ///
-/// # fn f() -> stream::Result<Option<Vec<u16>>> {
+/// # use fastnbt::Result;
+/// # fn f() -> Result<Option<Vec<u16>>> {
 /// let mut parser = /* ... */
-/// # stream::Parser::new(&[1u8,2,3][..]);
+/// # Parser::new(&[1u8,2,3][..]);
 ///
 /// loop {
 ///     match parser.next()? {
 ///         Value::LongArray(Some(ref name), data) if name == "WORLD_SURFACE" => {
-///             stream::skip_compound(&mut parser)?;
+///             skip_compound(&mut parser)?;
 ///             return Ok(Some(expand_heightmap(data.as_slice())));
 ///         }
 ///         Value::Compound(_) => {
 ///             // don't enter another compound.
-///             stream::skip_compound(&mut parser)?;
+///             skip_compound(&mut parser)?;
 ///         }
 ///         Value::CompoundEnd => {
 ///             // No heightmap found, it happens.
 ///             return Ok(None);
 ///         }
+///         // also need to not enter lists
 ///         _ => {}
 ///     }
 /// }

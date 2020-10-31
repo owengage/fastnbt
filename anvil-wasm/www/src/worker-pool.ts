@@ -11,7 +11,7 @@ export default class WorkerPool {
             this.workers.push(worker);
         }
     }
-
+    
     postMessage(data: any, transfers: any) {
         const i = this.messageCount % this.workers.length;
         this.messageCount++;
