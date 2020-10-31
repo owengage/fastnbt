@@ -9,6 +9,7 @@ This repository contains multiple related projects.
 * [fastnbt](fastnbt/README.md): Fast (or trying to be!) deserializer and parser for *Minecraft: Java Edition*'s NBT data format.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
+* anvil-wasm: An entirely in-the-browser map renderer. Demo at [owengage.com/anvil](https://owengage.com/anvil).
 
 Aim to support only the latest version of Minecraft. Works with 1.16 worlds at the moment. Endevour to support old chunks in 1.16 worlds, but not extracting textures from older versions due to the added complexity it would require.
 
@@ -52,38 +53,14 @@ These are the proirities for the project when it comes to development. Ideally w
 2. Speed. Worlds are rendered as fast as possible.
 3. Memory. Worlds are rendered without sucking up RAM.
 
-# Goals
-
-## Serde deserialization
-
-This mostly works. I have not yet implemented enums, which will be important for properly parsing the palette to correctly render things like wheat, stairs, etc. See the 'Advanced State' goal.
-
-## WASM based online personal map explorer
-
-It should be possible to compile fastnbt to WASM, and allow players to give access to their region files in the browser with the `File` web API. From there we should be able to render people's worlds (not their seed!) in their browser, with their own computing power.
-
-The current version can render about 30,000/s chunks on my computer using 16 CPU threads, so it would hopefully render fast enough to be usable on peoples computers in the browser, especially if we can somehow leverage multiple cores eg via web workers.
-
-## Full palette
-
-I currently can extract textures for 657 out of 764 blockstates. I need to implement things like stairs, logs, and rails, cactus etc. The horrible megenta colour is a result of failing to extract textures.
-
-## Advanced state
-
-If I render wheat, for example, I just render all wheat at a particular growth stage. I could extract more information from the chunks and render more exact state.
-
-## Other
-
-* Maybe: Modify palette colour based on height?
-* Maybe: render blocks below transparent blocks.
-
 ## Usage
 
-For the library
+For the libraries
 
 ```toml
 [dependencies]
 fastnbt = "0.10"
+fastanvil = "0.10"
 ```
 
 For the `anvil` executable
