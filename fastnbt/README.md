@@ -76,3 +76,21 @@ fn main() {
     println!("{:?}", player);
 }
 ```
+
+# Comparison to other NBT crates
+
+There are other crates for NBT out there, this tries to give an honest comparison to them.
+
+| Feature | `fastnbt` | Hematite `nbt` |
+| ------- | --------- | -------------- |
+| Deserialization | yes | yes |
+| Serialization | no | yes |
+| Partial deserializations | no | yes |
+| Long Array (MC 1.12+) | yes | yes |
+| Minecraft specialized unicode | no* | yes |
+| Deserialize from reader | no | yes |
+| WASM compatible | yes | ? |
+| Benchmark world render | x | x |
+
+\*intended feature
+
