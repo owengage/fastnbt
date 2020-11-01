@@ -7,8 +7,8 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-fastnbt = { path = "../fastnbt", version = "0.10.0" }
-fastanvil = { path = "../fastanvil", version = "0.10.0" }
+fastnbt = { path = "../fastnbt", version = "0.11" }
+fastanvil = { path = "../fastanvil", version = "0.11" }
 rayon = "1.3.0"
 flate2 = "1.0"
 image = "0.23.4"

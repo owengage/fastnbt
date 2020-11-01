@@ -21,7 +21,7 @@ See the `examples` directory for more examples.
 
 ```toml
 [dependencies]
-fastnbt = "0.10"
+fastnbt = "0.11"
 ```
 
 If you only need the unstructured parser and do not need to use the serde
@@ -29,7 +29,7 @@ deserializer, you can save on compile time by disabling default features.
 
 ```toml
 [dependencies]
-fastnbt = { version="0.10", default_features=false }
+fastnbt = { version="0.11", default_features=false }
 ```
 
 # Serde derserialize example
