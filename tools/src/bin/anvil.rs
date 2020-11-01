@@ -202,33 +202,7 @@ fn render(args: &ArgMatches) -> Result<()> {
     println!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
 
     println!("1 map.png");
-    let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
 
-    for region_map in region_maps {
-        if let Some(map) = region_map {
-            let xrp = map.x_region - x_range.start;
-            let zrp = map.z_region - z_range.start;
-
-            for xc in 0..32 {
-                for zc in 0..32 {
-                    let heightmap = map.chunk(xc, zc);
-                    let xcp = xrp * 32 + xc as isize;
-                    let zcp = zrp * 32 + zc as isize;
-
-                    for z in 0..16 {
-                        for x in 0..16 {
-                            let pixel = heightmap[z * 16 + x];
-                            let x = xcp * 16 + x as isize;
-                            let z = zcp * 16 + z as isize;
-                            img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    img.save("map.png").unwrap();
     Ok(())
 }
 
