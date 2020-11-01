@@ -87,10 +87,12 @@ There are other crates for NBT out there, this tries to give an honest compariso
 | Serialization | no | yes |
 | Partial deserializations | no | yes |
 | Long Array (MC 1.12+) | yes | yes |
-| Minecraft specialized unicode | no* | yes |
+| Minecraft specialized unicode | no\* | yes |
 | Deserialize from reader | no | yes |
 | WASM compatible | yes | ? |
-| Benchmark world render | x | x |
+| Benchmark world render\*\* | 23.8+-0.7s | 31.6+-0.9s |
 
 \*intended feature
+
+\*\* see 01-11-2020.md in benchmarks directory
 
