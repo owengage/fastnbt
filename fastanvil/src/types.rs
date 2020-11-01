@@ -98,7 +98,7 @@ impl<'a> Chunk<'a> {
 
         if (sec.y as usize) * 16 > y {}
         let sec_y = y - sec.y as usize * 16;
-        let state_index = (sec_y as usize * 16 * 16) + x * 16 + z;
+        let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
 
         if sec.unpacked_states == None {
             let bits_per_item = bits_per_block(sec.palette.as_ref()?.len());
@@ -128,7 +128,7 @@ impl<'a> Chunk<'a> {
                         .unpack_heights_into(&mut buf[..]);
                 }
 
-                Some(maps.unpacked_motion_blocking.as_ref()?[x * 16 + z] as usize)
+                Some(maps.unpacked_motion_blocking.as_ref()?[z * 16 + x] as usize)
             }
             None => self // Older style heightmap found. Much simpler, just an int per column.
                 .level
@@ -151,13 +151,13 @@ impl<'a> Chunk<'a> {
 
         if biomes.len() == 1024 * 4 {
             // Minecraft 1.16
-            let i = 4 * ((x / 4) * 4 + (z / 4));
+            let i = 4 * ((z / 4) * 4 + (x / 4));
             let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
 
             Biome::try_from(biome).ok()
         } else if biomes.len() == 256 * 4 {
             // Minecraft 1.15 (and past?)
-            let i = 4 * (x * 16 + z);
+            let i = 4 * (z * 16 + x);
             let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
             Biome::try_from(biome).ok()
         } else {

@@ -26,7 +26,7 @@ const callbacks: any = {};
 var MinecraftLayer = leaflet.GridLayer.extend({
     createTile: function (coords: any, done: any) {
         // in minecraft x/z is the floor, but in leaflet x/y is.
-        const fileName = `r.${coords.x}.${coords.y}.mca`
+        const fileName = `r.${coords.y}.${coords.x}.mca`
 
         // Check the cache for the tile first.
         const cached = tileCache[fileName];
