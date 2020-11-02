@@ -344,6 +344,18 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
                         let bs = self.consume_bytes_unchecked(size)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
+                    Tag::Short => {
+                        let bs = self.consume_bytes_unchecked(size * 2)?;
+                        visitor.visit_borrowed_bytes(bs)
+                    }
+                    Tag::Int => {
+                        let bs = self.consume_bytes_unchecked(size * 4)?;
+                        visitor.visit_borrowed_bytes(bs)
+                    }
+                    Tag::Long => {
+                        let bs = self.consume_bytes_unchecked(size * 8)?;
+                        visitor.visit_borrowed_bytes(bs)
+                    }
                     _ => Err(Error::Message(format!(
                         "expected bytes, got [{:?}; {}]",
                         el, size

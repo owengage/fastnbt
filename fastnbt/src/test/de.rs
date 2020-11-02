@@ -590,6 +590,114 @@ fn byte_array_from_nbt_byte_array() -> Result<()> {
 }
 
 #[test]
+fn byte_array_from_nbt_int_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::IntArray)
+        .name("arr")
+        .int_payload(3)
+        .int_array_payload(&[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3]);
+
+    Ok(())
+}
+
+#[test]
+fn byte_array_from_nbt_long_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::LongArray)
+        .name("arr")
+        .int_payload(2)
+        .long_array_payload(&[1, 2])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+
+    Ok(())
+}
+
+#[test]
+fn byte_array_from_nbt_short_list() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("arr", Tag::Short, 3)
+        .short_payload(1)
+        .short_payload(2)
+        .short_payload(3)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [0, 1, 0, 2, 0, 3]);
+
+    Ok(())
+}
+
+#[test]
+fn byte_array_from_nbt_int_list() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("arr", Tag::Int, 2)
+        .int_payload(1)
+        .int_payload(2)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [0, 0, 0, 1, 0, 0, 0, 2]);
+
+    Ok(())
+}
+
+#[test]
+fn byte_array_from_nbt_long_list() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        arr: &'a [u8],
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .start_list("arr", Tag::Long, 2)
+        .long_payload(1)
+        .long_payload(2)
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.arr, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+
+    Ok(())
+}
+
+#[test]
 fn newtype_struct() -> Result<()> {
     #[derive(Deserialize)]
     struct Inner(u8);
