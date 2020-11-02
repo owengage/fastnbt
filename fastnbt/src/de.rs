@@ -6,8 +6,11 @@
 use super::error::{Error, Result};
 use super::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::de::{EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
 use serde::Deserialize;
+use serde::{
+    de::{EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
+    forward_to_deserialize_any,
+};
 use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::str;
@@ -276,11 +279,20 @@ fn u8_to_tag(tag: u8) -> Result<Tag> {
 impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    forward_to_deserialize_any!(i8 i16 i32 i64 str string);
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!("any")
+        match self.current_values_tag()? {
+            Tag::Byte => visitor.visit_i8(self.consume_integral()? as i8),
+            Tag::Short => visitor.visit_i16(self.consume_integral()? as i16),
+            Tag::Int => visitor.visit_i32(self.consume_integral()? as i32),
+            Tag::Long => visitor.visit_i64(self.consume_integral()? as i64),
+            Tag::String => visitor.visit_borrowed_str(self.consume_size_prefixed_string()?),
+            _ => todo!("any"),
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -432,38 +444,6 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_u8(num.try_into()?)
     }
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_i8(num.try_into()?)
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_i16(num.try_into()?)
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_i32(num.try_into()?)
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_i64(num)
-    }
-
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -486,22 +466,6 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         let num = self.consume_integral()?;
         visitor.visit_u64(num.try_into()?)
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.type_check(Tag::String, "string")?;
-        let s = self.consume_size_prefixed_string()?;
-        visitor.visit_borrowed_str(s)
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
