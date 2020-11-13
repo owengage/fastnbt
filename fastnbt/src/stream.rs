@@ -14,7 +14,7 @@ pub type Name = Option<String>;
 /// The name part of each variant is optional, since elements in an NBT list do not have names. The end of lists do not
 /// have a name in the binary format, so it isn't included here either.
 ///
-/// See `nbt::Parser` for more information.
+/// See `Parser` for more information.
 #[derive(Debug, PartialEq)]
 pub enum Value {
     CompoundEnd,
@@ -53,7 +53,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// some indentation to help see the structure.
 ///
 /// ```
-/// use fastnbt::{Parser, Value};
+/// use fastnbt::stream::{Parser, Value};
 /// use flate2::read::GzDecoder;
 ///
 /// let stdin = std::io::stdin();
@@ -93,7 +93,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///
 /// ```ignore
-/// use fastnbt::{Parser, Value, skip_compound};
+/// use fastnbt::stream::{Parser, Value, skip_compound};
 /// use fastanvil::expand_heightmap;
 ///
 /// # use fastnbt::Result;

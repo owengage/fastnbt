@@ -1,5 +1,5 @@
-use fastnbt::de::from_bytes;
 use fastnbt::error::Result;
+use fastnbt::{de::from_bytes, Value};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::io::Read;
@@ -22,7 +22,12 @@ struct PlayerDat<'a> {
 
 #[derive(Deserialize, Debug)]
 struct InventorySlot<'a> {
-    id: &'a str, // we avoid allocating a string here.
+    id: &'a str,        // We avoid allocating a string here.
+    tag: Option<Value>, // Also get the less structured properties of the object.
+
+    // We need to rename fields a lot.
+    #[serde(rename = "Count")]
+    count: i8,
 }
 
 fn main() {
@@ -36,5 +41,5 @@ fn main() {
 
     let player: Result<PlayerDat> = from_bytes(data.as_slice());
 
-    println!("{:?}", player);
+    println!("{:#?}", player);
 }

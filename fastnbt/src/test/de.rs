@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::de::from_bytes;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::Tag;
+use crate::{de::from_bytes, Value};
 
 use super::builder::Builder;
 use serde::Deserialize;
@@ -12,6 +12,7 @@ fn simple_byte() -> Result<()> {
     #[derive(Deserialize)]
     struct V {
         abc: i8,
+        def: i8,
     }
 
     let payload = Builder::new()
@@ -20,13 +21,88 @@ fn simple_byte() -> Result<()> {
         .tag(Tag::Byte)
         .name("abc")
         .byte_payload(123)
+        .tag(Tag::Byte)
+        .name("def")
+        .byte_payload(111)
         .tag(Tag::End)
         .build();
 
     let v: V = from_bytes(payload.as_slice()).unwrap();
 
     assert_eq!(v.abc, 123);
+    assert_eq!(v.def, 111);
     Ok(())
+}
+
+#[test]
+fn simple_floats() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        f: f32,
+        d: f64,
+    }
+
+    let payload = Builder::new()
+        .tag(Tag::Compound)
+        .name("object")
+        .float("f", 1.23)
+        .double("d", 2.34)
+        .tag(Tag::End)
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+
+    assert_eq!(v.f, 1.23);
+    assert_eq!(v.d, 2.34);
+    Ok(())
+}
+
+#[test]
+fn bool_from_integral() {
+    #[derive(Deserialize)]
+    struct V {
+        byte_true: bool,
+        byte_false: bool,
+        short: bool,
+        int: bool,
+        long: bool,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .byte("byte_true", 1)
+        .byte("byte_false", 0)
+        .short("short", 2)
+        .int("int", 3)
+        .long("long", 4)
+        .tag(Tag::End)
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+
+    assert!(v.byte_true);
+    assert!(!v.byte_false);
+    assert!(v.short);
+    assert!(v.int);
+    assert!(v.long);
+}
+
+#[test]
+fn bool_from_none_integral() {
+    #[derive(Deserialize)]
+    struct V {
+        _b: bool,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .string("_b", "true") // intentionally does NOT work.
+        .tag(Tag::End)
+        .build();
+
+    let v: Result<V> = from_bytes(payload.as_slice());
+
+    assert!(v.is_err());
 }
 
 #[test]
@@ -74,7 +150,7 @@ fn simple_short_to_u16() -> Result<()> {
 }
 
 #[test]
-fn negative_short_to_u16_errors() -> Result<()> {
+fn short_to_u16_out_of_range_errors() {
     #[derive(Deserialize)]
     struct V {
         _abc: u16,
@@ -85,14 +161,12 @@ fn negative_short_to_u16_errors() -> Result<()> {
         .name("object")
         .tag(Tag::Short)
         .name("_abc")
-        .short_payload(-1)
+        .short_payload(-123)
         .tag(Tag::End)
         .build();
 
     let v: Result<V> = from_bytes(payload.as_slice());
-
     assert!(v.is_err());
-    Ok(())
 }
 
 #[test]
@@ -284,6 +358,68 @@ fn unwanted_primative_payloads() -> Result<()> {
 
     assert_eq!(v.a, 123);
     Ok(())
+}
+
+#[test]
+fn simple_hashmap() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .int("a", 1)
+        .int("b", 2)
+        .end_compound()
+        .build();
+
+    let v: HashMap<&str, i32> = from_bytes(payload.as_slice()).unwrap();
+    assert_eq!(v["a"], 1);
+    assert_eq!(v["b"], 2);
+}
+
+#[test]
+fn simple_hashmap_with_enum() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .int("a", 1)
+        .string("b", "2")
+        .end_compound()
+        .build();
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum E<'a> {
+        Int(i32),
+        String(&'a str),
+    }
+
+    let v: HashMap<&str, E> = from_bytes(payload.as_slice()).unwrap();
+    assert_eq!(v["a"], E::Int(1));
+    assert_eq!(v["b"], E::String("2"));
+}
+
+#[test]
+fn nested_hashmaps_with_enums() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .int("a", 1)
+        .start_compound("b")
+        .int("inner", 2)
+        .end_compound()
+        .end_compound()
+        .build();
+
+    #[derive(Deserialize, PartialEq, Debug)]
+    #[serde(untagged)]
+    enum E<'a> {
+        Int(i32),
+        #[serde(borrow)]
+        Map(HashMap<&'a str, i32>),
+    }
+
+    let v: HashMap<&str, E> = from_bytes(payload.as_slice()).unwrap();
+    assert_eq!(v["a"], E::Int(1));
+    match v["b"] {
+        E::Map(ref map) => assert_eq!(map["inner"], 2),
+        _ => panic!(),
+    }
 }
 
 #[test]
@@ -752,36 +888,6 @@ fn vec_from_nbt_byte_array() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn unit_variant_enum() -> Result<()> {
-    #[derive(Deserialize, PartialEq, Debug)]
-    enum E {
-        A,
-        B,
-        C,
-    }
-    #[derive(Deserialize)]
-    struct V {
-        e1: E,
-        e2: E,
-        e3: E,
-    }
-
-    let payload = Builder::new()
-        .start_compound("object")
-        .string("e1", "A")
-        .string("e2", "B")
-        .string("e3", "C")
-        .end_compound()
-        .build();
-
-    let v: V = from_bytes(payload.as_slice())?;
-    assert_eq!(v.e1, E::A);
-    assert_eq!(v.e2, E::B);
-    assert_eq!(v.e3, E::C);
-    Ok(())
-}
-
 #[derive(Deserialize)]
 struct Blockstates<'a>(&'a [u8]);
 
@@ -890,73 +996,6 @@ fn type_mismatch_string() -> Result<()> {
 }
 
 #[test]
-fn type_mismatch_f32_from_int() -> Result<()> {
-    #[derive(Deserialize, Debug)]
-    pub struct V {
-        a: f32,
-    }
-
-    let payload = Builder::new()
-        .start_compound("object")
-        .int("a", 123)
-        .end_compound() // end of outer compound
-        .build();
-
-    let res = from_bytes::<V>(payload.as_slice());
-
-    assert!(res.is_err());
-    assert_eq!(
-        Error::TypeMismatch(Tag::Int, "float/double"),
-        res.unwrap_err()
-    );
-
-    Ok(())
-}
-
-#[test]
-fn type_mismatch_f64_from_int() -> Result<()> {
-    #[derive(Deserialize, Debug)]
-    pub struct V {
-        a: f64,
-    }
-
-    let payload = Builder::new()
-        .start_compound("object")
-        .int("a", 123)
-        .end_compound() // end of outer compound
-        .build();
-
-    let res = from_bytes::<V>(payload.as_slice());
-
-    assert!(res.is_err());
-    assert_eq!(
-        Error::TypeMismatch(Tag::Int, "float/double"),
-        res.unwrap_err()
-    );
-
-    Ok(())
-}
-
-#[test]
-fn type_mismatch_int_from_str() -> Result<()> {
-    #[derive(Deserialize, Debug)]
-    pub struct V {
-        a: i32,
-    }
-
-    let payload = Builder::new()
-        .start_compound("object")
-        .string("a", "hello")
-        .end_compound() // end of outer compound
-        .build();
-
-    let res = from_bytes::<V>(payload.as_slice());
-
-    assert!(res.is_err());
-    Ok(())
-}
-
-#[test]
 fn basic_palette_item() -> Result<()> {
     #[derive(Deserialize, Debug)]
     #[serde(rename_all = "PascalCase")]
@@ -1006,26 +1045,153 @@ fn basic_unit_variant_enum() {
     assert_eq!(res.letter, Letter::A);
 }
 
-// #[test]
-// fn basic_newtype_variant_enum() {
-//     #[derive(Deserialize, Debug, PartialEq)]
-//     #[serde(untagged)]
-//     enum Letter {
-//         A(u32),
-//         B(String),
-//     }
+#[test]
+fn basic_newtype_variant_enum() {
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum Letter {
+        A(u32),
+        B(String),
+    }
 
-//     #[derive(Deserialize, Debug)]
-//     struct V {
-//         letter: Letter,
-//     }
-//     let payload = Builder::new()
-//         .start_compound("")
-//         .string("letter", "abc") // should deserialize as B?
-//         .end_compound()
-//         .build();
+    #[derive(Deserialize, Debug)]
+    struct V {
+        letter: Letter,
+    }
+    let payload = Builder::new()
+        .start_compound("")
+        .string("letter", "abc") // should deserialize as B?
+        .end_compound()
+        .build();
 
-//     let res: V = from_bytes(payload.as_slice()).unwrap();
+    let res: V = from_bytes(payload.as_slice()).unwrap();
 
-//     assert_eq!(res.letter, Letter::B("abc".to_owned()));
-// }
+    assert_eq!(res.letter, Letter::B("abc".to_owned()));
+}
+
+#[test]
+fn unit_variant_enum() -> Result<()> {
+    #[derive(Deserialize, PartialEq, Debug)]
+    enum E {
+        A,
+        B,
+        C,
+    }
+    #[derive(Deserialize)]
+    struct V {
+        e1: E,
+        e2: E,
+        e3: E,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .string("e1", "A")
+        .string("e2", "B")
+        .string("e3", "C")
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(v.e1, E::A);
+    assert_eq!(v.e2, E::B);
+    assert_eq!(v.e3, E::C);
+    Ok(())
+}
+
+#[test]
+fn integrals_in_fullvalue() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .int("a", 1)
+        .int("b", 2)
+        .end_compound()
+        .build();
+
+    let v: Value = from_bytes(payload.as_slice()).unwrap();
+    match v {
+        Value::Compound(ref map) => {
+            let a = &map["a"];
+            match a {
+                Value::Integral(i) => assert_eq!(*i, 1),
+                _ => panic!("{:?}", a),
+            }
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn floating_in_fullvalue() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .float("a", 1.0)
+        .double("b", 2.0)
+        .float("c", 3.0)
+        .end_compound()
+        .build();
+
+    let v: Value = from_bytes(payload.as_slice()).unwrap();
+    match v {
+        Value::Compound(ref map) => {
+            let a = &map["a"];
+            match a {
+                Value::Float(f) => assert_eq!(*f, 1.0),
+                _ => panic!("{:?}", a),
+            }
+            let b = &map["b"];
+            match b {
+                Value::Double(f) => assert_eq!(*f, 2.0),
+                _ => panic!("{:?}", a),
+            }
+            let c = &map["c"];
+            match c {
+                Value::Float(f) => assert_eq!(*f, 3.0),
+                _ => panic!("{:?}", a),
+            }
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn byte_array_in_fullvalue() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .byte_array("a", &[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let v: Value = from_bytes(payload.as_slice()).unwrap();
+    match v {
+        Value::Compound(ref map) => {
+            let a = &map["a"];
+            match a {
+                Value::IntegralArray(arr) => assert_eq!(arr, &[1, 2, 3]),
+                _ => panic!("{:?}", a),
+            }
+        }
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn int_array_in_fullvalue() {
+    let payload = Builder::new()
+        .start_compound("object")
+        .int_array("a", &[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let v: Value = from_bytes(payload.as_slice()).unwrap();
+    match v {
+        Value::Compound(ref map) => {
+            let a = &map["a"];
+            match a {
+                Value::IntegralArray(arr) => assert_eq!(arr, &[1, 2, 3]),
+                _ => panic!("{:?}", a),
+            }
+        }
+        _ => panic!(),
+    }
+}

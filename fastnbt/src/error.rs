@@ -9,7 +9,7 @@ pub enum Error {
     InvalidTag(u8),
     InvalidName,
     IntegralOutOfRange,
-    TypeMismatch(Tag, &'static str), // expected type by tag, expected serde type.
+    NoRootCompound,
     Eof,
 }
 
@@ -28,11 +28,10 @@ impl Display for Error {
             Error::IO(e) => f.write_fmt(format_args!("{}", e)),
             Error::InvalidTag(tag) => f.write_fmt(format_args!("Invalid tag number: {}", tag)),
             Error::InvalidName => f.write_str("invalid name"),
-            Error::TypeMismatch(t, s) => f.write_fmt(format_args!(
-                "expecting {}, found type to have tag {:?}",
-                s, t
-            )),
             Error::IntegralOutOfRange => f.write_str("integral value did not fit in receiver type"),
+            Error::NoRootCompound => {
+                f.write_str("require a root compound to start deserialization")
+            }
             Error::Eof => f.write_str("unexpected end of input"),
         }
     }

@@ -1,142 +1,123 @@
-//! A conventional `serde` deserializer module.
-//!
-//! `from_bytes` can be used to convert NBT data into a Rust `struct`. You can not deserialize into
-//! primitive types directly eg `from_bytes::<u32>(...)` due to the NBT data format itself.
+// want to make sure that we can
+// * do hashmaps
+// * do arbitrary decoding with a Value type.
+// * do normal structs
+// * do enums, internally tagged would be useful for entities in the chunk format.
+//
+// In order to do this I think I need to
+//
+// * leverage deserialize_any heavily.
+// * keep track of the exact state of deserialization, ie the level and
+//   structure of nesting in lists and compounds, as well as the state of the
+//   current tag/name/value.
 
-use super::error::{Error, Result};
-use super::Tag;
+// Some notes about this implementation
+// * When deserializing into singular unsigned types, it is an error to try and
+//   parse a negative value. This will not apply to &[u8].
+// * The unit type acts as a way to verify a field exists, but ignores its value.
+// * An NBT List of Byte can be deserialized to &[u8] or other sequence.
+// * An NBT ByteArray, IntArray or LongArray can all be deserialized into &[u8].
+
+use std::convert::{TryFrom, TryInto};
+
+use crate::error::{Error, Result};
+use crate::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::Deserialize;
-use serde::{
-    de::{EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
-    forward_to_deserialize_any,
-};
-use std::convert::TryFrom;
-use std::convert::TryInto;
-use std::str;
+use serde::{de, forward_to_deserialize_any};
 
-/// Deserializer for getting a `T` from some NBT data. Quite often you will need
-/// to rename fields using serde, as most Minecraft NBT data has inconsistent
-/// naming. The examples below show this with the `rename_all` attribute. See
-/// `serde`s other attributes for more.
-///
-/// You can take advantage of the lifetime of the input data to save allocations
-/// for things like strings. You can also deserialize any Array or List of
-/// primitive type as `&'a [u8]` to avoid allocating this data. See example
-/// below.
-///
-/// When deserializing integral types, the values are range checked to prevent
-/// overflow from occurring. If an overflow does occur you will get a
-/// [`Error::IntegralOutOfRange`] error.
-///
-/// [`Error::IntegralOutOfRange`]: ../error/enum.Error.html#variant.IntegralOutOfRange
-///
-/// # Example of deserializing player.dat
-///
-/// ```
-/// use serde::Deserialize;
-///
-/// #[derive(Deserialize, Debug)]
-/// #[serde(rename_all = "PascalCase")]
-/// struct PlayerDat {
-///     data_version: i32,
-///     inventory: Vec<InventorySlot>,
-///     ender_items: Vec<InventorySlot>,
-/// }
-///
-/// #[derive(Deserialize, Debug)]
-/// struct InventorySlot {
-///     id: String,
-/// }
-/// ```
-///
-/// # Examples of avoiding allocation
-///
-/// We can easily avoid allocations of `String`s using `&'a str` where `'a` is
-/// the lifetime of the input data.
-///
-/// ```
-/// use serde::Deserialize;
+enum Stage {
+    Tag,
+    Name,
+    Value,
+}
 
-/// #[derive(Deserialize, Debug)]
-/// struct InventorySlot<'a> {
-///     id: &'a str, // we avoid allocating a string here.
-/// }
-/// ```
-///
-/// Here we're avoiding allocating memory for the various heightmaps found in chunk data.
-/// The [`PackedBits`] type is used as a wrapper for the way Minecraft's Anvil format packs various
-/// lists of numbers.
-///
-/// [`PackedBits`]: ../struct.PackedBits.html
-///
-/// ```ignore
-/// use fastanvil::PackedBits;
-/// use serde::Deserialize;
-///
-///
-/// #[derive(Deserialize, Debug)]
-/// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-/// pub struct Heightmaps<'a> {
-///     #[serde(borrow)]
-///     pub motion_blocking: Option<PackedBits<'a>>,
-///     pub motion_blocking_no_leaves: Option<PackedBits<'a>>,
-///     pub ocean_floor: Option<PackedBits<'a>>,
-///     pub world_surface: Option<PackedBits<'a>>,
-///
-///     #[serde(skip)]
-///     unpacked_motion_blocking: Option<Vec<u16>>,
-/// }
-/// ```
-/// # Example from region file
-///
-/// ```ignore
-/// use fastanvil::{Chunk, Region};
-/// use fastnbt::de::from_bytes;
-///
-/// fn main() {
-///     let args: Vec<_> = std::env::args().skip(1).collect();
-///     let file = std::fs::File::open(args[0].clone()).unwrap();
-///
-///     let mut region = Region::new(file);
-///     let data = region.load_chunk(0, 0).unwrap();
-///
-///     let chunk: Chunk = from_bytes(data.as_slice()).unwrap();
-///
-///     println!("{:?}", chunk);
-/// }
-/// ```
+enum Layer {
+    List {
+        remaining_elements: i32, // would make more sense as usize, but format is i32.
+        element_tag: Tag,
+    },
+    Compound {
+        current_tag: Option<Tag>,
+        stage: Stage,
+    },
+}
+
+// Without this we would not be able to implement helper functions for the
+// input. If we wrote the helper functions as part of the Deserializer impl, it
+// would force borrowing the entire deserializer mutably. This helper allows us
+// to borrow just the input, making us free to also borrow/mutate the layers.
+struct InputHelper<'de>(&'de [u8]);
+
 pub struct Deserializer<'de> {
-    input: &'de [u8],
+    input: InputHelper<'de>,
     layers: Vec<Layer>,
 }
 
 impl<'de> Deserializer<'de> {
     pub fn from_bytes(input: &'de [u8]) -> Self {
         Self {
-            input,
+            input: InputHelper(input),
             layers: vec![],
         }
     }
 }
 
-/// Deserialize into a `T` from some NBT data. See [`Deserializer`] for more information.
-///
-/// [`Deserializer`]: ./struct.Deserializer.html
-pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
+fn consume_value<'de, V>(de: &mut Deserializer<'de>, visitor: V, tag: Tag) -> Result<V::Value>
 where
-    T: Deserialize<'a>,
+    V: de::Visitor<'de>,
 {
-    let mut des = Deserializer::from_bytes(&input);
-    let t = T::deserialize(&mut des)?;
-    // TODO: trailing chars?
-    Ok(t)
+    match tag {
+        Tag::Byte => visitor.visit_i8(de.input.0.read_i8()?),
+        Tag::Short => visitor.visit_i16(de.input.0.read_i16::<BigEndian>()?),
+        Tag::Int => visitor.visit_i32(de.input.0.read_i32::<BigEndian>()?),
+        Tag::Long => visitor.visit_i64(de.input.0.read_i64::<BigEndian>()?),
+        Tag::String => visitor.visit_borrowed_str(de.input.consume_size_prefixed_string()?),
+        Tag::Float => visitor.visit_f32(de.input.consume_float()?),
+        Tag::Double => visitor.visit_f64(de.input.consume_double()?),
+        Tag::Compound => {
+            de.layers.push(Layer::Compound {
+                current_tag: None,
+                stage: Stage::Tag,
+            });
+
+            visitor.visit_map(CompoundAccess::new(de))
+        }
+        Tag::List => {
+            let element_tag = de.input.consume_tag()?;
+            let size = de.input.consume_list_size()?;
+
+            de.layers.push(Layer::List {
+                remaining_elements: size,
+                element_tag,
+            });
+
+            visitor.visit_seq(ListAccess::new(de, size))
+        }
+        Tag::ByteArray | Tag::IntArray | Tag::LongArray => {
+            let size = de.input.consume_list_size()?;
+            let non_array_tag = match tag {
+                Tag::ByteArray => Tag::Byte,
+                Tag::IntArray => Tag::Int,
+                Tag::LongArray => Tag::Long,
+                _ => panic!(),
+            };
+
+            de.layers.push(Layer::List {
+                remaining_elements: size,
+                element_tag: non_array_tag,
+            });
+
+            // Going to pretend we're in a list to reuse the ListAccess.
+            visitor.visit_seq(ListAccess::new(de, size))
+        }
+        _ => todo!("any value"),
+    }
 }
 
-impl<'de> Deserializer<'de> {
+impl<'de> InputHelper<'de> {
     fn consume_tag(&mut self) -> Result<Tag> {
-        let tag_byte = self.input.read_u8()?;
-        u8_to_tag(tag_byte)
+        let tag_byte = self.0.read_u8()?;
+        Tag::try_from(tag_byte).or_else(|_| Err(Error::InvalidTag(tag_byte)))
     }
 
     fn consume_name(&mut self) -> Result<&'de str> {
@@ -144,49 +125,44 @@ impl<'de> Deserializer<'de> {
     }
 
     fn consume_size_prefixed_string(&mut self) -> Result<&'de str> {
-        let len = self.input.read_u16::<BigEndian>()? as usize;
-        let s = str::from_utf8(&self.input[..len]).map_err(|_| Error::InvalidName);
-        self.input = &self.input[len..];
+        let len = self.0.read_u16::<BigEndian>()? as usize;
+        let s = std::str::from_utf8(&self.0[..len]).map_err(|_| Error::InvalidName);
+        self.0 = &self.0[len..];
         s
-    }
-
-    fn consume_integral(&mut self) -> Result<i64> {
-        self.consume_integral_unchecked(self.current_values_tag()?)
-    }
-
-    fn consume_integral_unchecked(&mut self, tag: Tag) -> Result<i64> {
-        Ok(match tag {
-            Tag::Byte => self.input.read_i8()? as i64,
-            Tag::Short => self.input.read_i16::<BigEndian>()? as i64,
-            Tag::Int => self.input.read_i32::<BigEndian>()? as i64,
-            Tag::Long => self.input.read_i64::<BigEndian>()? as i64,
-            _ => return Err(Error::TypeMismatch(tag, "integral")),
-        })
     }
 
     fn consume_bytes_unchecked(&mut self, size: i32) -> Result<&'de [u8]> {
         let size: usize = size.try_into()?;
-        let bs = &self.input[..size];
-        self.input = &self.input[size..];
+        let bs = &self.0[..size];
+        self.0 = &self.0[size..];
         Ok(bs)
     }
 
     fn consume_list_size(&mut self) -> Result<i32> {
-        Ok(self.input.read_i32::<BigEndian>()?)
+        Ok(self.0.read_i32::<BigEndian>()?)
     }
 
     fn consume_float(&mut self) -> Result<f32> {
-        Ok(self.input.read_f32::<BigEndian>()?)
+        Ok(self.0.read_f32::<BigEndian>()?)
     }
 
     fn consume_double(&mut self) -> Result<f64> {
-        Ok(self.input.read_f64::<BigEndian>()?)
+        Ok(self.0.read_f64::<BigEndian>()?)
     }
 
     fn ignore_value(&mut self, tag: Tag) -> Result<()> {
         match tag {
-            Tag::Byte | Tag::Short | Tag::Int | Tag::Long => {
-                self.consume_integral_unchecked(tag)?;
+            Tag::Byte => {
+                self.0.read_i8()?;
+            }
+            Tag::Short => {
+                self.0.read_i16::<BigEndian>()?;
+            }
+            Tag::Int => {
+                self.0.read_i32::<BigEndian>()?;
+            }
+            Tag::Long => {
+                self.0.read_i64::<BigEndian>()?;
             }
             Tag::Float => {
                 self.consume_float()?;
@@ -235,137 +211,167 @@ impl<'de> Deserializer<'de> {
 
         Ok(())
     }
+}
 
-    fn current_values_tag(&self) -> Result<Tag> {
-        let layer = self.layers.last().ok_or(Error::Message(format!(
-            "expected to be in a compound or list",
-        )))?;
+/// Deserialize into a `T` from some NBT data. See [`Deserializer`] for more information.
+///
+/// [`Deserializer`]: ./struct.Deserializer.html
+pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let mut des = Deserializer::from_bytes(&input);
+    let t = T::deserialize(&mut des)?;
+    // TODO: trailing chars?
+    Ok(t)
+}
 
-        match layer {
-            Layer::Compound(Some(tag)) => Ok(tag.clone()),
-            Layer::List(tag, _) => Ok(tag.clone()),
-            Layer::Compound(None) => Err(Error::Message(
-                "expected to be in compound, but do not know what to deserialize".to_owned(),
+impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+    type Error = Error;
+
+    forward_to_deserialize_any!(struct map identifier i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 str string seq tuple);
+
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let tag = match self.layers.last_mut().as_mut() {
+            None => {
+                // No existing layers. This means we should be at the start of
+                // parsing, and we should be parsing a Compound. We need to get
+                // the tag and the following name and discard it.
+                let tag = self.input.consume_tag()?;
+                if tag != Tag::Compound {
+                    return Err(Error::NoRootCompound);
+                }
+
+                self.input.consume_name()?;
+
+                self.layers.push(Layer::Compound {
+                    current_tag: None,
+                    stage: Stage::Tag,
+                });
+
+                return visitor.visit_map(CompoundAccess::new(self));
+            }
+            Some(layer) => {
+                // Pick what we do based on the stage of parsing.
+                match layer {
+                    Layer::Compound {
+                        ref mut current_tag,
+                        ref mut stage,
+                    } => match stage {
+                        Stage::Tag => {
+                            *current_tag = Some(self.input.consume_tag()?);
+                            *stage = Stage::Value;
+                            return visitor.visit_borrowed_str(self.input.consume_name()?);
+                        }
+                        Stage::Name => {
+                            *stage = Stage::Value;
+                            return visitor.visit_borrowed_str(self.input.consume_name()?);
+                        }
+                        Stage::Value => {
+                            *stage = Stage::Tag;
+
+                            // TODO: Remove unwrap
+                            current_tag.unwrap()
+                        }
+                    },
+                    Layer::List {
+                        remaining_elements: _,
+                        element_tag,
+                    } => *element_tag,
+                    _ => todo!("layer type"),
+                }
+            }
+        };
+
+        consume_value(self, visitor, tag)
+    }
+
+    #[inline]
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let tag = match self.layers.last() {
+            Some(Layer::Compound { current_tag, .. }) => current_tag.as_ref().ok_or_else(|| {
+                Error::Message("deserialize bool: did not know value's tag".to_string())
+            }),
+            Some(Layer::List { element_tag, .. }) => Ok(element_tag),
+            None => Err(Error::Message(
+                "deserialize bool: not in compound or list".to_string(),
+            )),
+        }?;
+
+        match tag {
+            Tag::Byte => visitor.visit_bool(self.input.0.read_i8()? != 0),
+            Tag::Short => visitor.visit_bool(self.input.0.read_i16::<BigEndian>()? != 0),
+            Tag::Int => visitor.visit_bool(self.input.0.read_i32::<BigEndian>()? != 0),
+            Tag::Long => visitor.visit_bool(self.input.0.read_i64::<BigEndian>()? != 0),
+            _ => Err(Error::Message(
+                "deserialize bool: expected integral value".to_string(),
             )),
         }
     }
 
-    fn type_check(&mut self, tag: Tag, serde_type: &'static str) -> Result<()> {
-        if self.current_values_tag()? != tag {
-            Err(Error::TypeMismatch(self.current_values_tag()?, serde_type))
-        } else {
-            Ok(())
-        }
-    }
-
-    fn type_check_floating_points(&mut self) -> Result<()> {
-        let current = self.current_values_tag()?;
-
-        if current != Tag::Float || current != Tag::Double {
-            Err(Error::TypeMismatch(
-                self.current_values_tag()?,
-                "float/double",
-            ))
-        } else {
-            Ok(())
-        }
-    }
-}
-
-fn u8_to_tag(tag: u8) -> Result<Tag> {
-    Tag::try_from(tag).or_else(|_| Err(Error::InvalidTag(tag)))
-}
-
-impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
-    type Error = Error;
-
-    forward_to_deserialize_any!(i8 i16 i32 i64 str string);
-
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    #[inline]
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        match self.current_values_tag()? {
-            Tag::Byte => visitor.visit_i8(self.consume_integral()? as i8),
-            Tag::Short => visitor.visit_i16(self.consume_integral()? as i16),
-            Tag::Int => visitor.visit_i32(self.consume_integral()? as i32),
-            Tag::Long => visitor.visit_i64(self.consume_integral()? as i64),
-            Tag::String => visitor.visit_borrowed_str(self.consume_size_prefixed_string()?),
-            _ => todo!("any"),
-        }
+        unimplemented!("char")
     }
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        // Any non-zero number treated as true.
-        let num = self.consume_integral()?;
-        visitor.visit_bool(!(num == 0))
-    }
-
-    fn deserialize_struct<V>(
-        self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_map(visitor)
-    }
-
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let name = self.consume_name()?;
-        visitor.visit_str(name)
-    }
-
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_bytes(visitor)
-    }
-
+    #[inline]
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         let layer = self.layers.last().ok_or(Error::Message(format!(
             "expected bytes, but not in a compound or list",
         )))?;
 
         match layer {
-            Layer::List(tag, size) => Err(Error::Message(format!(
+            Layer::List {
+                remaining_elements,
+                element_tag,
+                ..
+            } => Err(Error::Message(format!(
                 "expected bytes, got [{:?}; {}]",
-                tag, size
+                element_tag, remaining_elements
             ))),
-            Layer::Compound(None) => Err(Error::Message(
+            Layer::Compound {
+                current_tag: None, ..
+            } => Err(Error::Message(
                 "expected bytes, but do not know what to deserialize".to_owned(),
             )),
-            Layer::Compound(Some(Tag::List)) => {
-                let el = self.consume_tag()?;
-                let size = self.consume_list_size()?;
+            Layer::Compound {
+                current_tag: Some(Tag::List),
+                ..
+            } => {
+                let el = self.input.consume_tag()?;
+                let size = self.input.consume_list_size()?;
 
                 match el {
                     Tag::Byte => {
-                        let bs = self.consume_bytes_unchecked(size)?;
+                        let bs = self.input.consume_bytes_unchecked(size)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Short => {
-                        let bs = self.consume_bytes_unchecked(size * 2)?;
+                        let bs = self.input.consume_bytes_unchecked(size * 2)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Int => {
-                        let bs = self.consume_bytes_unchecked(size * 4)?;
+                        let bs = self.input.consume_bytes_unchecked(size * 4)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Long => {
-                        let bs = self.consume_bytes_unchecked(size * 8)?;
+                        let bs = self.input.consume_bytes_unchecked(size * 8)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     _ => Err(Error::Message(format!(
@@ -374,21 +380,24 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
                     ))),
                 }
             }
-            Layer::Compound(Some(tag)) => match tag {
+            Layer::Compound {
+                current_tag: Some(tag),
+                ..
+            } => match tag {
                 Tag::ByteArray => {
-                    let size = self.consume_list_size()?;
-                    let bs = self.consume_bytes_unchecked(size)?;
+                    let size = self.input.consume_list_size()?;
+                    let bs = self.input.consume_bytes_unchecked(size)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 Tag::IntArray => {
-                    let size = self.consume_list_size()?;
-                    let bs = self.consume_bytes_unchecked(size * 4i32)?;
+                    let size = self.input.consume_list_size()?;
+                    let bs = self.input.consume_bytes_unchecked(size * 4i32)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 // This allows us to borrow blockstates rather than copy them.
                 Tag::LongArray => {
-                    let size = self.consume_list_size()?;
-                    let bs = self.consume_bytes_unchecked(size * 8i32)?;
+                    let size = self.input.consume_list_size()?;
+                    let bs = self.input.consume_bytes_unchecked(size * 8i32)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 _ => Err(Error::Message(format!("expected bytes, found {:?}", tag))),
@@ -396,203 +405,88 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_char<V>(self, _: V) -> Result<V::Value>
+    #[inline]
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        Err(Error::Message("char not supported".to_owned()))
+        // How do we even get here? Vec and slices don't call this.
+        unimplemented!("byte_buf")
     }
 
-    fn deserialize_enum<V>(
-        self,
-        _name: &'static str,
-        _variants: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        // If the current tag is a string, then we want a unit variant eg
-        // enum E { A, B, C }
-        match self.current_values_tag()? {
-            Tag::String => visitor.visit_enum(UnitVariantAccess { de: self }),
-            _ => todo!("non-unit enum variants"),
-        }
-    }
-
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.type_check_floating_points()?;
-        visitor.visit_f32(self.consume_float()?)
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.type_check_floating_points()?;
-        visitor.visit_f64(self.consume_double()?)
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_u8(num.try_into()?)
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_u16(num.try_into()?)
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_u32(num.try_into()?)
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let num = self.consume_integral()?;
-        visitor.visit_u64(num.try_into()?)
-    }
-
+    #[inline]
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        // For NBT, an option would just be the absense of the field.
         visitor.visit_some(self)
     }
 
+    #[inline]
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        let tag = self.current_values_tag()?;
-        self.ignore_value(tag)?;
+        let tag = match self.layers.last() {
+            Some(Layer::Compound { current_tag, .. }) => current_tag.as_ref().ok_or_else(|| {
+                Error::Message("deserialize unit: did not know value's tag".to_string())
+            }),
+            Some(Layer::List { element_tag, .. }) => Ok(element_tag),
+            None => Err(Error::Message(
+                "deserialize_unit: not in compound or list".to_string(),
+            )),
+        }?;
+
+        self.input.ignore_value(*tag)?;
         visitor.visit_unit()
     }
 
-    fn deserialize_unit_struct<V>(self, _: &'static str, _: V) -> Result<V::Value>
+    #[inline]
+    fn deserialize_unit_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        Err(Error::Message("unit_struct not supported".to_owned()))
+        todo!("unit_struct")
     }
 
-    fn deserialize_newtype_struct<V>(self, _: &'static str, visitor: V) -> Result<V::Value>
+    #[inline]
+    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        let tag = self.current_values_tag()?;
-
-        match tag {
-            Tag::ByteArray | Tag::IntArray | Tag::LongArray => {
-                let size = self.consume_list_size()?;
-                let non_array_tag = match tag {
-                    Tag::ByteArray => Tag::Byte,
-                    Tag::IntArray => Tag::Int,
-                    Tag::LongArray => Tag::Long,
-                    _ => panic!(),
-                };
-
-                // Going to pretend we're in a list to reuse the ListAccess.
-                self.layers.push(Layer::List(non_array_tag, size));
-                let r = visitor.visit_seq(ListAccess::new(self, size));
-                self.layers.pop().unwrap();
-                r
-            }
-            Tag::List => {
-                // We should be just after the point of reading the name of the list.
-                // So we need to read the element type, then the size.
-                let element_tag = self.consume_tag()?;
-                let size = self.consume_list_size()?;
-
-                self.layers.push(Layer::List(element_tag, size));
-
-                let r = visitor.visit_seq(ListAccess::new(self, size));
-                self.layers.pop().unwrap();
-                r
-            }
-            _ => Err(Error::TypeMismatch(tag, "seq")),
-        }
-    }
-
-    fn deserialize_tuple<V>(self, _: usize, visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
+    #[inline]
     fn deserialize_tuple_struct<V>(
         self,
-        _name: &'static str,
-        _len: usize,
-        _visitor: V,
+        name: &'static str,
+        len: usize,
+        visitor: V,
     ) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("tuple_struct")
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    #[inline]
+    fn deserialize_enum<V>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
-        // For a nested struct we get here AFTER processing the compound tag and it's name.
-        // We need to immediately start looking at it's keys.
-
-        // Get the tag, which should definitely be 'compound'.
-        let tag = match self.layers.last() {
-            Some(Layer::Compound(Some(tag))) => tag.clone(),
-            Some(Layer::Compound(None)) => {
-                return Err(Error::Message(
-                    "expected struct, did not know what to deserialize".to_owned(),
-                ))
-            }
-            Some(Layer::List(tag, _)) => tag.clone(),
-            None => {
-                // We're at the very start of parsing, we expect the NBT to start with a compound
-                // and need to parse the tag and name before calling visit_map.
-                let tag = self.consume_tag()?;
-                self.consume_name()?;
-                tag
-            }
-        };
-
-        if tag == Tag::Compound {
-            self.layers.push(Layer::Compound(None));
-        } else {
-            return Err(Error::Message(format!("expected compound, got {:?}", tag)));
-        }
-
-        visitor.visit_map(CompoundAccess::new(self))
+        visitor.visit_enum(UnitVariantAccess { de: self })
     }
 
+    #[inline]
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         // The NBT contains a field that we don't want.
         // The last layer should tell us what value we're expecting.
@@ -607,11 +501,20 @@ impl<'de, 'a> serde::Deserializer<'de> for &'a mut Deserializer<'de> {
             .clone();
 
         match layer {
-            Layer::Compound(Some(tag)) => {
-                self.ignore_value(tag)?;
+            Layer::Compound {
+                current_tag: Some(tag),
+                stage: Stage::Value,
+            } => {
+                self.input.ignore_value(*tag)?;
             }
-            Layer::Compound(None) => todo!("compound(none)"), // ???
-            Layer::List(_, _) => {
+            Layer::Compound {
+                current_tag: _,
+                stage: _,
+            } => todo!("compound(none)"), // ???
+            Layer::List {
+                remaining_elements: _,
+                element_tag: _,
+            } => {
                 todo!();
             }
         }
@@ -630,15 +533,16 @@ impl<'a, 'de> CompoundAccess<'a, 'de> {
     }
 }
 
-impl<'a, 'de> MapAccess<'de> for CompoundAccess<'a, 'de> {
+impl<'a, 'de> de::MapAccess<'de> for CompoundAccess<'a, 'de> {
     type Error = Error;
 
+    #[inline]
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
     where
         K: serde::de::DeserializeSeed<'de>,
     {
         // Need to read the tag of the key.
-        let tag = self.de.consume_tag()?;
+        let tag = self.de.input.consume_tag()?;
 
         if tag == Tag::End {
             self.de.layers.pop();
@@ -648,12 +552,16 @@ impl<'a, 'de> MapAccess<'de> for CompoundAccess<'a, 'de> {
         // Set the current layers next expected type.
         // TODO: Can probably do this by mutating top layer rather than pop/push.
         self.de.layers.pop().unwrap();
-        self.de.layers.push(Layer::Compound(Some(tag)));
+        self.de.layers.push(Layer::Compound {
+            current_tag: Some(tag),
+            stage: Stage::Name,
+        });
 
         // Should just be ready to read the name.
         seed.deserialize(&mut *self.de).map(Some)
     }
 
+    #[inline]
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: serde::de::DeserializeSeed<'de>,
@@ -673,13 +581,14 @@ impl<'a, 'de> ListAccess<'a, 'de> {
     }
 }
 
-impl<'a, 'de> SeqAccess<'de> for ListAccess<'a, 'de> {
+impl<'a, 'de> de::SeqAccess<'de> for ListAccess<'a, 'de> {
     type Error = Error;
 
     fn size_hint(&self) -> Option<usize> {
         self.hint.try_into().ok()
     }
 
+    #[inline]
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: serde::de::DeserializeSeed<'de>,
@@ -691,18 +600,25 @@ impl<'a, 'de> SeqAccess<'de> for ListAccess<'a, 'de> {
             .ok_or(Error::Message("expected to be in list".to_owned()))?;
 
         match layer {
-            Layer::List(_, size) => {
-                if *size > 0 {
-                    *size = *size - 1;
+            Layer::List {
+                remaining_elements,
+                element_tag: _,
+            } => {
+                if *remaining_elements > 0 {
+                    *remaining_elements = *remaining_elements - 1;
                     let val = seed.deserialize(&mut *self.de)?;
                     Ok(Some(val))
                 } else {
+                    self.de.layers.pop();
                     Ok(None)
                 }
             }
-            Layer::Compound(tag) => Err(Error::Message(format!(
+            Layer::Compound {
+                current_tag,
+                stage: _,
+            } => Err(Error::Message(format!(
                 "expected to be in list, but was in compound {:?}",
-                tag
+                current_tag
             ))),
         }
     }
@@ -712,7 +628,7 @@ struct UnitVariantAccess<'a, 'de> {
     de: &'a mut Deserializer<'de>,
 }
 
-impl<'a, 'de> EnumAccess<'de> for UnitVariantAccess<'a, 'de> {
+impl<'a, 'de> de::EnumAccess<'de> for UnitVariantAccess<'a, 'de> {
     type Error = Error;
     type Variant = Self;
 
@@ -725,7 +641,7 @@ impl<'a, 'de> EnumAccess<'de> for UnitVariantAccess<'a, 'de> {
     }
 }
 
-impl<'a, 'de> VariantAccess<'de> for UnitVariantAccess<'a, 'de> {
+impl<'a, 'de> de::VariantAccess<'de> for UnitVariantAccess<'a, 'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
@@ -741,21 +657,15 @@ impl<'a, 'de> VariantAccess<'de> for UnitVariantAccess<'a, 'de> {
 
     fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("unit variant: variant")
     }
 
     fn struct_variant<V>(self, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("unit variant: struct variant")
     }
-}
-
-#[derive(Clone)]
-enum Layer {
-    List(Tag, i32),        // Tag of elements, number of elements left.
-    Compound(Option<Tag>), // Tag is the type of the next expected value.
 }

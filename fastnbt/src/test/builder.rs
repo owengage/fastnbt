@@ -75,6 +75,13 @@ impl Builder {
             .byte_array_payload(bs)
     }
 
+    pub fn int_array(self, name: &str, arr: &[i32]) -> Self {
+        self.tag(Tag::IntArray)
+            .name(name)
+            .int_payload(arr.len().try_into().unwrap())
+            .int_array_payload(arr)
+    }
+
     pub fn string_payload(self, s: &str) -> Self {
         self.name(s)
     }

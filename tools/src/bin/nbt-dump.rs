@@ -1,4 +1,4 @@
-use fastnbt::{Parser, Value};
+use fastnbt::stream::{Parser, Value};
 use flate2::read::GzDecoder;
 use std::io;
 

@@ -4,7 +4,6 @@ use crate::Tag;
 
 mod builder;
 
-#[cfg(feature = "use_serde")]
 mod de;
 
 mod stream;
