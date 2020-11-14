@@ -23,7 +23,7 @@ See the `examples` directory for more examples.
 
 ```toml
 [dependencies]
-fastnbt = "0.11"
+fastnbt = "0.12"
 ```
 
 # Serde derserialize example
