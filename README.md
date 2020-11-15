@@ -1,19 +1,27 @@
 # fastnbt project
 
-Crate documentation:
-* [docs.rs/crate/fastnbt](https://docs.rs/crate/fastnbt)
-* [docs.rs/crate/fastanvil](https://docs.rs/crate/fastanvil)
+* For docs on NBT deserializing see
+  [docs.rs/crate/fastnbt](https://docs.rs/crate/fastnbt)
+* For docs on handling minecraft worlds see
+  [docs.rs/crate/fastanvil](https://docs.rs/crate/fastanvil)
+* To render *your* world in the browser, see
+  [owengage.com/anvil](https://owengage.com/anvil)
 
 This repository contains multiple related projects.
 
-* [fastnbt](fastnbt/README.md): Fast (or trying to be!) deserializer and parser for *Minecraft: Java Edition*'s NBT data format.
+* [fastnbt](fastnbt/README.md): Fast (or trying to be!) deserializer and parser
+  for *Minecraft: Java Edition*'s NBT data format.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
-* anvil-wasm: An entirely in-the-browser map renderer. Demo at [owengage.com/anvil](https://owengage.com/anvil).
+* anvil-wasm: An entirely in-the-browser map renderer.
 
-Aim to support only the latest version of Minecraft. Works with 1.16 worlds at the moment. Endevour to support old chunks in 1.16 worlds, but not extracting textures from older versions due to the added complexity it would require.
+Aim to support only the latest version of Minecraft. Works with 1.16 worlds at
+the moment. Endevour to support old chunks in 1.16 worlds, but not extracting
+textures from older versions due to the added complexity it would require.
 
-The `anvil` binary can render your world leveraging all of your CPU. My 3.2 GiB world with 271k chunks is fully rendered to a 14000x17000 PNG in about 7 seconds. What about yours?
+The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
+your CPU. My 3.2 GiB world with 271k chunks is fully rendered to a 14000x17000
+PNG in about 7 seconds. What about yours?
 
 ![alt rendered map](demo.png)
 
@@ -47,7 +55,8 @@ anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.
 
 # Development priorities
 
-These are the proirities for the project when it comes to development. Ideally we never sacrifice an earlier priority for the sake of a later one.
+These are the proirities for the project when it comes to development. Ideally
+we never sacrifice an earlier priority for the sake of a later one.
 
 1. Correctness. Worlds are rendered as accurately as possible.
 2. Speed. Worlds are rendered as fast as possible.

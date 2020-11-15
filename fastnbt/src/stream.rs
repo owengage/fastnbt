@@ -4,9 +4,10 @@ use super::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::{convert::TryFrom, io::Read};
 
+/// An optional `String`.
 pub type Name = Option<String>;
 
-/// An NBT value.
+/// A shallow NBT value.
 ///
 /// For every value except compounds and lists, this contains the value of the tag. For example, a `Value::Byte` will
 /// contain the name and the byte of that NBT tag.
@@ -33,15 +34,23 @@ pub enum Value {
     LongArray(Name, Vec<i64>),
 }
 
+/// Error for the lower level `Parser`.
 #[derive(Debug)]
 pub enum Error {
+    /// Any IO error that occurred.
     IO(std::io::Error),
-    ShortRead,
+
+    /// Tag was not a valid NBT tag.
     InvalidTag(u8),
-    InvalidName,
+
+    /// String was not unicode.
+    NonunicodeString,
+
+    /// Hit EOF unexpectedly.
     EOF,
 }
 
+/// Convenience type for Result.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Parser can take any reader and parse it as NBT data. Does not do decompression.
@@ -127,6 +136,7 @@ pub struct Parser<R: Read> {
 }
 
 impl<R: Read> Parser<R> {
+    /// Create new parser for the given reader.
     pub fn new(reader: R) -> Self {
         Self {
             reader,
@@ -134,6 +144,7 @@ impl<R: Read> Parser<R> {
         }
     }
 
+    /// Parse the next value from the input.
     pub fn next(&mut self) -> Result<Value> {
         self.next_inner()
     }
@@ -203,7 +214,7 @@ impl<R: Read> Parser<R> {
         self.reader.read_exact(&mut buf[..])?;
 
         Ok(std::str::from_utf8(&buf[..])
-            .map_err(|_| Error::InvalidName)?
+            .map_err(|_| Error::NonunicodeString)?
             .to_owned())
     }
 
@@ -256,6 +267,8 @@ impl<R: Read> Parser<R> {
     }
 }
 
+/// Parse the input until the compound we are currently inside is complete.
+/// Handles inner compounds by skipping those as well.
 pub fn skip_compound<R: Read>(parser: &mut Parser<R>) -> Result<()> {
     let mut depth = 1;
 
@@ -270,6 +283,8 @@ pub fn skip_compound<R: Read>(parser: &mut Parser<R>) -> Result<()> {
     Ok(())
 }
 
+/// Parse until the compound with the given name is found. This will enter other
+/// compounds and lists, rather than find a compound at the current level.
 pub fn find_compound<R: Read>(parser: &mut Parser<R>, name: Option<&str>) -> Result<()> {
     loop {
         match parser.next()? {
@@ -281,6 +296,8 @@ pub fn find_compound<R: Read>(parser: &mut Parser<R>, name: Option<&str>) -> Res
     Ok(())
 }
 
+/// Parse until the list with the given name is found. This will enter other
+/// compounds and lists, rather than find a list at the current level.
 pub fn find_list<R: Read>(parser: &mut Parser<R>, name: Option<&str>) -> Result<usize> {
     loop {
         match parser.next()? {
@@ -322,33 +339,4 @@ fn u8_to_tag(tag: u8) -> Result<Tag> {
 enum Layer {
     List(Tag, i32),
     Compound,
-}
-
-pub fn dump<R: Read>(from: R) {
-    let mut parser = Parser::new(from);
-    let mut indent = 0;
-
-    loop {
-        match parser.next() {
-            Err(e) => {
-                println!("{:?}", e);
-                break;
-            }
-            Ok(value) => {
-                match value {
-                    Value::CompoundEnd => indent -= 4,
-                    Value::ListEnd => indent -= 4,
-                    _ => {}
-                }
-
-                println!("{:indent$}{:?}", "", value, indent = indent);
-
-                match value {
-                    Value::Compound(_) => indent += 4,
-                    Value::List(_, _, _) => indent += 4,
-                    _ => {}
-                }
-            }
-        }
-    }
 }

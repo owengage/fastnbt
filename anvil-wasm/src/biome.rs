@@ -1,6 +1,4 @@
-use fastanvil::{
-    biome::Biome, Chunk, ChunkRender, IntoMap, Palette, RegionBlockDrawer, RegionMap, Rgba,
-};
+use fastanvil::{biome::Biome, Chunk, ChunkRender, RegionMap, Rgba};
 
 pub struct RegionBiomeDrawer<'a> {
     pub map: &'a mut RegionMap<Rgba>,
@@ -42,7 +40,5 @@ impl<'a> ChunkRender for RegionBiomeDrawer<'a> {
         }
     }
 
-    fn draw_invalid(&mut self, xc_rel: usize, zc_rel: usize) {
-        //todo!()
-    }
+    fn draw_invalid(&mut self, _xc_rel: usize, _zc_rel: usize) {}
 }

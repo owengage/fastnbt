@@ -1,15 +1,171 @@
-// want to make sure that we can
-// * do hashmaps
-// * do arbitrary decoding with a Value type.
-// * do normal structs
-// * do enums, internally tagged would be useful for entities in the chunk format.
-//
-// In order to do this I think I need to
-//
-// * leverage deserialize_any heavily.
-// * keep track of the exact state of deserialization, ie the level and
-//   structure of nesting in lists and compounds, as well as the state of the
-//   current tag/name/value.
+//! This module contains a serde deserializer. It can do most of the things you
+//! would expect of a typical serde deserializer, such as deserializing into:
+//! * Rust structs.
+//! * containers like `HashMap` and `Vec`.
+//! * an arbitrary [`Value`](../enum.Value.html).
+//! * enums. For NBT typically you want either internally or untagged enums.
+//!
+//! This deserializer only supports [`from_bytes`](fn.from_bytes.html). This is
+//! usually fine as most structures stored in this format are reasonably small,
+//! the largest likely being an individual Chunk which maxs out at 1 MiB
+//! compressed. This allows us to avoid excessive memory allocations.
+//!
+//! # Avoiding allocations
+//!
+//! Due to having all the input in memory, we can avoid allocations for things
+//! like strings and vectors, instead deserializing into a reference to the
+//! input data.
+//!
+//! This deserializer will allow you to deserialize any list of integral value
+//! to a `&[u8]` slice to avoid allocations. This includes the ByteArray,
+//! IntArray, LongArray types as well as a List that happens to be only one of
+//! these types. This does however mean some more effort on the implementors
+//! side to extract the real values. The `fastanvil` crate can potentially do
+//! some of this for you.
+//!
+//! # Other quirks
+//!
+//! Some other quirks which may not be obvious:
+//! * When deserializing to unsigned types such as u32, it will be an error if a
+//!   value is negative to avoid unexpected behaviour with wrap-around. This
+//!   does not apply to deserializing lists of integrals to `u8` slice or
+//!   vectors.
+//! * You can deserialize a field to the unit type `()`. This ignores the value
+//!   but ensures that it existed.
+//!
+//! # Example Minecraft types
+//!
+//! This section demonstrates writing types for a few real Minecraft structures.
+//!
+//! ## Extracting entities as an enum
+//!
+//! This demonstrates the type that you would need to write in order to extract
+//! some subset of entities. This uses a tagged enum in serde, meaning that it
+//! will look for a certain field in the structure to tell it what enum variant
+//! to deserialize into. We use serde's `other` attribute to not error when an
+//! unknown entity type is found.
+//!
+//! ```rust
+//! use serde::Deserialize;
+//!
+//! #[derive(Deserialize, Debug)]
+//! #[serde(tag = "id")]
+//! enum Entity {
+//!    #[serde(rename = "minecraft:bat")]
+//!    Bat {
+//!        #[serde(rename = "BatFlags")]
+//!        bat_flags: i8,
+//!    },
+//!
+//!    #[serde(rename = "minecraft:creeper")]
+//!    Creeper { ignited: i8 },
+//!
+//!    // Entities we haven't coded end up as just 'unknown'.
+//!    #[serde(other)]
+//!    Unknown,
+//! }
+//! ```
+//!
+//! ## Capture unknown entities
+//!
+//! If you need to capture all entity types, but do not wish to manually type
+//! all of them, you can wrap the above entity type in an untagged enum.
+//!
+//! ```rust
+//! use serde::Deserialize;
+//! use fastnbt::Value;
+//!
+//! #[derive(Deserialize, Debug)]
+//! #[serde(untagged)]
+//! enum Entity {
+//!     Known(KnownEntity),
+//!     Unknown(Value),
+//! }
+
+//! #[derive(Deserialize, Debug)]
+//! #[serde(tag = "id")]
+//! enum KnownEntity {
+//!     #[serde(rename = "minecraft:bat")]
+//!     Bat {
+//!         #[serde(rename = "BatFlags")]
+//!         bat_flags: i8,
+//!     },
+
+//!     #[serde(rename = "minecraft:creeper")]
+//!     Creeper { ignited: i8 },
+//! }
+//! ```
+//!
+//! ## Avoiding allocations in a Chunk
+//!
+//! This example shows how to avoid some allocations. The `Section` type below
+//! contains the block states which stores the state of part of the Minecraft
+//! world. In NBT this is a complicated backed bits type stored as an array of
+//! longs (i64). We avoid allocating a vector for this by storing it as a
+//! `&[u8]` instead. We can't safely store it as `&[i64]` due to memory
+//! alignment constraints. The `fastanvil` crate has a `PackedBits` type that
+//! can handle the unpacking of these block states.
+//!
+//! ```rust
+//! # use serde::Deserialize;
+
+//! #[derive(Deserialize)]
+//! struct Chunk<'a> {
+//!     #[serde(rename = "Level")]
+//!     #[serde(borrow)]
+//!     level: Level<'a>,
+//! }
+//!
+//! #[derive(Deserialize)]
+//! struct Level<'a> {
+//!     #[serde(rename = "Sections")]
+//!     #[serde(borrow)]
+//!     pub sections: Option<Vec<Section<'a>>>,
+//! }
+//!
+//! #[derive(Deserialize, Debug)]
+//! #[serde(rename_all = "PascalCase")]
+//! pub struct Section<'a> {
+//!     #[serde(borrow)]
+//!     pub block_states: Option<&'a [u8]>,
+//! }
+//! ```
+//!
+//! ## Unit variant enum from status of chunk
+//!
+//! ```no_run
+//! use serde::Deserialize;
+//!
+//! #[derive(Deserialize)]
+//! struct Chunk {
+//!     #[serde(rename = "Level")]
+//!     level: Level,
+//! }
+//!
+//! #[derive(Deserialize)]
+//! struct Level {
+//!     #[serde(rename = "Status")]
+//!     status: Status,
+//! }
+//!
+//! #[derive(Deserialize, PartialEq, Debug)]
+//! #[serde(rename_all = "snake_case")]
+//! enum Status {
+//!     Empty,
+//!     StructureStarts,
+//!     StructureReferences,
+//!     Biomes,
+//!     Noise,
+//!     Surface,
+//!     Carvers,
+//!     LiquidCarvers,
+//!     Features,
+//!     Light,
+//!     Spawn,
+//!     Heightmaps,
+//!     Full,
+//! }
+//! ```
 
 // Some notes about this implementation
 // * When deserializing into singular unsigned types, it is an error to try and
@@ -48,12 +204,19 @@ enum Layer {
 // to borrow just the input, making us free to also borrow/mutate the layers.
 struct InputHelper<'de>(&'de [u8]);
 
+/// Deserializer for NBT data. See the [`de`] module for more information.
+///
+/// [`de`]: ./index.html
 pub struct Deserializer<'de> {
     input: InputHelper<'de>,
     layers: Vec<Layer>,
 }
 
 impl<'de> Deserializer<'de> {
+    /// Create Deserializer for a `T` from some NBT data. See the [`de`] module
+    /// for more information.
+    ///
+    /// [`de`]: ./index.html
     pub fn from_bytes(input: &'de [u8]) -> Self {
         Self {
             input: InputHelper(input),
@@ -126,13 +289,14 @@ impl<'de> InputHelper<'de> {
 
     fn consume_size_prefixed_string(&mut self) -> Result<&'de str> {
         let len = self.0.read_u16::<BigEndian>()? as usize;
-        let s = std::str::from_utf8(&self.0[..len]).map_err(|_| Error::InvalidName);
+        let s = std::str::from_utf8(&self.0[..len])
+            .map_err(|_| Error::NonunicodeString(Vec::from(&self.0[..len])));
         self.0 = &self.0[len..];
         s
     }
 
     fn consume_bytes_unchecked(&mut self, size: i32) -> Result<&'de [u8]> {
-        let size: usize = size.try_into()?;
+        let size: usize = size.try_into().map_err(|_| Error::InvalidSize(size))?;
         let bs = &self.0[..size];
         self.0 = &self.0[size..];
         Ok(bs)
@@ -213,9 +377,10 @@ impl<'de> InputHelper<'de> {
     }
 }
 
-/// Deserialize into a `T` from some NBT data. See [`Deserializer`] for more information.
+/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
+/// information.
 ///
-/// [`Deserializer`]: ./struct.Deserializer.html
+/// [`de`]: ./index.html
 pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
 where
     T: de::Deserialize<'a>,
@@ -285,7 +450,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         remaining_elements: _,
                         element_tag,
                     } => *element_tag,
-                    _ => todo!("layer type"),
                 }
             }
         };
@@ -320,7 +484,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[inline]
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -442,7 +606,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[inline]
-    fn deserialize_unit_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -450,7 +614,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[inline]
-    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -460,9 +624,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     #[inline]
     fn deserialize_tuple_struct<V>(
         self,
-        name: &'static str,
-        len: usize,
-        visitor: V,
+        _name: &'static str,
+        _len: usize,
+        _visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -473,8 +637,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     #[inline]
     fn deserialize_enum<V>(
         self,
-        name: &'static str,
-        variants: &'static [&'static str],
+        _name: &'static str,
+        _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value>
     where

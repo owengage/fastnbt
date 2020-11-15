@@ -3,9 +3,8 @@ use std::convert::{TryFrom, TryInto};
 use crate::Tag;
 
 mod builder;
-
 mod de;
-
+mod minecraft_chunk;
 mod stream;
 
 fn assert_try_into(tag: Tag) {
