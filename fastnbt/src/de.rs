@@ -7,7 +7,7 @@
 //!
 //! This deserializer only supports [`from_bytes`](fn.from_bytes.html). This is
 //! usually fine as most structures stored in this format are reasonably small,
-//! the largest likely being an individual Chunk which maxs out at 1 MiB
+//! the largest likely being an individual Chunk which maxes out at 1 MiB
 //! compressed. This allows us to avoid excessive memory allocations.
 //!
 //! # Avoiding allocations
@@ -32,6 +32,9 @@
 //!   vectors.
 //! * You can deserialize a field to the unit type `()`. This ignores the value
 //!   but ensures that it existed.
+//! * You cannot deserialize bytes directly into anything other than a `struct`
+//!   or similar object eg `HashMap`. This is due to a misalignment between the
+//!   NBT format and Rust's types. Attempting to will give a `NoRootCompound` error.
 //!
 //! # Example Minecraft types
 //!
@@ -167,13 +170,6 @@
 //! }
 //! ```
 
-// Some notes about this implementation
-// * When deserializing into singular unsigned types, it is an error to try and
-//   parse a negative value. This will not apply to &[u8].
-// * The unit type acts as a way to verify a field exists, but ignores its value.
-// * An NBT List of Byte can be deserialized to &[u8] or other sequence.
-// * An NBT ByteArray, IntArray or LongArray can all be deserialized into &[u8].
-
 use std::convert::{TryFrom, TryInto};
 
 use crate::error::{Error, Result};
@@ -181,28 +177,36 @@ use crate::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{de, forward_to_deserialize_any};
 
-enum Stage {
-    Tag,
-    Name,
-    Value,
+/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
+/// information.
+///
+/// ```no_run
+/// # use fastnbt::Value;
+/// # use flate2::read::GzDecoder;
+/// # use std::io;
+/// # use std::io::Read;
+/// # use fastnbt::error::Result;
+/// # fn main() -> Result<()> {
+/// # let some_reader = io::stdin();
+/// let mut decoder = GzDecoder::new(some_reader);
+/// let mut buf = vec![];
+/// decoder.read_to_end(&mut buf).unwrap();
+///
+/// let val: Value = fastnbt::de::from_bytes(buf.as_slice())?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// [`de`]: ./index.html
+pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
+where
+    T: de::Deserialize<'a>,
+{
+    let mut des = Deserializer::from_bytes(&input);
+    let t = T::deserialize(&mut des)?;
+    // TODO: trailing chars?
+    Ok(t)
 }
-
-enum Layer {
-    List {
-        remaining_elements: i32, // would make more sense as usize, but format is i32.
-        element_tag: Tag,
-    },
-    Compound {
-        current_tag: Option<Tag>,
-        stage: Stage,
-    },
-}
-
-// Without this we would not be able to implement helper functions for the
-// input. If we wrote the helper functions as part of the Deserializer impl, it
-// would force borrowing the entire deserializer mutably. This helper allows us
-// to borrow just the input, making us free to also borrow/mutate the layers.
-struct InputHelper<'de>(&'de [u8]);
 
 /// Deserializer for NBT data. See the [`de`] module for more information.
 ///
@@ -224,6 +228,29 @@ impl<'de> Deserializer<'de> {
         }
     }
 }
+
+enum Stage {
+    Tag,
+    Name,
+    Value,
+}
+
+enum Layer {
+    List {
+        remaining_elements: i32, // would make more sense as usize, but format is i32.
+        element_tag: Tag,
+    },
+    Compound {
+        current_tag: Option<Tag>,
+        stage: Stage,
+    },
+}
+
+/// Without this we would not be able to implement helper functions for the
+/// input. If we wrote the helper functions as part of the Deserializer impl, it
+/// would force borrowing the entire deserializer mutably. This helper allows us
+/// to borrow just the input, making us free to also borrow/mutate the layers.
+struct InputHelper<'de>(&'de [u8]);
 
 fn consume_value<'de, V>(de: &mut Deserializer<'de>, visitor: V, tag: Tag) -> Result<V::Value>
 where
@@ -375,20 +402,6 @@ impl<'de> InputHelper<'de> {
 
         Ok(())
     }
-}
-
-/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
-/// information.
-///
-/// [`de`]: ./index.html
-pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
-where
-    T: de::Deserialize<'a>,
-{
-    let mut des = Deserializer::from_bytes(&input);
-    let t = T::deserialize(&mut des)?;
-    // TODO: trailing chars?
-    Ok(t)
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
