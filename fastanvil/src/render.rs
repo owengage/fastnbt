@@ -52,13 +52,13 @@ impl<T: Clone> RegionMap<T> {
 
     pub fn chunk_mut(&mut self, x: usize, z: usize) -> &mut [T] {
         let len = 16 * 16;
-        let begin = (x * 32 + z) * len;
+        let begin = (z * 32 + x) * len;
         &mut self.data[begin..begin + len]
     }
 
     pub fn chunk(&self, x: usize, z: usize) -> &[T] {
         let len = 16 * 16;
-        let begin = (x * 32 + z) * len;
+        let begin = (z * 32 + x) * len;
         &self.data[begin..begin + len]
     }
 }
@@ -289,7 +289,7 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
                 let height = match chunk.height_of(x, z) {
                     Some(height) => height,
                     None => {
-                        let pixel = &mut data[x * 16 + z];
+                        let pixel = &mut data[z * 16 + x];
                         *pixel = [255, 0, 0, 255];
                         draw_cross = true;
                         continue;
@@ -307,7 +307,7 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
 
                 //println!("{:?}: {:?}, height {}", material, colour, height);
 
-                let pixel = &mut data[x * 16 + z];
+                let pixel = &mut data[z * 16 + x];
                 *pixel = colour;
                 self.painted_pixels += 1;
             }
@@ -324,7 +324,7 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
         // Draw a red cross over the chunk
         for z in 0..16isize {
             for x in 0..16isize {
-                let pixel = &mut data[x as usize * 16 + z as usize];
+                let pixel = &mut data[z as usize * 16 + x as usize];
 
                 *pixel = if (x - z).abs() < 3 || (x - (16 - z)).abs() < 3 {
                     [255, 0, 0, 255]

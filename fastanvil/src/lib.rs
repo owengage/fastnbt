@@ -86,7 +86,7 @@ impl<S: Seek + Read> Region<S> {
             return Err(Error::InvalidOffset(x, z));
         }
 
-        let pos = 4 * ((z % 32) + (x % 32) * 32);
+        let pos = 4 * ((x % 32) + (z % 32) * 32);
 
         self.data.seek(SeekFrom::Start(pos as u64))?;
 

@@ -50,13 +50,13 @@ impl TileRenderer {
 
         for xc in 0..32 {
             for zc in 0..32 {
-                let heightmap = region.chunk(xc, zc);
+                let chunk = region.chunk(xc, zc);
                 let xcp = xc as isize;
                 let zcp = zc as isize;
 
                 for z in 0..16 {
                     for x in 0..16 {
-                        let pixel = heightmap[z * 16 + x];
+                        let pixel = chunk[z * 16 + x];
                         let x = xcp * 16 + x as isize;
                         let z = zcp * 16 + z as isize;
                         img.put_pixel(x as u32, z as u32, image::Rgba(pixel))

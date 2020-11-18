@@ -39,7 +39,7 @@ fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
 
 fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
     let filename = region.file_name()?.to_str()?;
-    let mut parts = filename.split('.').rev().skip(1);
+    let mut parts = filename.split('.').skip(1);
     let x = parts.next()?.parse::<isize>().ok()?;
     let z = parts.next()?.parse::<isize>().ok()?;
     Some((x, z))
@@ -206,18 +206,18 @@ fn render(args: &ArgMatches) -> Result<()> {
 
     for region_map in region_maps {
         if let Some(map) = region_map {
-            let xrp = map.x_region - x_range.start;
+            let xrp = map.x_region - x_range.start; // could these be wrong?
             let zrp = map.z_region - z_range.start;
 
             for xc in 0..32 {
                 for zc in 0..32 {
-                    let heightmap = map.chunk(xc, zc);
-                    let xcp = xrp * 32 + xc as isize;
+                    let chunk = map.chunk(xc, zc);
+                    let xcp = xrp * 32 + xc as isize; // flipping rp coords makes it work...
                     let zcp = zrp * 32 + zc as isize;
 
                     for z in 0..16 {
                         for x in 0..16 {
-                            let pixel = heightmap[z * 16 + x];
+                            let pixel = chunk[z * 16 + x];
                             let x = xcp * 16 + x as isize;
                             let z = zcp * 16 + z as isize;
                             img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
