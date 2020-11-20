@@ -34,7 +34,8 @@
 //!   but ensures that it existed.
 //! * You cannot deserialize bytes directly into anything other than a `struct`
 //!   or similar object eg `HashMap`. This is due to a misalignment between the
-//!   NBT format and Rust's types. Attempting to will give a `NoRootCompound` error.
+//!   NBT format and Rust's types. Attempting to will give a `NoRootCompound`
+//!   error.
 //!
 //! # Example Minecraft types
 //!

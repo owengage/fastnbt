@@ -36,9 +36,6 @@ pub struct Level<'a> {
     #[serde(rename = "HeightMap")]
     pub old_heightmap: Option<Vec<i32>>,
 
-    /// Ideally this would be done as a slice to avoid allocating the vector.
-    /// But there's no where to 'put' the slice of sections.
-    ///
     /// Can be empty if the chunk hasn't been generated properly yet.
     pub sections: Option<Vec<Section<'a>>>,
 
@@ -50,7 +47,8 @@ pub struct Level<'a> {
     // Maps the y value from each section to the index in the `sections` field.
     // Makes it quicker to find the correct section when all you have is the height.
     #[serde(skip)]
-    sec_map: Option<HashMap<i8, usize>>,
+    #[serde(default)]
+    sec_map: HashMap<i8, usize>,
 }
 
 /// Various heightmaps kept up to date by Minecraft.
@@ -75,7 +73,9 @@ pub struct Section<'a> {
 
     #[serde(borrow)]
     pub block_states: Option<PackedBits<'a>>,
-    pub palette: Option<Vec<Block<'a>>>,
+
+    #[serde(default)]
+    pub palette: Vec<Block<'a>>,
 
     // Perhaps a little large to potentially end up on the stack? 8 KiB.
     #[serde(skip)]
@@ -101,7 +101,7 @@ impl<'a> Chunk<'a> {
         let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
 
         if sec.unpacked_states == None {
-            let bits_per_item = bits_per_block(sec.palette.as_ref()?.len());
+            let bits_per_item = bits_per_block(sec.palette.len());
             sec.unpacked_states = Some([0; 16 * 16 * 16]);
 
             let buf = sec.unpacked_states.as_mut()?;
@@ -112,7 +112,7 @@ impl<'a> Chunk<'a> {
         }
 
         let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
-        sec.palette.as_ref()?.get(pal_index)
+        sec.palette.get(pal_index)
     }
 
     pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
@@ -166,8 +166,7 @@ impl<'a> Chunk<'a> {
     }
 
     fn calculate_sec_map(&mut self) {
-        self.level.sec_map = Some(HashMap::new());
-        let map = self.level.sec_map.as_mut().unwrap();
+        let map = &mut self.level.sec_map;
 
         for (i, sec) in self.level.sections.iter().flatten().enumerate() {
             map.insert(sec.y, i);
@@ -179,17 +178,12 @@ impl<'a> Chunk<'a> {
             return None;
         }
 
-        if self.level.sec_map.is_none() {
+        if self.level.sec_map.is_empty() {
             self.calculate_sec_map();
         }
 
         let containing_section_y = y / 16;
-        let section_index = self
-            .level
-            .sec_map
-            .as_ref()
-            .unwrap() // calculate_sec_map() make sure this is valid.
-            .get(&(containing_section_y as i8))?;
+        let section_index = self.level.sec_map.get(&(containing_section_y as i8))?;
 
         let sec = self.level.sections.as_mut()?.get_mut(*section_index);
         sec
@@ -205,12 +199,13 @@ impl<'a> Block<'a> {
         let mut id = self.name.to_string() + "|";
         let mut sep = "";
 
-        // need to sort the properties for a consistent ID
         let mut props = self
             .properties
             .iter()
             .filter(|(k, _)| **k != "waterlogged") // TODO: Handle water logging. See note below
             .collect::<Vec<_>>();
+
+        // need to sort the properties for a consistent ID
         props.sort();
 
         for (k, v) in props {
