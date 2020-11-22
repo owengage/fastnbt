@@ -23,11 +23,32 @@ impl<'a> PackedBits<'a> {
     }
 
     pub fn unpack_heights_into(&self, buf: &mut [u16]) {
-        self.unpack_1_16(9, buf);
+        println!("height byte len {}", self.0.len());
 
-        // Sanity check, are all values in range?
-        // If not it might be a rogue 1.15 format.
-        if !buf.iter().all(|h| *h < 256) {
+        // println!("orig: {:?}", self.0);
+        // self.unpack_1_15(9, buf);
+        // println!("1.15: {:?}", buf);
+
+        // self.unpack_1_16(9, buf);
+        // println!("1.16: {:?}", buf);
+
+        if self.0.len() == 37 * 8 {
+            // Worlds can have the new-style heightmap size, yet actually store
+            // the old heightmap style. Who knows why.
+            if &self.0[36 * 8..37 * 8] == &[0; 8] {
+                self.unpack_1_15(9, buf);
+                return;
+            }
+
+            self.unpack_1_16(9, buf);
+
+            // Sometimes the heightmap is new-style is size, AND has a non-zero
+            // last long. We sanity check here hoping to find a bad value in
+            // these cases, and unpacking 1.15 style instead.
+            if !buf.iter().all(|h| *h <= 256) {
+                self.unpack_1_15(9, buf);
+            }
+        } else {
             self.unpack_1_15(9, buf);
         }
     }

@@ -93,6 +93,35 @@ pub struct Block<'a> {
 }
 
 impl<'a> Chunk<'a> {
+    pub fn recalculate_heightmap(&mut self) {
+        let mut map = [0; 256];
+        for z in 0..16 {
+            for x in 0..16 {
+                // start at top until we hit a non-air block.
+                for i in 0..255 {
+                    let y = 256 - i;
+                    let block = self.block(x, y - 1, z);
+                    if block.is_none() {
+                        continue;
+                    }
+
+                    if !["minecraft:air", "minecraft:cave_air"]
+                        .as_ref()
+                        .contains(&block.unwrap().name)
+                    {
+                        map[z * 16 + x] = y as u16;
+                        break;
+                    }
+                }
+            }
+        }
+
+        match self.level.heightmaps.as_mut() {
+            Some(m) => m.unpacked_motion_blocking = Some(map),
+            None => {}
+        }
+    }
+
     pub fn block(&mut self, x: usize, y: usize, z: usize) -> Option<&Block> {
         let sec = self.get_section_for_y(y)?;
 
@@ -134,7 +163,7 @@ impl<'a> Chunk<'a> {
                 .level
                 .old_heightmap
                 .as_ref()
-                .map(|v| v[x * 16 + z] as usize),
+                .map(|v| v[z * 16 + x] as usize),
         }
     }
 

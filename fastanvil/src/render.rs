@@ -219,7 +219,7 @@ impl Palette for RenderedPalette {
                     // Rendering it black makes sense in the end, but might look
                     // weird if it ends up elsewhere.
                     "air" => {
-                        return [0, 0, 0, 0];
+                        return [0, 0, 0, 255];
                     }
                     "cave_air" => {
                         return [255, 0, 0, 255]; // when does this happen??
@@ -268,6 +268,7 @@ impl<'a, P: Palette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
 
 impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
+        chunk.recalculate_heightmap();
         let data = self.map.chunk_mut(xc_rel, zc_rel);
         self.processed_chunks += 1;
 

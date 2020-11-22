@@ -206,13 +206,13 @@ fn render(args: &ArgMatches) -> Result<()> {
 
     for region_map in region_maps {
         if let Some(map) = region_map {
-            let xrp = map.x_region - x_range.start; // could these be wrong?
+            let xrp = map.x_region - x_range.start;
             let zrp = map.z_region - z_range.start;
 
             for xc in 0..32 {
                 for zc in 0..32 {
                     let chunk = map.chunk(xc, zc);
-                    let xcp = xrp * 32 + xc as isize; // flipping rp coords makes it work...
+                    let xcp = xrp * 32 + xc as isize;
                     let zcp = zrp * 32 + zc as isize;
 
                     for z in 0..16 {

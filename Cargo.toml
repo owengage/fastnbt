@@ -3,6 +3,5 @@
 members = [
     "fastnbt",
     "fastanvil",
-    "tools",
-    "anvil-wasm"
+    "tools"
 ]

@@ -26,6 +26,9 @@ pub use bits::*;
 pub use render::*;
 pub use types::*;
 
+#[cfg(test)]
+mod test;
+
 /// Various compression schemes that NBT data is typically compressed with.
 #[derive(Debug, TryFromPrimitive)]
 #[repr(u8)]

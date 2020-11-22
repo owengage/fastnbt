@@ -13,7 +13,6 @@ This repository contains multiple related projects.
   for *Minecraft: Java Edition*'s NBT data format.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
-* anvil-wasm: An entirely in-the-browser map renderer.
 
 Aim to support only the latest version of Minecraft. Works with 1.16 worlds at
 the moment. Endevour to support old chunks in 1.16 worlds, but not extracting
