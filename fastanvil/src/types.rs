@@ -29,13 +29,6 @@ pub struct Level<'a> {
 
     pub biomes: Option<&'a [u8]>,
 
-    #[serde(borrow)]
-    pub heightmaps: Option<Heightmaps<'a>>,
-
-    // Old chunk formats can store a plain heightmap in an IntArray here.
-    #[serde(rename = "HeightMap")]
-    pub old_heightmap: Option<Vec<i32>>,
-
     /// Can be empty if the chunk hasn't been generated properly yet.
     pub sections: Option<Vec<Section<'a>>>,
 
@@ -49,6 +42,9 @@ pub struct Level<'a> {
     #[serde(skip)]
     #[serde(default)]
     sec_map: HashMap<i8, usize>,
+
+    #[serde(skip)]
+    lazy_heightmap: Option<[u16; 256]>,
 }
 
 /// Various heightmaps kept up to date by Minecraft.
@@ -116,10 +112,7 @@ impl<'a> Chunk<'a> {
             }
         }
 
-        match self.level.heightmaps.as_mut() {
-            Some(m) => m.unpacked_motion_blocking = Some(map),
-            None => {}
-        }
+        self.level.lazy_heightmap = Some(map)
     }
 
     pub fn block(&mut self, x: usize, y: usize, z: usize) -> Option<&Block> {
@@ -145,26 +138,11 @@ impl<'a> Chunk<'a> {
     }
 
     pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
-        let ref mut maps = self.level.heightmaps;
-
-        match maps {
-            Some(maps) => {
-                if maps.unpacked_motion_blocking == None {
-                    maps.unpacked_motion_blocking = Some([0; 256]);
-                    let buf = maps.unpacked_motion_blocking.as_mut()?;
-                    maps.motion_blocking
-                        .as_ref()?
-                        .unpack_heights_into(&mut buf[..]);
-                }
-
-                Some(maps.unpacked_motion_blocking.as_ref()?[z * 16 + x] as usize)
-            }
-            None => self // Older style heightmap found. Much simpler, just an int per column.
-                .level
-                .old_heightmap
-                .as_ref()
-                .map(|v| v[z * 16 + x] as usize),
+        if self.level.lazy_heightmap.is_none() {
+            self.recalculate_heightmap();
         }
+
+        Some(self.level.lazy_heightmap?[z * 16 + x] as usize)
     }
 
     pub fn biome_of(&self, x: usize, _y: usize, z: usize) -> Option<Biome> {

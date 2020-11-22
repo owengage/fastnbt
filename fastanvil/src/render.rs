@@ -268,7 +268,6 @@ impl<'a, P: Palette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
 
 impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
     fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
-        chunk.recalculate_heightmap();
         let data = self.map.chunk_mut(xc_rel, zc_rel);
         self.processed_chunks += 1;
 
