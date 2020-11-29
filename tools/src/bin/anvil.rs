@@ -3,6 +3,7 @@ use fastanvil::Region;
 use fastanvil::RenderedPalette;
 use fastanvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
 use fastanvil::{IntoMap, Palette};
+use fastnbt_tools::make_palette;
 use flate2::read::GzDecoder;
 use image;
 use rayon::prelude::*;
@@ -166,8 +167,15 @@ fn render(args: &ArgMatches) -> Result<()> {
     let dx = x_range.len();
     let dz = z_range.len();
 
-    let pal: std::sync::Arc<dyn Palette + Send + Sync> =
-        get_palette(args.value_of("palette"))?.into();
+    let pal_path = args.value_of("palette");
+    let pal: std::sync::Arc<dyn Palette + Send + Sync> = match pal_path {
+        Some(p) => get_palette(Some(p))?.into(),
+        None => {
+            let jar = args.value_of("jar").ok_or("err")?;
+            make_palette(Path::new(jar))?;
+            get_palette(Some("palette.tar.gz"))?.into()
+        }
+    };
 
     use std::sync::atomic::{AtomicUsize, Ordering};
     let processed_chunks = AtomicUsize::new(0);
@@ -347,6 +355,12 @@ fn main() -> Result<()> {
                 .arg(
                     Arg::with_name("palette")
                         .long("palette")
+                        .takes_value(true)
+                        .required(false),
+                )
+                .arg(
+                    Arg::with_name("jar")
+                        .long("jar")
                         .takes_value(true)
                         .required(false),
                 ),
