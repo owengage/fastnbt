@@ -55,8 +55,7 @@ pub struct ChunkLocation {
 /// Encodes how the NBT-Data is compressed
 #[derive(Debug)]
 pub struct ChunkMeta {
-    //  the compressed data is len-1 bytes
-    pub len: u32,
+    pub compressed_len: u32,
     pub compression_scheme: CompressionScheme,
 }
 
@@ -72,7 +71,7 @@ impl ChunkMeta {
         let scheme = CompressionScheme::try_from(scheme).map_err(|_| Error::InvalidChunkMeta)?;
 
         Ok(Self {
-            len,
+            compressed_len: len - 1, // this len include the compression byte.
             compression_scheme: scheme,
         })
     }
@@ -151,12 +150,17 @@ impl<S: Seek + Read> Region<S> {
 
     /// Return the raw, compressed data for a chunk at ChunkLocation
     fn load_raw_chunk(&mut self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
-        dest.resize(offset.sector_count * SECTOR_SIZE, 0u8);
         self.data.seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;
 
-        self.data.read_exact(dest)?;
+        dest.resize(5, 0);
+        self.data.read_exact(&mut dest[0..5])?;
+        let metadata = ChunkMeta::new(&dest[..5])?;
+
+        dest.resize(5 + metadata.compressed_len as usize, 0u8);
+
+        self.data.read(&mut dest[5..])?;
         Ok(())
     }
 
