@@ -12,64 +12,54 @@ use serde::Deserialize;
 pub struct PackedBits<'a>(pub &'a [u8]);
 
 impl<'a> PackedBits<'a> {
-    pub fn unpack_into(&self, bits_per_item: usize, buf: &mut [u16]) {
+    pub fn unpack_blockstates(&self, bits_per_item: usize, buf: &mut [u16]) {
         let data = self.0;
+        let longs = data.len() / 8;
+        let bpi = match longs {
+            256 => 4,
+            342 => 5,
+            410 => 6,
+            456 => 7,
+            512 => 8,
+            586 => 9,
+            _ => 0,
+        };
 
-        if buf.len() * bits_per_item == data.len() * 8 {
-            self.unpack_1_15(bits_per_item, buf)
-        } else {
-            self.unpack_1_16(bits_per_item, buf)
+        if bpi != 0 {
+            self.unpack_1_16(bpi, buf);
+            return;
         }
-    }
 
-    pub fn unpack_heights_into(&self, buf: &mut [u16]) {
-        println!("height byte len {}", self.0.len());
-
-        // println!("orig: {:?}", self.0);
-        // self.unpack_1_15(9, buf);
-        // println!("1.15: {:?}", buf);
-
-        // self.unpack_1_16(9, buf);
-        // println!("1.16: {:?}", buf);
-
-        if self.0.len() == 37 * 8 {
-            // Worlds can have the new-style heightmap size, yet actually store
-            // the old heightmap style. Who knows why.
-            if &self.0[36 * 8..37 * 8] == &[0; 8] {
-                self.unpack_1_15(9, buf);
-                return;
-            }
-
-            self.unpack_1_16(9, buf);
-
-            // Sometimes the heightmap is new-style is size, AND has a non-zero
-            // last long. We sanity check here hoping to find a bad value in
-            // these cases, and unpacking 1.15 style instead.
-            if !buf.iter().all(|h| *h <= 256) {
-                self.unpack_1_15(9, buf);
-            }
-        } else {
-            self.unpack_1_15(9, buf);
-        }
+        self.unpack_1_15(bits_per_item, buf)
     }
 
     fn unpack_1_16(&self, bits_per_item: usize, buf: &mut [u16]) {
         // 1.16 style packing
-        //println!("1.16 packing {}", data.len());
         let mut data = self.0;
+        let l = data.len();
 
         let mut buf_i = 0;
         let values_per_64bits = 64 / bits_per_item;
 
         while let Ok(datum) = data.read_u64::<BigEndian>() {
+            //println!("loop");
             for i in 0..values_per_64bits {
                 let v = datum.get_bits(i * bits_per_item..(i + 1) * bits_per_item);
+                //println!("bufi {}, buf len {}", buf_i, buf.len());
                 buf[buf_i] = v as u16;
                 buf_i += 1;
                 if buf_i >= buf.len() {
+                    // println!(
+                    //     "breaking {}, {}, buf: {}, bpi: {}",
+                    //     l,
+                    //     data.len(),
+                    //     buf.len(),
+                    //     bits_per_item
+                    // );
                     break;
                 }
             }
+            //println!("broke");
         }
     }
 
@@ -334,47 +324,7 @@ mod tests {
 
         let packed = PackedBits(&height_data);
         let mut buf = vec![0; 16 * 16];
-        packed.unpack_into(9, buf.as_mut_slice());
-        assert_eq!(&expected[..], &buf[..]);
-    }
-
-    #[test]
-    fn unpack_1_16_heightmap() {
-        let height_data = [
-            20, 10, 5, 2, 121, 60, 156, 77, 19, 9, 132, 210, 113, 60, 160, 80, 22, 74, 4, 242, 121,
-            56, 152, 76, 19, 73, 196, 226, 121, 60, 160, 80, 20, 9, 228, 226, 97, 48, 152, 76, 19,
-            137, 196, 242, 129, 72, 180, 83, 19, 73, 132, 194, 97, 48, 154, 77, 19, 202, 5, 66,
-            217, 96, 160, 79, 19, 9, 132, 194, 97, 52, 154, 78, 21, 139, 133, 146, 145, 64, 154,
-            76, 19, 9, 132, 194, 105, 52, 156, 80, 22, 138, 197, 34, 105, 48, 152, 76, 19, 9, 164,
-            210, 113, 64, 172, 92, 21, 138, 132, 194, 97, 48, 152, 76, 19, 73, 229, 2, 185, 112,
-            180, 88, 19, 9, 132, 194, 97, 48, 154, 77, 20, 74, 229, 194, 217, 104, 178, 88, 19, 9,
-            132, 194, 105, 52, 154, 79, 23, 11, 133, 194, 225, 112, 152, 76, 19, 73, 164, 210, 105,
-            60, 162, 87, 23, 11, 133, 194, 97, 48, 152, 76, 19, 73, 196, 242, 137, 88, 182, 91, 23,
-            9, 132, 194, 97, 48, 154, 77, 19, 202, 37, 82, 217, 108, 182, 92, 19, 9, 132, 194, 105,
-            52, 156, 78, 21, 11, 69, 162, 217, 108, 184, 76, 19, 9, 164, 226, 113, 60, 160, 81, 22,
-            139, 69, 178, 217, 48, 152, 76, 19, 137, 228, 242, 129, 64, 166, 89, 22, 139, 100, 194,
-            97, 48, 152, 77, 19, 202, 5, 2, 137, 84, 174, 88, 19, 9, 132, 194, 97, 52, 156, 79, 20,
-            10, 5, 34, 161, 88, 176, 91, 19, 9, 132, 210, 113, 56, 158, 79, 20, 10, 101, 82, 193,
-            108, 152, 76, 19, 73, 164, 226, 121, 60, 158, 80, 0, 0, 0, 2, 97, 48, 152, 76,
-        ];
-        let expected = [
-            77, 78, 79, 79, 80, 80, 80, 80, 80, 79, 78, 77, 76, 76, 76, 76, 78, 79, 79, 80, 89, 80,
-            80, 79, 79, 78, 78, 77, 76, 76, 76, 76, 78, 79, 80, 83, 90, 82, 80, 79, 78, 78, 77, 77,
-            76, 76, 76, 76, 77, 79, 80, 88, 91, 84, 80, 79, 78, 77, 77, 76, 76, 76, 76, 76, 77, 80,
-            82, 89, 92, 86, 80, 78, 77, 77, 76, 76, 76, 76, 76, 76, 77, 82, 86, 90, 92, 86, 80, 78,
-            77, 77, 76, 76, 76, 76, 76, 76, 84, 86, 88, 90, 92, 87, 80, 79, 77, 77, 77, 76, 76, 76,
-            76, 76, 88, 89, 90, 91, 92, 87, 81, 79, 77, 77, 77, 76, 76, 76, 76, 76, 92, 92, 92, 92,
-            92, 87, 81, 79, 77, 77, 77, 77, 76, 76, 76, 76, 92, 92, 92, 91, 91, 86, 81, 79, 78, 77,
-            77, 77, 76, 76, 76, 76, 92, 92, 91, 91, 91, 85, 81, 79, 78, 78, 77, 77, 76, 76, 76, 76,
-            92, 91, 91, 90, 90, 84, 81, 80, 79, 78, 78, 77, 76, 76, 76, 76, 91, 91, 90, 90, 89, 83,
-            80, 80, 79, 79, 78, 77, 76, 76, 76, 76, 91, 90, 88, 87, 85, 81, 80, 80, 79, 79, 78, 77,
-            76, 76, 76, 76, 91, 88, 86, 84, 82, 80, 80, 79, 79, 78, 78, 77, 76, 76, 76, 76, 91, 88,
-            85, 83, 80, 80, 79, 79, 79, 78, 77, 77, 76, 76, 76, 76,
-        ];
-
-        let packed = PackedBits(&height_data);
-        let mut buf = vec![0; 16 * 16];
-        packed.unpack_into(9, buf.as_mut_slice());
+        packed.unpack_blockstates(9, buf.as_mut_slice());
         assert_eq!(&expected[..], &buf[..]);
     }
 }

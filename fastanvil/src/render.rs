@@ -277,7 +277,7 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
             return;
         }
 
-        // if !(zc_rel == 18 && (xc_rel == 22 || xc_rel == 23)) {
+        // if !(zc_rel == 11 && xc_rel == 9) {
         //     return;
         // }
 

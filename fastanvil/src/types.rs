@@ -130,7 +130,7 @@ impl<'a> Chunk<'a> {
 
             sec.block_states
                 .as_ref()?
-                .unpack_into(bits_per_item, &mut buf[..]);
+                .unpack_blockstates(bits_per_item, &mut buf[..]);
         }
 
         let pal_index = sec.unpacked_states.as_ref()?[state_index] as usize;
