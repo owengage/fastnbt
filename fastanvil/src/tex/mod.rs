@@ -1,4 +1,3 @@
-use fastnbt::Value;
 use serde::Deserialize;
 use std::collections::HashMap;
 
