@@ -132,7 +132,7 @@ pub enum Tag {
 /// #   Ok(())
 /// # }
 /// ```
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Value {
     /// Any integral value, ie a byte, short, int and long all deserialize to

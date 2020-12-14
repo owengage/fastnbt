@@ -1,3 +1,4 @@
+use fastnbt::Value;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -44,6 +45,16 @@ pub struct Element {
     pub from: [f32; 3],
     pub to: [f32; 3],
     pub faces: HashMap<String, Face>,
+    pub rotation: Option<Rotation>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Rotation {
+    origin: Vec<f32>,
+    axis: String,
+    angle: f32,
+    #[serde(default)]
+    rescale: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]

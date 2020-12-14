@@ -36,30 +36,19 @@ impl<'a> PackedBits<'a> {
     fn unpack_1_16(&self, bits_per_item: usize, buf: &mut [u16]) {
         // 1.16 style packing
         let mut data = self.0;
-        let l = data.len();
 
         let mut buf_i = 0;
         let values_per_64bits = 64 / bits_per_item;
 
         while let Ok(datum) = data.read_u64::<BigEndian>() {
-            //println!("loop");
             for i in 0..values_per_64bits {
                 let v = datum.get_bits(i * bits_per_item..(i + 1) * bits_per_item);
-                //println!("bufi {}, buf len {}", buf_i, buf.len());
                 buf[buf_i] = v as u16;
                 buf_i += 1;
                 if buf_i >= buf.len() {
-                    // println!(
-                    //     "breaking {}, {}, buf: {}, bpi: {}",
-                    //     l,
-                    //     data.len(),
-                    //     buf.len(),
-                    //     bits_per_item
-                    // );
                     break;
                 }
             }
-            //println!("broke");
         }
     }
 

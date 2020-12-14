@@ -183,6 +183,9 @@ impl Palette for RenderedPalette {
         match block.name.strip_prefix("minecraft:") {
             Some(id) => {
                 match id {
+                    "grass" => {
+                        return self.pick_grass(biome);
+                    }
                     "grass_block" => {
                         let snowy = block
                             .properties
@@ -235,7 +238,7 @@ impl Palette for RenderedPalette {
         match col {
             Some(c) => *c,
             None => {
-                //println!("could not draw {}", block.name);
+                println!("could not draw {}", block.name);
                 missing_colour
             }
         }
@@ -304,8 +307,6 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
                     Some(ref block) => self.palette.pick(&block, biome),
                     None => [0, 0, 0, 0], // if no ID is given the block doesn't actually exist in the world.
                 };
-
-                //println!("{:?}: {:?}, height {}", material, colour, height);
 
                 let pixel = &mut data[z * 16 + x];
                 *pixel = colour;
