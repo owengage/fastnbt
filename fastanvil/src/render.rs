@@ -238,7 +238,7 @@ impl Palette for RenderedPalette {
         match col {
             Some(c) => *c,
             None => {
-                println!("could not draw {}", block.name);
+                // println!("could not draw {}", block.name);
                 missing_colour
             }
         }
