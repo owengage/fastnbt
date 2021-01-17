@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use fastanvil::Region;
 use fastnbt::stream::{Parser, Value};
 

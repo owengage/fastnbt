@@ -10,6 +10,8 @@ use super::{
     Chunk, Region,
 };
 
+use log::debug;
+
 pub type Rgba = [u8; 4];
 
 /// ChunkRender objects can render a given chunk. What they render to is
@@ -238,7 +240,7 @@ impl Palette for RenderedPalette {
         match col {
             Some(c) => *c,
             None => {
-                // println!("could not draw {}", block.name);
+                debug!("could not draw {}", block.name);
                 missing_colour
             }
         }

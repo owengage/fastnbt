@@ -6,6 +6,7 @@ use fastanvil::{IntoMap, Palette};
 use fastnbt_tools::make_palette;
 use flate2::read::GzDecoder;
 use image;
+use log::{error, info};
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -158,7 +159,7 @@ fn render(args: &ArgMatches) -> Result<()> {
         _ => panic!(),
     };
 
-    println!("Bounds: {:?}", bounds);
+    info!("Bounds: {:?}", bounds);
 
     let x_range = bounds.xmin..bounds.xmax;
     let z_range = bounds.zmin..bounds.zmax;
@@ -187,7 +188,7 @@ fn render(args: &ArgMatches) -> Result<()> {
             let (x, z) = coords_from_region(&path).unwrap();
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                println!("parsing region x: {}, z: {}", x, z);
+                info!("parsing region x: {}, z: {}", x, z);
                 let file = std::fs::File::open(path).ok()?;
                 let region = Region::new(file);
 
@@ -205,11 +206,11 @@ fn render(args: &ArgMatches) -> Result<()> {
         })
         .collect();
 
-    println!("{} regions", region_maps.len());
-    println!("{} chunks", processed_chunks.load(Ordering::SeqCst));
-    println!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
+    info!("{} regions", region_maps.len());
+    info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
+    info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
 
-    println!("1 map.png");
+    info!("1 map.png");
     let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
 
     for region_map in region_maps {
@@ -261,7 +262,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
         _ => panic!(),
     };
 
-    println!("Bounds: {:?}", bounds);
+    info!("Bounds: {:?}", bounds);
 
     let x_range = bounds.xmin..bounds.xmax;
     let z_range = bounds.zmin..bounds.zmax;
@@ -281,7 +282,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
             let (x, z) = coords_from_region(&path).unwrap();
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                println!("parsing region x: {}, z: {}", x, z);
+                info!("parsing region x: {}, z: {}", x, z);
                 let file = std::fs::File::open(path).ok()?;
                 let region = Region::new(file);
 
@@ -322,12 +323,14 @@ fn tiles(args: &ArgMatches) -> Result<()> {
                 .unwrap();
         });
 
-    println!("{} chunks", processed_chunks.load(Ordering::SeqCst));
-    println!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
+    info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
+    info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
     Ok(())
 }
 
 fn main() -> Result<()> {
+    env_logger::builder().format_timestamp(None).init();
+
     let matches = App::new("anvil-fast")
         .subcommand(
             SubCommand::with_name("render")
@@ -400,7 +403,7 @@ fn main() -> Result<()> {
     match matches.subcommand() {
         ("render", Some(args)) => render(args)?,
         ("tiles", Some(args)) => tiles(args)?,
-        _ => println!("{}", matches.usage()),
+        _ => error!("{}", matches.usage()),
     };
 
     Ok(())

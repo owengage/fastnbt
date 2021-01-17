@@ -16,3 +16,5 @@ clap = "2.33.1"
 serde_json = "1.0"
 serde = { version = "1.0.111", features=["derive"] }
 tar = "0.4"
+log = "0.4"
+env_logger = "0.8"
