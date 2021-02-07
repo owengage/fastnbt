@@ -118,8 +118,8 @@ For the libraries
 
 ```toml
 [dependencies]
-fastnbt = "0.14"
-fastanvil = "0.14"
+fastnbt = "0.15"
+fastanvil = "0.15"
 ```
 
 For the `anvil` executable
