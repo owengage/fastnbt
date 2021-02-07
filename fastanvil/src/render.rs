@@ -188,6 +188,9 @@ impl Palette for RenderedPalette {
                     "grass" => {
                         return self.pick_grass(biome);
                     }
+                    "tall_grass" => {
+                        return self.pick_grass(biome);
+                    }
                     "grass_block" => {
                         let snowy = block
                             .properties
