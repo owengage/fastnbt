@@ -185,10 +185,7 @@ impl Palette for RenderedPalette {
         match block.name.strip_prefix("minecraft:") {
             Some(id) => {
                 match id {
-                    "grass" => {
-                        return self.pick_grass(biome);
-                    }
-                    "tall_grass" => {
+                    "grass" | "tall_grass" | "vine" | "fern" | "large_fern" => {
                         return self.pick_grass(biome);
                     }
                     "grass_block" => {
@@ -204,7 +201,7 @@ impl Palette for RenderedPalette {
                             return self.pick_grass(biome);
                         };
                     }
-                    "water" => return self.pick_water(biome),
+                    "water" | "bubble_column" => return self.pick_water(biome),
                     "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves" => {
                         return self.pick_foliage(biome)
                     }
@@ -239,11 +236,17 @@ impl Palette for RenderedPalette {
             None => {}
         }
 
-        let col = self.blockstates.get(&block.encoded_description());
+        let col = self
+            .blockstates
+            .get(&block.encoded_description())
+            .or_else(|| self.blockstates.get(block.name));
+
         match col {
             Some(c) => *c,
             None => {
                 debug!("could not draw {}", block.name);
+                debug!("description {}", block.encoded_description());
+
                 missing_colour
             }
         }

@@ -210,6 +210,7 @@ impl<'a> Block<'a> {
             .properties
             .iter()
             .filter(|(k, _)| **k != "waterlogged") // TODO: Handle water logging. See note below
+            .filter(|(k, _)| **k != "powered") // TODO: Handle power
             .collect::<Vec<_>>();
 
         // need to sort the properties for a consistent ID
