@@ -1,4 +1,5 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
+use env_logger::Env;
 use fastanvil::Region;
 use fastanvil::RenderedPalette;
 use fastanvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
@@ -329,7 +330,9 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    env_logger::builder().format_timestamp(None).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info"))
+        .format_timestamp(None)
+        .init();
 
     let matches = App::new("anvil-fast")
         .subcommand(
