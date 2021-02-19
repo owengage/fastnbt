@@ -290,6 +290,18 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
             blockstate: Regex::new(r"minecraft:tripwire").unwrap(),
             texture_template: "minecraft:block/tripwire",
         },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:bamboo").unwrap(),
+            texture_template: "minecraft:block/bamboo_stalk",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:beetroots").unwrap(),
+            texture_template: "minecraft:block/beetroots_stage3",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:fire").unwrap(),
+            texture_template: "minecraft:block/fire_0",
+        },
     ];
 
     let mut palette = HashMap::new();
@@ -361,6 +373,12 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
                 });
             }
         }
+    }
+
+    // 1.17 renamed grass_path to dirt_path. This hacks it back in for old
+    // region files to still render them.
+    if let Some(path) = palette.get("minecraft:dirt_path").cloned() {
+        palette.insert("minecraft:grass_path".into(), path);
     }
 
     let f = std::fs::File::create("palette.tar.gz")?;

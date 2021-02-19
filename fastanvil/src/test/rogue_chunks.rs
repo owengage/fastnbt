@@ -9,7 +9,7 @@ const ETHO_OLD_IN_NEW2: &[u8] = include_bytes!("../../resources/etho-old-in-new2
 const ETHO: &[u8] = include_bytes!("../../resources/etho.chunk");
 const ETHO_EMPTY: &[u8] = include_bytes!("../../resources/etho-empty.chunk");
 
-fn extract_heights(chunk: &mut Chunk) -> [usize; 256] {
+fn extract_heights(chunk: &mut Chunk) -> [isize; 256] {
     let mut heights = [0; 256];
     for z in 0..16 {
         for x in 0..16 {

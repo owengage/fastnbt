@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek},
 };
 
-use crate::Block;
+use crate::{Block, MIN_Y};
 
 use super::{
     biome::{self, Biome},
@@ -134,7 +134,7 @@ impl RenderedPalette {
 
             self.grass.get_pixel(t, r).0
         })
-        .unwrap_or([0, 0, 0, 0])
+        .unwrap_or([255, 0, 0, 0])
     }
 
     fn pick_foliage(&self, b: Option<Biome>) -> Rgba {
@@ -148,7 +148,7 @@ impl RenderedPalette {
 
             self.foliage.get_pixel(t, r).0
         })
-        .unwrap_or([0, 0, 0, 0])
+        .unwrap_or([255, 0, 0, 0])
     }
 
     fn pick_water(&self, b: Option<Biome>) -> Rgba {
@@ -307,7 +307,7 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
                     }
                 };
 
-                let height = if height == 0 { 0 } else { height - 1 }; // -1 because we want the block below the air.
+                let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome_of(x, height, z);
                 let block = chunk.block(x, height, z);
 

@@ -1,9 +1,10 @@
-use std::{collections::HashMap, convert::TryFrom};
+use std::{collections::HashMap, convert::TryFrom, mem::size_of};
 
 use byteorder::{BigEndian, ReadBytesExt};
+use log::debug;
 use serde::Deserialize;
 
-use crate::{bits_per_block, PackedBits};
+use crate::{bits_per_block, PackedBits, MAX_Y, MIN_Y};
 
 use super::biome::Biome;
 
@@ -94,8 +95,8 @@ impl<'a> Chunk<'a> {
         for z in 0..16 {
             for x in 0..16 {
                 // start at top until we hit a non-air block.
-                for i in 0..255 {
-                    let y = 256 - i;
+                for i in MIN_Y..MAX_Y {
+                    let y = MAX_Y - i;
                     let block = self.block(x, y - 1, z);
                     if block.is_none() {
                         continue;
@@ -115,11 +116,10 @@ impl<'a> Chunk<'a> {
         self.level.lazy_heightmap = Some(map)
     }
 
-    pub fn block(&mut self, x: usize, y: usize, z: usize) -> Option<&Block> {
+    pub fn block(&mut self, x: usize, y: isize, z: usize) -> Option<&Block> {
         let sec = self.get_section_for_y(y)?;
 
-        if (sec.y as usize) * 16 > y {}
-        let sec_y = y - sec.y as usize * 16;
+        let sec_y = y - sec.y as isize * 16;
         let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
 
         if sec.unpacked_states == None {
@@ -137,38 +137,44 @@ impl<'a> Chunk<'a> {
         sec.palette.get(pal_index)
     }
 
-    pub fn height_of(&mut self, x: usize, z: usize) -> Option<usize> {
+    pub fn height_of(&mut self, x: usize, z: usize) -> Option<isize> {
         if self.level.lazy_heightmap.is_none() {
             self.recalculate_heightmap();
         }
 
-        Some(self.level.lazy_heightmap?[z * 16 + x] as usize)
+        Some(self.level.lazy_heightmap?[z * 16 + x] as isize)
     }
 
-    pub fn biome_of(&self, x: usize, _y: usize, z: usize) -> Option<Biome> {
+    pub fn biome_of(&self, x: usize, _y: isize, z: usize) -> Option<Biome> {
         // TODO: Take into account height. For overworld this doesn't matter (at least not yet)
-        // TODO: Make use of data version?
-
-        // For biome len of 1024,
-        //  it's 4x4x4 sets of blocks stored by z then x then y (+1 moves one in z)
-        //  for overworld theres no vertical chunks so it looks like only first 16 values are used.
-        // For biome len of 256, it's chunk 1x1 columns stored z then x.
 
         let biomes = self.level.biomes?;
 
-        if biomes.len() == 1024 * 4 {
-            // Minecraft 1.16
-            let i = 4 * ((z / 4) * 4 + (x / 4));
-            let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
+        // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
+        // section. 384 world height (320 + 64), so 384/16 subchunks.
+        const V1_17: usize = size_of::<i32>() * 4 * 4 * 4 * 384 / 16;
 
-            Biome::try_from(biome).ok()
-        } else if biomes.len() == 256 * 4 {
-            // Minecraft 1.15 (and past?)
-            let i = 4 * (z * 16 + x);
-            let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
-            Biome::try_from(biome).ok()
-        } else {
-            None
+        // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
+        // section. 256 world height, so 256/16 subchunks.
+        const V1_16: usize = size_of::<i32>() * 4 * 4 * 4 * 256 / 16;
+
+        // v1.15 was only x/z, i32 per column.
+        const V1_15: usize = size_of::<i32>() * 16 * 16;
+
+        match biomes.len() {
+            V1_16 | V1_17 => {
+                let i = 4 * ((z / 4) * 4 + (x / 4));
+                let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
+
+                Biome::try_from(biome).ok()
+            }
+            V1_15 => {
+                // 1x1 columns stored z then x.
+                let i = 4 * (z * 16 + x);
+                let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
+                Biome::try_from(biome).ok()
+            }
+            _ => None,
         }
     }
 
@@ -180,7 +186,7 @@ impl<'a> Chunk<'a> {
         }
     }
 
-    fn get_section_for_y(&mut self, y: usize) -> Option<&mut Section<'a>> {
+    fn get_section_for_y(&mut self, y: isize) -> Option<&mut Section<'a>> {
         if self.level.sections.as_ref()?.is_empty() {
             return None;
         }
@@ -189,8 +195,11 @@ impl<'a> Chunk<'a> {
             self.calculate_sec_map();
         }
 
-        let containing_section_y = y / 16;
-        let section_index = self.level.sec_map.get(&(containing_section_y as i8))?;
+        // Need to be careful. y = -5 should return -1. If we did normal integer
+        // division 5/16 would give us 0.
+        let containing_section_y = ((y as f64) / 16.0).floor() as i8;
+
+        let section_index = self.level.sec_map.get(&(containing_section_y))?;
 
         let sec = self.level.sections.as_mut()?.get_mut(*section_index);
         sec

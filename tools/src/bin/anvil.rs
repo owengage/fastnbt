@@ -173,7 +173,9 @@ fn render(args: &ArgMatches) -> Result<()> {
     let pal: std::sync::Arc<dyn Palette + Send + Sync> = match pal_path {
         Some(p) => get_palette(Some(p))?.into(),
         None => {
-            let jar = args.value_of("jar").ok_or("err")?;
+            let jar = args
+                .value_of("jar")
+                .ok_or("must provide either --palette or --jar")?;
             make_palette(Path::new(jar))?;
             get_palette(Some("palette.tar.gz"))?.into()
         }
