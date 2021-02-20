@@ -1,20 +1,36 @@
 //! Contains the Error and Result type used by the deserializer.
 use std::fmt::Display;
+use thiserror::Error as ThisError;
 
 /// Various errors that can occur during deserialization.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, ThisError)]
+#[non_exhaustive]
 pub enum Error {
     /// Serde error, or other unexpected error.
+    #[error("serde error")]
     Message(String),
+
     /// An underlying IO error.
-    IO(String),
+    #[error("io")]
+    Io {
+        #[from]
+        source: std::io::Error,
+    },
+
     /// Tag was not a valid NBT tag.
+    #[error("invalid NBT tag: {}", .0)]
     InvalidTag(u8),
+
     /// String or name was not valid unicode.
+    #[error("string or name was not utf-8")]
     NonunicodeString(Vec<u8>),
+
     /// No root compound was found.
+    #[error("require root compound for deserialization")]
     NoRootCompound,
+
     /// A list/array was an invalid size (likely negative)
+    #[error("list or array was invalid size: {}", .0)]
     InvalidSize(i32),
 }
 
@@ -26,26 +42,3 @@ impl serde::de::Error for Error {
         Error::Message(msg.to_string())
     }
 }
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Message(msg) => f.write_str(msg),
-            Error::IO(e) => f.write_fmt(format_args!("{}", e)),
-            Error::InvalidTag(tag) => f.write_fmt(format_args!("Invalid tag number: {}", tag)),
-            Error::NonunicodeString(_) => f.write_str("string or name was not valid utf-8"),
-            Error::NoRootCompound => {
-                f.write_str("require a root compound to start deserialization")
-            }
-            Error::InvalidSize(size) => f.write_fmt(format_args!("list size was {}", size)),
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
-        Error::IO(err.to_string())
-    }
-}
-
-impl std::error::Error for Error {}

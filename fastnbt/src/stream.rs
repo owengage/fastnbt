@@ -3,6 +3,7 @@
 use super::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::{convert::TryFrom, io::Read};
+use thiserror::Error as ThisError;
 
 /// An optional `String`.
 pub type Name = Option<String>;
@@ -34,19 +35,28 @@ pub enum Value {
     LongArray(Name, Vec<i64>),
 }
 
-/// Error for the lower level `Parser`.
-#[derive(Debug)]
+#[derive(Debug, ThisError)]
+#[non_exhaustive]
 pub enum Error {
-    /// Any IO error that occurred.
-    IO(std::io::Error),
+    /// An underlying IO error.
+    #[error("io")]
+    Io {
+        #[from]
+        source: std::io::Error,
+    },
 
     /// Tag was not a valid NBT tag.
+    #[error("invalid NBT tag: {}", .0)]
     InvalidTag(u8),
 
-    /// String was not unicode.
-    NonunicodeString,
+    /// String or name was not valid unicode.
+    #[error("string or name was not utf-8")]
+    NonunicodeString(Vec<u8>),
 
-    /// Hit EOF unexpectedly.
+    /// Hit EOF, this may or may not be the end of the NBT data. At this level
+    /// of abstraction we cannot tell. It is the callers responsibility to
+    /// check.
+    #[error("end of file (EOF)")]
     EOF,
 }
 
@@ -214,7 +224,7 @@ impl<R: Read> Parser<R> {
         self.reader.read_exact(&mut buf[..])?;
 
         Ok(std::str::from_utf8(&buf[..])
-            .map_err(|_| Error::NonunicodeString)?
+            .map_err(|_| Error::NonunicodeString(Vec::from(&buf[..])))?
             .to_owned())
     }
 
@@ -323,12 +333,6 @@ fn vec_u8_into_i8(v: Vec<u8>) -> Vec<i8> {
 
     // finally, adopt the data into a new Vec
     unsafe { Vec::from_raw_parts(p as *mut i8, len, cap) }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
-        Error::IO(err)
-    }
 }
 
 fn u8_to_tag(tag: u8) -> Result<Tag> {

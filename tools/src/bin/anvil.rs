@@ -110,7 +110,7 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
                 file.read_to_end(&mut buf)?;
 
                 grass = Ok(
-                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba(),
+                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba8(),
                 );
             }
             "foliage-colourmap.png" => {
@@ -119,7 +119,7 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
                 file.read_to_end(&mut buf)?;
 
                 foliage = Ok(
-                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba(),
+                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba8(),
                 );
             }
             "blockstates.json" => {

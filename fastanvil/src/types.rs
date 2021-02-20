@@ -1,7 +1,6 @@
 use std::{collections::HashMap, convert::TryFrom, mem::size_of};
 
 use byteorder::{BigEndian, ReadBytesExt};
-use log::debug;
 use serde::Deserialize;
 
 use crate::{bits_per_block, PackedBits, MAX_Y, MIN_Y};

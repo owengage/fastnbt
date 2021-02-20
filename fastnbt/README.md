@@ -41,3 +41,10 @@ There are other crates for NBT out there, this tries to give an honest compariso
 
 \*\*intended feature
 
+# Road to 1.0
+
+Some things I want to finish off properly for 1.0
+
+* Better error handling, eg non-exhaustive to make it easier to introduce new
+  error types in future.
+* Establish policy about minimum Rust versions.

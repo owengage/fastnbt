@@ -85,7 +85,6 @@ use std::{collections::HashMap, convert::TryFrom};
 pub enum Tag {
     /// Represents the end of a Compound object.
     End = 0,
-
     /// Equivalent to i8.
     Byte = 1,
     /// Equivalent to i16.

@@ -358,7 +358,7 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
                             palette.insert(description, col);
                             success += 1;
                         }
-                        Err(e) => {
+                        Err(_) => {
                             try_mappings((*name).clone()).map(|c| {
                                 palette.insert((*name).clone(), c);
                                 eprintln!("mapped {}", *name);
