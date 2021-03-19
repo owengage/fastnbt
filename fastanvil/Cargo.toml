@@ -5,7 +5,7 @@ repository = "https://github.com/owengage/fastnbt"
 version = "0.16.0"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2018"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 fastnbt = { path = "../fastnbt", version = "0.16" }
