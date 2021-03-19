@@ -1,11 +1,17 @@
 use std::collections::HashMap;
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::Tag;
 use crate::{de::from_bytes, Value};
 
 use super::builder::Builder;
 use serde::Deserialize;
+
+#[test]
+fn error_impls_sync_send() {
+    fn i<T: Clone + Send + Sync + std::error::Error>(_: T) {}
+    i(Error::invalid_tag(1));
+}
 
 #[test]
 fn simple_byte() -> Result<()> {

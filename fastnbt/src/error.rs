@@ -2,7 +2,7 @@
 use std::fmt::Display;
 
 /// Various errors that can occur during deserialization.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Error(String);
 
 /// Convenience type for Result.
