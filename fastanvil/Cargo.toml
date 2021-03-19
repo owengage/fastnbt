@@ -8,7 +8,7 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-fastnbt = { path = "../fastnbt", version = "1" }
+fastnbt = { path = "../fastnbt", version = "0.15" }
 flate2 = "1.0"
 num_enum = "0.5"
 image = "0.23"

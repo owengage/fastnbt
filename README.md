@@ -119,7 +119,7 @@ For the libraries
 
 ```toml
 [dependencies]
-fastnbt = "1"
+fastnbt = "0.15"
 fastanvil = "0.15"
 ```
 
