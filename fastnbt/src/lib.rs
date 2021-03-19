@@ -10,7 +10,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! fastnbt = "0.15"
+//! fastnbt = "0.16"
 //! ```
 //!
 //! # Quick example
