@@ -171,7 +171,7 @@ impl Palette for RenderedPalette {
     fn pick(&self, block: &Block, biome: Option<Biome>) -> Rgba {
         let missing_colour = [255, 0, 255, 255];
         let snow_block: Block = Block {
-            name: "minecraft:snow_block",
+            name: "minecraft:snow_block".to_owned(),
             properties: HashMap::new(),
         };
 
@@ -239,7 +239,7 @@ impl Palette for RenderedPalette {
         let col = self
             .blockstates
             .get(&block.encoded_description())
-            .or_else(|| self.blockstates.get(block.name));
+            .or_else(|| self.blockstates.get(&block.name));
 
         match col {
             Some(c) => *c,

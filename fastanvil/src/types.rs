@@ -10,32 +10,31 @@ use super::biome::Biome;
 /// A Minecraft chunk.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-pub struct Chunk<'a> {
+pub struct Chunk {
     pub data_version: i32,
-
-    #[serde(borrow)]
-    pub level: Level<'a>,
+    pub level: Level,
 }
 
 /// A level describes the contents of the chunk in the world.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-pub struct Level<'a> {
+pub struct Level {
     #[serde(rename = "xPos")]
     pub x_pos: i32,
 
     #[serde(rename = "zPos")]
     pub z_pos: i32,
 
-    pub biomes: Option<&'a [u8]>,
+    #[serde(default)]
+    pub biomes: Option<Vec<i32>>,
 
     /// Can be empty if the chunk hasn't been generated properly yet.
-    pub sections: Option<Vec<Section<'a>>>,
+    pub sections: Option<Vec<Section>>,
 
     // Status of the chunk. Typically anything except 'full' means the chunk
     // hasn't been fully generated yet. We use this to skip chunks on map edges
     // that haven't been fully generated yet.
-    pub status: &'a str,
+    pub status: String,
 
     // Maps the y value from each section to the index in the `sections` field.
     // Makes it quicker to find the correct section when all you have is the height.
@@ -47,33 +46,30 @@ pub struct Level<'a> {
     lazy_heightmap: Option<[u16; 256]>,
 }
 
-/// Various heightmaps kept up to date by Minecraft.
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub struct Heightmaps<'a> {
-    #[serde(borrow)]
-    pub motion_blocking: Option<PackedBits<'a>>,
-    pub motion_blocking_no_leaves: Option<PackedBits<'a>>,
-    pub ocean_floor: Option<PackedBits<'a>>,
-    pub world_surface: Option<PackedBits<'a>>,
+// /// Various heightmaps kept up to date by Minecraft.
+// #[derive(Deserialize, Debug)]
+// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+// pub struct Heightmaps {
+//     pub motion_blocking: Option<Heightmap>,
+//     pub motion_blocking_no_leaves: Option<Heightmap>,
+//     pub ocean_floor: Option<Heightmap>,
+//     pub world_surface: Option<Heightmap>,
 
-    #[serde(skip)]
-    unpacked_motion_blocking: Option<[u16; 16 * 16]>,
-}
+//     #[serde(skip)]
+//     unpacked_motion_blocking: Option<[u16; 16 * 16]>,
+// }
 
 /// A vertical section of a chunk (ie a 16x16x16 block cube)
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-pub struct Section<'a> {
+pub struct Section {
     pub y: i8,
 
-    #[serde(borrow)]
-    pub block_states: Option<PackedBits<'a>>,
+    pub block_states: Option<PackedBits>,
 
     #[serde(default)]
-    pub palette: Vec<Block<'a>>,
+    pub palette: Vec<Block>,
 
-    // Perhaps a little large to potentially end up on the stack? 8 KiB.
     #[serde(skip)]
     unpacked_states: Option<[u16; 16 * 16 * 16]>,
 }
@@ -81,14 +77,14 @@ pub struct Section<'a> {
 /// A block within the world.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-pub struct Block<'a> {
-    pub name: &'a str,
+pub struct Block {
+    pub name: String,
 
     #[serde(default)]
-    pub properties: HashMap<&'a str, &'a str>,
+    pub properties: HashMap<String, String>,
 }
 
-impl<'a> Chunk<'a> {
+impl Chunk {
     pub fn recalculate_heightmap(&mut self) {
         let mut map = [0; 256];
         for z in 0..16 {
@@ -103,7 +99,7 @@ impl<'a> Chunk<'a> {
 
                     if !["minecraft:air", "minecraft:cave_air"]
                         .as_ref()
-                        .contains(&block.unwrap().name)
+                        .contains(&block.unwrap().name.as_str())
                     {
                         map[z * 16 + x] = y as u16;
                         break;
@@ -147,7 +143,7 @@ impl<'a> Chunk<'a> {
     pub fn biome_of(&self, x: usize, _y: isize, z: usize) -> Option<Biome> {
         // TODO: Take into account height. For overworld this doesn't matter (at least not yet)
 
-        let biomes = self.level.biomes?;
+        let biomes = self.level.biomes.as_ref()?;
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
         // section. 384 world height (320 + 64), so 384/16 subchunks.
@@ -162,15 +158,15 @@ impl<'a> Chunk<'a> {
 
         match biomes.len() {
             V1_16 | V1_17 => {
-                let i = 4 * ((z / 4) * 4 + (x / 4));
-                let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
+                let i = (z / 4) * 4 + (x / 4);
+                let biome = biomes[i];
 
                 Biome::try_from(biome).ok()
             }
             V1_15 => {
                 // 1x1 columns stored z then x.
-                let i = 4 * (z * 16 + x);
-                let biome = (&biomes[i..]).read_i32::<BigEndian>().ok()?;
+                let i = z * 16 + x;
+                let biome = biomes[i];
                 Biome::try_from(biome).ok()
             }
             _ => None,
@@ -185,7 +181,7 @@ impl<'a> Chunk<'a> {
         }
     }
 
-    fn get_section_for_y(&mut self, y: isize) -> Option<&mut Section<'a>> {
+    fn get_section_for_y(&mut self, y: isize) -> Option<&mut Section> {
         if self.level.sections.as_ref()?.is_empty() {
             return None;
         }
@@ -205,7 +201,7 @@ impl<'a> Chunk<'a> {
     }
 }
 
-impl<'a> Block<'a> {
+impl Block {
     /// Creates a string of the format "id|prop1=val1,prop2=val2". The
     /// properties are ordered lexigraphically. This somewhat matches the way
     /// Minecraft stores variants in blockstates, but with the block ID/name

@@ -9,38 +9,32 @@ use serde::Deserialize;
 /// default just retains a reference to the data in the input, and `unpack_into`
 /// can be used to get the unpacked version when needed.
 #[derive(Deserialize, Debug)]
-pub struct PackedBits<'a>(pub &'a [u8]);
+pub struct PackedBits(Vec<i64>);
 
-impl<'a> PackedBits<'a> {
+impl PackedBits {
     pub fn unpack_blockstates(&self, bits_per_item: usize, buf: &mut [u16]) {
-        let data = self.0;
-        let longs = data.len() / 8;
-        let bpi = match longs {
+        let bpi = match self.0.len() {
             256 => 4,
             342 => 5,
             410 => 6,
             456 => 7,
             512 => 8,
             586 => 9,
-            _ => 0,
+            _ => return self.unpack_1_15(bits_per_item, buf),
         };
 
-        if bpi != 0 {
-            self.unpack_1_16(bpi, buf);
-            return;
-        }
-
-        self.unpack_1_15(bits_per_item, buf)
+        self.unpack_1_16(bpi, buf)
     }
 
     fn unpack_1_16(&self, bits_per_item: usize, buf: &mut [u16]) {
         // 1.16 style packing
-        let mut data = self.0;
+        let data = &self.0;
 
         let mut buf_i = 0;
         let values_per_64bits = 64 / bits_per_item;
 
-        while let Ok(datum) = data.read_u64::<BigEndian>() {
+        for datum in data {
+            let datum = *datum as u64;
             for i in 0..values_per_64bits {
                 let v = datum.get_bits(i * bits_per_item..(i + 1) * bits_per_item);
                 buf[buf_i] = v as u16;
@@ -53,15 +47,12 @@ impl<'a> PackedBits<'a> {
     }
 
     fn unpack_1_15(&self, bits_per_item: usize, buf: &mut [u16]) {
-        // NB Should come into here.
-        let mut data = self.0;
-
         // if 1.15 style packing
         //println!("1.15 packing {}", data.len());
         // TODO: Get around having to allocate here.
-        let mut v = vec![];
-        while let Ok(datum) = data.read_u64::<BigEndian>() {
-            v.push(datum);
+        let mut v: Vec<u64> = vec![];
+        for datum in &self.0 {
+            v.push(*datum as u64);
         }
 
         for i in 0..buf.len() {
@@ -278,10 +269,10 @@ mod tests {
 
     #[test]
     fn unpack_1_15_heightmap() {
-        let height_data = [
-            16, 8, 4, 2, 1, 0, 128, 64, 200, 68, 18, 9, 4, 130, 64, 32, 227, 241, 249, 8, 126, 65,
-            34, 16, 18, 1, 0, 128, 64, 32, 16, 7, 248, 252, 126, 63, 33, 144, 136, 68, 0, 128, 64,
-            31, 143, 199, 227, 241, 126, 63, 33, 16, 136, 36, 2, 1, 63, 31, 143, 199, 227, 241,
+        let height_data = vec![
+            16u8, 8, 4, 2, 1, 0, 128, 64, 200, 68, 18, 9, 4, 130, 64, 32, 227, 241, 249, 8, 126,
+            65, 34, 16, 18, 1, 0, 128, 64, 32, 16, 7, 248, 252, 126, 63, 33, 144, 136, 68, 0, 128,
+            64, 31, 143, 199, 227, 241, 126, 63, 33, 16, 136, 36, 2, 1, 63, 31, 143, 199, 227, 241,
             248, 252, 32, 144, 72, 36, 2, 1, 0, 128, 143, 199, 227, 241, 248, 252, 126, 63, 8, 4,
             2, 1, 0, 126, 63, 31, 227, 241, 248, 252, 126, 63, 32, 144, 2, 1, 0, 126, 63, 31, 143,
             199, 248, 252, 126, 63, 32, 16, 8, 4, 252, 126, 63, 31, 143, 199, 227, 241, 126, 63,
@@ -295,6 +286,14 @@ mod tests {
             126, 63, 31, 143, 199, 227, 241, 126, 63, 30, 143, 71, 227, 241, 248, 63, 31, 143, 199,
             227, 241, 248, 252, 30, 143, 71, 227, 241, 248, 252, 126,
         ];
+
+        let mut height_ints = vec![];
+
+        let data = &mut height_data.as_slice();
+
+        while let Ok(datum) = data.read_i64::<BigEndian>() {
+            height_ints.push(datum);
+        }
 
         let expected = [
             64, 64, 64, 64, 64, 64, 64, 64, 64, 65, 65, 65, 65, 66, 67, 68, 65, 63, 66, 63, 63, 63,
@@ -311,7 +310,7 @@ mod tests {
             63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 61, 61,
         ];
 
-        let packed = PackedBits(&height_data);
+        let packed = PackedBits(height_ints);
         let mut buf = vec![0; 16 * 16];
         packed.unpack_blockstates(9, buf.as_mut_slice());
         assert_eq!(&expected[..], &buf[..]);
