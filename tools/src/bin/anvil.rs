@@ -279,7 +279,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
     let processed_chunks = AtomicUsize::new(0);
     let painted_pixels = AtomicUsize::new(0);
 
-    paths
+    let regions_processed = paths
         .into_par_iter()
         .map(|path| {
             let (x, z) = coords_from_region(&path).unwrap();
@@ -302,7 +302,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
             }
         })
         .filter_map(|region| region)
-        .for_each(|region| {
+        .map(|region| {
             let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
 
             for xc in 0..32 {
@@ -324,8 +324,12 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 
             img.save(format!("tiles/{}.{}.png", region.x_region, region.z_region))
                 .unwrap();
-        });
 
+            ()
+        })
+        .count();
+
+    info!("{} regions", regions_processed);
     info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
     info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
     Ok(())

@@ -231,6 +231,6 @@ impl Block {
         // remove the filter here and handle it in whatever parses the encoded
         // ID itself. This will probably be pretty ugly. It can probably be
         // contained in the palette generation code entirely, so shouldn't
-        // impact speed to hard.
+        // impact speed too hard.
     }
 }

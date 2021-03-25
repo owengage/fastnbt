@@ -27,7 +27,6 @@ impl PackedBits {
     }
 
     fn unpack_1_16(&self, bits_per_item: usize, buf: &mut [u16]) {
-        // 1.16 style packing
         let data = &self.0;
 
         let mut buf_i = 0;
