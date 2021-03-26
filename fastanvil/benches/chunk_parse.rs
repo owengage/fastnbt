@@ -1,12 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use fastanvil::Chunk;
+use fastanvil::ChunkJava;
 
 const CHUNK_RAW: &[u8] = include_bytes!("../resources/chunk.nbt");
 
 pub fn fastnbt_benchmark(c: &mut Criterion) {
     c.bench_function("chunk", |b| {
         b.iter(|| {
-            let chunk: Chunk = fastnbt::de::from_bytes(CHUNK_RAW).unwrap();
+            let chunk: ChunkJava = fastnbt::de::from_bytes(CHUNK_RAW).unwrap();
             black_box(chunk);
         });
     });

@@ -1,4 +1,4 @@
-use fastanvil::{Chunk, Region};
+use fastanvil::{ChunkJava, RegionBuffer};
 use fastnbt::de::from_bytes;
 
 //
@@ -10,10 +10,10 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let file = std::fs::File::open(args[0].clone()).unwrap();
 
-    let mut region = Region::new(file);
+    let mut region = RegionBuffer::new(file);
     let data = region.load_chunk(0, 0).unwrap();
 
-    let chunk: Chunk = from_bytes(data.as_slice()).unwrap();
+    let chunk: ChunkJava = from_bytes(data.as_slice()).unwrap();
 
     println!("{:?}", chunk);
 }

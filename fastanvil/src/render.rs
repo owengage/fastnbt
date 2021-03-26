@@ -7,7 +7,7 @@ use crate::{Block, MIN_Y};
 
 use super::{
     biome::{self, Biome},
-    Chunk, Region,
+    ChunkJava, RegionBuffer,
 };
 
 use log::debug;
@@ -18,7 +18,7 @@ pub type Rgba = [u8; 4];
 /// entirely up to the implementation.
 pub trait ChunkRender {
     /// Draw the given chunk.
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk);
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut ChunkJava);
 
     /// Draw the invalid chunk. This means that the chunk was not of an expected
     /// form and couldn't be deserialized into a chunk object.
@@ -95,7 +95,7 @@ impl From<std::io::Error> for DrawError {
 pub type DrawResult<T> = std::result::Result<T, DrawError>;
 
 pub fn parse_region<F: ChunkRender + ?Sized, RS>(
-    mut region: Region<RS>,
+    mut region: RegionBuffer<RS>,
     draw_to: &mut F,
 ) -> DrawResult<()>
 where
@@ -278,7 +278,7 @@ impl<'a, P: Palette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
 }
 
 impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut Chunk) {
+    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut ChunkJava) {
         let data = self.map.chunk_mut(xc_rel, zc_rel);
         self.processed_chunks += 1;
 

@@ -1,6 +1,6 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
-use fastanvil::Region;
+use fastanvil::RegionBuffer;
 use fastanvil::RenderedPalette;
 use fastanvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
 use fastanvil::{IntoMap, Palette};
@@ -193,7 +193,7 @@ fn render(args: &ArgMatches) -> Result<()> {
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 info!("parsing region x: {}, z: {}", x, z);
                 let file = std::fs::File::open(path).ok()?;
-                let region = Region::new(file);
+                let region = RegionBuffer::new(file);
 
                 let map = RegionMap::new(x, z, [0, 0, 0, 0]);
                 let mut drawer = RegionBlockDrawer::new(map, &*pal);
@@ -287,7 +287,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 info!("parsing region x: {}, z: {}", x, z);
                 let file = std::fs::File::open(path).ok()?;
-                let region = Region::new(file);
+                let region = RegionBuffer::new(file);
 
                 let map = RegionMap::new(x, z, [0, 0, 0, 0]);
                 let mut drawer = RegionBlockDrawer::new(map, &*pal);

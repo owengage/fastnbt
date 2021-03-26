@@ -10,7 +10,7 @@ use super::biome::Biome;
 /// A Minecraft chunk.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-pub struct Chunk {
+pub struct ChunkJava {
     pub data_version: i32,
     pub level: Level,
 }
@@ -84,7 +84,7 @@ pub struct Block {
     pub properties: HashMap<String, String>,
 }
 
-impl Chunk {
+impl ChunkJava {
     pub fn recalculate_heightmap(&mut self) {
         let mut map = [0; 256];
         for z in 0..16 {

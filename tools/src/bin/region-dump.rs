@@ -1,11 +1,11 @@
-use fastanvil::Region;
+use fastanvil::RegionBuffer;
 use fastnbt::stream::{Parser, Value};
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let file = std::fs::File::open(args[0].clone()).unwrap();
 
-    let mut region = Region::new(file);
+    let mut region = RegionBuffer::new(file);
 
     region
         .for_each_chunk(|_x, _z, data| {
