@@ -1,14 +1,39 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, error::Error, fmt::Display, rc::Rc};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+use crate::{biome::Biome, Block};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RCoord(pub isize);
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CCoord(pub isize);
 
-pub trait Chunk {}
+pub trait Chunk {
+    fn status(&self) -> String;
+    fn surface_height(&self, x: usize, z: usize) -> isize;
+    fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome>;
+
+    /// Get the block at the given coordinates. A block may not exist if the
+    /// section of the world accessed due to height does not exist. For example,
+    /// trying to access the block at height 1234 would return None.
+    fn block(&self, x: usize, y: isize, z: usize) -> Option<Block>;
+}
 
 pub trait Region {
     fn chunk(&self, x: CCoord, z: CCoord) -> Option<Box<dyn Chunk>>;
+}
+
+#[derive(Debug)]
+pub struct LoaderError(pub(crate) String);
+
+pub type LoaderResult<T> = std::result::Result<T, LoaderError>;
+
+impl Error for LoaderError {}
+
+impl Display for LoaderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
 }
 
 /// RegionLoader implmentations provide access to regions. They do not need to
@@ -18,6 +43,7 @@ pub trait Region {
 /// or perhaps a WASM version loading from a file buffer in the browser.
 pub trait RegionLoader {
     fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>>;
+    fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
 }
 
 /// Dimension provides a cache on top of a RegionLoader.
@@ -61,6 +87,10 @@ mod test {
     impl RegionLoader for DummyLoader {
         fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>> {
             Some(Box::new(DummyRegion))
+        }
+
+        fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>> {
+            todo!()
         }
     }
 

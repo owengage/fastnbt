@@ -3,10 +3,14 @@
 //! `anvil::Region` can be given a `Read` and `Seek` type eg a file in order to extract chunk data.
 
 use byteorder::{BigEndian, ReadBytesExt};
+use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
-use std::convert::TryFrom;
-use std::io::{Read, Seek, SeekFrom};
+use std::{
+    borrow::BorrowMut,
+    io::{Read, Seek, SeekFrom},
+};
+use std::{cell::RefCell, convert::TryFrom};
 
 /// the size in bytes of a 'sector' in a region file. Sectors are Minecraft's size unit
 /// for chunks. For example, a chunk might be `3 * SECTOR_SIZE` bytes.
@@ -20,11 +24,13 @@ pub mod tex;
 
 mod bits;
 mod dimension;
+mod files;
 mod render;
 mod types;
 
 pub use bits::*;
 pub use dimension::*;
+pub use files::*;
 pub use render::*;
 pub use types::*;
 
@@ -48,7 +54,17 @@ pub enum CompressionScheme {
 
 /// A Minecraft Region. Allows access to chunk data, handling decompression.
 pub struct RegionBuffer<S: Seek + Read> {
-    data: S,
+    data: RefCell<S>,
+}
+
+impl<S: Seek + Read> Region for RegionBuffer<S> {
+    fn chunk(&self, x: CCoord, z: CCoord) -> Option<Box<dyn Chunk>> {
+        let loc = self.chunk_location(x.0 as usize, z.0 as usize).ok()?;
+
+        let data = self.load_chunk(loc.x, loc.z).ok()?;
+
+        Some(Box::new(from_bytes::<ChunkJava>(&data).ok()?))
+    }
 }
 
 /// The location of chunk data within a Region file.
@@ -87,21 +103,23 @@ impl ChunkMeta {
 
 impl<S: Seek + Read> RegionBuffer<S> {
     pub fn new(data: S) -> Self {
-        Self { data }
+        Self {
+            data: RefCell::new(data),
+        }
     }
 
     /// Return the (region-relative) Chunk location (x, z)
-    pub fn chunk_location(&mut self, x: usize, z: usize) -> Result<ChunkLocation> {
+    pub fn chunk_location(&self, x: usize, z: usize) -> Result<ChunkLocation> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x, z));
         }
 
         let pos = 4 * ((x % 32) + (z % 32) * 32);
 
-        self.data.seek(SeekFrom::Start(pos as u64))?;
+        self.data.borrow_mut().seek(SeekFrom::Start(pos as u64))?;
 
         let mut buf = [0u8; 4];
-        self.data.read_exact(&mut buf[..])?;
+        self.data.borrow_mut().read_exact(&mut buf[..])?;
 
         let mut off = 0usize;
         off = off | ((buf[0] as usize) << 16);
@@ -123,7 +141,7 @@ impl<S: Seek + Read> RegionBuffer<S> {
     /// `Blob::from_reader()` of hematite_nbt.
     ///
     /// [`stream::Parser`]: ../stream/struct.Parser.html
-    pub fn load_chunk(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
+    pub fn load_chunk(&self, x: usize, z: usize) -> Result<Vec<u8>> {
         let data = self.load_raw_chunk_at(x, z)?;
         Ok(decompress_chunk(&data))
     }
@@ -157,23 +175,23 @@ impl<S: Seek + Read> RegionBuffer<S> {
     }
 
     /// Return the raw, compressed data for a chunk at ChunkLocation
-    fn load_raw_chunk(&mut self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
-        self.data.seek(SeekFrom::Start(
+    fn load_raw_chunk(&self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
+        self.data.borrow_mut().seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;
 
         dest.resize(5, 0);
-        self.data.read_exact(&mut dest[0..5])?;
+        self.data.borrow_mut().read_exact(&mut dest[0..5])?;
         let metadata = ChunkMeta::new(&dest[..5])?;
 
         dest.resize(5 + metadata.compressed_len as usize, 0u8);
 
-        self.data.read(&mut dest[5..])?;
+        self.data.borrow_mut().read(&mut dest[5..])?;
         Ok(())
     }
 
     /// Return the raw, compressed data for a chunk at the (region-relative) Chunk location (x, z)
-    fn load_raw_chunk_at(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
+    fn load_raw_chunk_at(&self, x: usize, z: usize) -> Result<Vec<u8>> {
         let location = self.chunk_location(x, z)?;
 
         // 0,0 chunk location means the chunk isn't present.

@@ -1,10 +1,9 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
-use fastanvil::RegionBuffer;
-use fastanvil::RenderedPalette;
-use fastanvil::{parse_region, RegionBlockDrawer, RegionMap, Rgba};
+use fastanvil::{parse_region, CCoord, RCoord, RegionBlockDrawer, RegionLoader, RegionMap, Rgba};
+use fastanvil::{Dimension, RenderedPalette};
 use fastanvil::{IntoMap, Palette};
-use fastnbt_tools::make_palette;
+use fastanvil::{RegionBuffer, RegionFileLoader};
 use flate2::read::GzDecoder;
 use image;
 use log::{error, info};
@@ -48,20 +47,19 @@ fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
     Some((x, z))
 }
 
-fn auto_size(paths: &Vec<PathBuf>) -> Option<Rectangle> {
-    if paths.len() == 0 {
+fn auto_size(coords: &Vec<(RCoord, RCoord)>) -> Option<Rectangle> {
+    if coords.len() == 0 {
         return None;
     }
 
     let mut bounds = Rectangle {
-        xmin: isize::MAX,
-        zmin: isize::MAX,
-        xmax: isize::MIN,
-        zmax: isize::MIN,
+        xmin: RCoord(isize::MAX),
+        zmin: RCoord(isize::MAX),
+        xmax: RCoord(isize::MIN),
+        zmax: RCoord(isize::MIN),
     };
 
-    for path in paths {
-        let coord = coords_from_region(path)?;
+    for coord in coords {
         bounds.xmin = std::cmp::min(bounds.xmin, coord.0);
         bounds.xmax = std::cmp::max(bounds.xmax, coord.0);
         bounds.zmin = std::cmp::min(bounds.zmin, coord.1);
@@ -73,19 +71,19 @@ fn auto_size(paths: &Vec<PathBuf>) -> Option<Rectangle> {
 
 fn make_bounds(size: (isize, isize), off: (isize, isize)) -> Rectangle {
     Rectangle {
-        xmin: off.0 - (size.0 + 0) / 2, // size + 1 makes sure that a size of 1,1
-        xmax: off.0 + (size.0 + 1) / 2, // produces bounds of size 1,1 rather than
-        zmin: off.1 - (size.1 + 0) / 2, // the 0,0 you would get without it.
-        zmax: off.1 + (size.1 + 1) / 2,
+        xmin: RCoord(off.0 - (size.0 + 0) / 2), // size + 1 makes sure that a size of 1,1
+        xmax: RCoord(off.0 + (size.0 + 1) / 2), // produces bounds of size 1,1 rather than
+        zmin: RCoord(off.1 - (size.1 + 0) / 2), // the 0,0 you would get without it.
+        zmax: RCoord(off.1 + (size.1 + 1) / 2),
     }
 }
 
 #[derive(Debug)]
 struct Rectangle {
-    xmin: isize,
-    xmax: isize,
-    zmin: isize,
-    zmax: isize,
+    xmin: RCoord,
+    xmax: RCoord,
+    zmin: RCoord,
+    zmax: RCoord,
 }
 
 fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
@@ -149,14 +147,15 @@ fn render(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let paths = region_paths(&world.join(subpath))
-        .or(Err(format!("no region files found for {} dimension", dim)))?;
+    let loader = RegionFileLoader::new(world.join(subpath));
+
+    let coords = loader.list()?;
 
     let bounds = match (args.value_of("size"), args.value_of("offset")) {
         (Some(size), Some(offset)) => {
             make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
         }
-        (None, _) => auto_size(&paths).unwrap(),
+        (None, _) => auto_size(&coords).unwrap(),
         _ => panic!(),
     };
 
@@ -166,38 +165,29 @@ fn render(args: &ArgMatches) -> Result<()> {
     let z_range = bounds.zmin..bounds.zmax;
 
     let region_len: usize = 32 * 16;
-    let dx = x_range.len();
-    let dz = z_range.len();
 
-    let pal_path = args.value_of("palette");
-    let pal: std::sync::Arc<dyn Palette + Send + Sync> = match pal_path {
-        Some(p) => get_palette(Some(p))?.into(),
-        None => {
-            let jar = args
-                .value_of("jar")
-                .ok_or("must provide either --palette or --jar")?;
-            make_palette(Path::new(jar))?;
-            get_palette(Some("palette.tar.gz"))?.into()
-        }
-    };
+    let pal: std::sync::Arc<dyn Palette + Send + Sync> =
+        get_palette(args.value_of("palette"))?.into();
 
     use std::sync::atomic::{AtomicUsize, Ordering};
     let processed_chunks = AtomicUsize::new(0);
     let painted_pixels = AtomicUsize::new(0);
 
-    let region_maps: Vec<Option<RegionMap<Rgba>>> = paths
+    let region_maps: Vec<_> = coords
         .into_par_iter()
-        .map(|path| {
-            let (x, z) = coords_from_region(&path).unwrap();
+        .filter_map(|coord| {
+            let loader = RegionFileLoader::new(world.join(subpath));
+            let dimension = Dimension::new(Box::new(loader));
+
+            let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                info!("parsing region x: {}, z: {}", x, z);
-                let file = std::fs::File::open(path).ok()?;
-                let region = RegionBuffer::new(file);
+                info!("parsing region x: {}, z: {}", x.0, z.0);
+                let region = dimension.region(x, z)?; // TODO: log if no region?
 
                 let map = RegionMap::new(x, z, [0, 0, 0, 0]);
                 let mut drawer = RegionBlockDrawer::new(map, &*pal);
-                parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
+                parse_region(region.as_ref(), &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
                 processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
                 painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
@@ -214,26 +204,28 @@ fn render(args: &ArgMatches) -> Result<()> {
     info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
 
     info!("1 map.png");
+
+    let dx = (x_range.end.0 - x_range.start.0) as usize;
+    let dz = (z_range.end.0 - z_range.start.0) as usize;
+
     let mut img = image::ImageBuffer::new((dx * region_len) as u32, (dz * region_len) as u32);
 
-    for region_map in region_maps {
-        if let Some(map) = region_map {
-            let xrp = map.x_region - x_range.start;
-            let zrp = map.z_region - z_range.start;
+    for map in region_maps {
+        let xrp = map.x.0 - x_range.start.0;
+        let zrp = map.z.0 - z_range.start.0;
 
-            for xc in 0..32 {
-                for zc in 0..32 {
-                    let chunk = map.chunk(xc, zc);
-                    let xcp = xrp * 32 + xc as isize;
-                    let zcp = zrp * 32 + zc as isize;
+        for xc in 0..32 {
+            for zc in 0..32 {
+                let chunk = map.chunk(CCoord(xc), CCoord(zc));
+                let xcp = xrp * 32 + xc as isize;
+                let zcp = zrp * 32 + zc as isize;
 
-                    for z in 0..16 {
-                        for x in 0..16 {
-                            let pixel = chunk[z * 16 + x];
-                            let x = xcp * 16 + x as isize;
-                            let z = zcp * 16 + z as isize;
-                            img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
-                        }
+                for z in 0..16 {
+                    for x in 0..16 {
+                        let pixel = chunk[z * 16 + x];
+                        let x = xcp * 16 + x as isize;
+                        let z = zcp * 16 + z as isize;
+                        img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
                     }
                 }
             }
@@ -254,14 +246,15 @@ fn tiles(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let paths = region_paths(&world.join(subpath))
-        .or(Err(format!("no region files found for {} dimension", dim)))?;
+    let loader = RegionFileLoader::new(world.join(subpath));
+
+    let coords = loader.list()?;
 
     let bounds = match (args.value_of("size"), args.value_of("offset")) {
         (Some(size), Some(offset)) => {
             make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
         }
-        (None, _) => auto_size(&paths).unwrap(),
+        (None, _) => auto_size(&coords).unwrap(),
         _ => panic!(),
     };
 
@@ -279,19 +272,21 @@ fn tiles(args: &ArgMatches) -> Result<()> {
     let processed_chunks = AtomicUsize::new(0);
     let painted_pixels = AtomicUsize::new(0);
 
-    let regions_processed = paths
+    let regions_processed = coords
         .into_par_iter()
-        .map(|path| {
-            let (x, z) = coords_from_region(&path).unwrap();
+        .map(|coord| {
+            let loader = RegionFileLoader::new(world.join(subpath));
+            let dimension = Dimension::new(Box::new(loader));
+
+            let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                info!("parsing region x: {}, z: {}", x, z);
-                let file = std::fs::File::open(path).ok()?;
-                let region = RegionBuffer::new(file);
+                info!("parsing region x: {}, z: {}", x.0, z.0);
+                let region = dimension.region(x, z)?; // TODO: log if no region?
 
                 let map = RegionMap::new(x, z, [0, 0, 0, 0]);
                 let mut drawer = RegionBlockDrawer::new(map, &*pal);
-                parse_region(region, &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
+                parse_region(region.as_ref(), &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
 
                 processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
                 painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
@@ -307,7 +302,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 
             for xc in 0..32 {
                 for zc in 0..32 {
-                    let heightmap = region.chunk(xc, zc);
+                    let heightmap = region.chunk(CCoord(xc), CCoord(zc));
                     let xcp = xc as isize;
                     let zcp = zc as isize;
 
@@ -322,7 +317,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
                 }
             }
 
-            img.save(format!("tiles/{}.{}.png", region.x_region, region.z_region))
+            img.save(format!("tiles/{}.{}.png", region.x.0, region.z.0))
                 .unwrap();
 
             ()

@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek},
 };
 
-use crate::{Block, MIN_Y};
+use crate::{Block, CCoord, Chunk, RCoord, Region, MIN_Y};
 
 use super::{
     biome::{self, Biome},
@@ -18,11 +18,11 @@ pub type Rgba = [u8; 4];
 /// entirely up to the implementation.
 pub trait ChunkRender {
     /// Draw the given chunk.
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut ChunkJava);
+    fn draw(&mut self, x: CCoord, z: CCoord, chunk: &dyn Chunk);
 
     /// Draw the invalid chunk. This means that the chunk was not of an expected
     /// form and couldn't be deserialized into a chunk object.
-    fn draw_invalid(&mut self, xc_rel: usize, zc_rel: usize);
+    fn draw_invalid(&mut self, x: CCoord, z: CCoord);
 }
 
 /// Palette can be used to take a block description to produce a colour that it
@@ -37,30 +37,30 @@ pub trait IntoMap {
 
 pub struct RegionMap<T> {
     pub data: Vec<T>,
-    pub x_region: isize,
-    pub z_region: isize,
+    pub x: RCoord,
+    pub z: RCoord,
 }
 
 impl<T: Clone> RegionMap<T> {
-    pub fn new(x_region: isize, z_region: isize, default: T) -> Self {
+    pub fn new(x: RCoord, z: RCoord, default: T) -> Self {
         let mut data: Vec<T> = Vec::new();
         data.resize(16 * 16 * 32 * 32, default);
-        Self {
-            data,
-            x_region,
-            z_region,
-        }
+        Self { data, x, z }
     }
 
-    pub fn chunk_mut(&mut self, x: usize, z: usize) -> &mut [T] {
+    pub fn chunk_mut(&mut self, x: CCoord, z: CCoord) -> &mut [T] {
+        debug_assert!(x.0 >= 0 && z.0 >= 0);
+
         let len = 16 * 16;
-        let begin = (z * 32 + x) * len;
+        let begin = (z.0 * 32 + x.0) as usize * len;
         &mut self.data[begin..begin + len]
     }
 
-    pub fn chunk(&self, x: usize, z: usize) -> &[T] {
+    pub fn chunk(&self, x: CCoord, z: CCoord) -> &[T] {
+        debug_assert!(x.0 >= 0 && z.0 >= 0);
+
         let len = 16 * 16;
-        let begin = (z * 32 + x) * len;
+        let begin = (z.0 * 32 + x.0) as usize * len;
         &self.data[begin..begin + len]
     }
 }
@@ -94,25 +94,21 @@ impl From<std::io::Error> for DrawError {
 
 pub type DrawResult<T> = std::result::Result<T, DrawError>;
 
-pub fn parse_region<F: ChunkRender + ?Sized, RS>(
-    mut region: RegionBuffer<RS>,
+pub fn parse_region<F: ChunkRender + ?Sized>(
+    region: &dyn Region,
     draw_to: &mut F,
-) -> DrawResult<()>
-where
-    RS: Read + Seek,
-{
-    let closure = |x: usize, z: usize, buf: &Vec<u8>| {
-        let chunk = fastnbt::de::from_bytes(buf.as_slice());
-        match chunk {
-            Ok(mut chunk) => draw_to.draw(x, z, &mut chunk),
-            Err(e) => {
-                draw_to.draw_invalid(x, z);
-                println!("{:?}", e);
+) -> DrawResult<()> {
+    for x in 0isize..32 {
+        for z in 0isize..32 {
+            let (x, z) = (CCoord(x), CCoord(z));
+
+            match region.chunk(x, z) {
+                Some(chunk) => draw_to.draw(x, z, &*chunk),
+                None => draw_to.draw_invalid(x, z),
             }
         }
-    };
+    }
 
-    region.for_each_chunk(closure)?;
     Ok(())
 }
 
@@ -278,43 +274,27 @@ impl<'a, P: Palette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
 }
 
 impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
-    fn draw(&mut self, xc_rel: usize, zc_rel: usize, chunk: &mut ChunkJava) {
-        let data = self.map.chunk_mut(xc_rel, zc_rel);
+    fn draw(&mut self, x: CCoord, z: CCoord, chunk: &dyn Chunk) {
+        let data = self.map.chunk_mut(x, z);
         self.processed_chunks += 1;
 
-        if chunk.level.status != "full" && chunk.level.status != "spawn" {
+        if chunk.status() != "full" && chunk.status() != "spawn" {
             // Chunks that have been fully generated will have a 'full' status.
             // Skip chunks that don't; the way they render is unpredictable.
             return;
         }
 
-        // if !(zc_rel == 11 && xc_rel == 9) {
-        //     return;
-        // }
-
-        //println!("{:#?}", chunk);
         let mut draw_cross = false;
 
         for z in 0..16 {
             for x in 0..16 {
-                let height = match chunk.height_of(x, z) {
-                    Some(height) => height,
-                    None => {
-                        let pixel = &mut data[z * 16 + x];
-                        *pixel = [255, 0, 0, 255];
-                        draw_cross = true;
-                        continue;
-                    }
-                };
+                let height = chunk.surface_height(x, z);
 
                 let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
-                let biome = chunk.biome_of(x, height, z);
-                let block = chunk.block(x, height, z);
+                let biome = chunk.biome(x, height, z);
+                let block = chunk.block(x, height, z).unwrap(); // Block should definitely exist as we just figured out the height of it.
 
-                let colour = match block {
-                    Some(ref block) => self.palette.pick(&block, biome),
-                    None => [0, 0, 0, 0], // if no ID is given the block doesn't actually exist in the world.
-                };
+                let colour = self.palette.pick(&block, biome);
 
                 let pixel = &mut data[z * 16 + x];
                 *pixel = colour;
@@ -323,12 +303,12 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
         }
 
         if draw_cross {
-            self.draw_invalid(xc_rel, zc_rel);
+            self.draw_invalid(x, z);
         }
     }
 
-    fn draw_invalid(&mut self, xc_rel: usize, zc_rel: usize) {
-        let data = self.map.chunk_mut(xc_rel, zc_rel);
+    fn draw_invalid(&mut self, x: CCoord, z: CCoord) {
+        let data = self.map.chunk_mut(x, z);
 
         // Draw a red cross over the chunk
         for z in 0..16isize {

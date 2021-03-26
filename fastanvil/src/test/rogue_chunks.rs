@@ -1,6 +1,6 @@
 use fastnbt::de::from_bytes;
 
-use crate::ChunkJava;
+use crate::{Chunk, ChunkJava};
 
 const ETHO_OLD_HEIGHTS: &[u8] = include_bytes!("../../resources/etho-old-heightmaps.chunk");
 const ETHO_MAX_HEIGHTS: &[u8] = include_bytes!("../../resources/etho-max-heights.chunk");
@@ -13,7 +13,7 @@ fn extract_heights(chunk: &mut ChunkJava) -> [isize; 256] {
     let mut heights = [0; 256];
     for z in 0..16 {
         for x in 0..16 {
-            heights[z * 16 + x] = chunk.height_of(x, z).unwrap();
+            heights[z * 16 + x] = chunk.surface_height(x, z);
         }
     }
     heights

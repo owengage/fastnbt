@@ -1,7 +1,6 @@
 //! functionality around bit manipulations specific to the Anvil file format.
 
 use bit_field::{BitArray, BitField};
-use byteorder::{BigEndian, ReadBytesExt};
 use serde::Deserialize;
 
 /// PackedBits can be used in place of blockstates in chunks to avoid
@@ -142,6 +141,7 @@ pub fn bits_per_block(palette_len: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use byteorder::{BigEndian, ReadBytesExt};
 
     #[test]
     fn nether_heightmap_v1_15_2() {
