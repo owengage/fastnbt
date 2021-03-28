@@ -1,3 +1,5 @@
+use std::cmp::{max, Ordering};
+
 use crate::{Block, CCoord, Chunk, RCoord, Region, MIN_Y};
 
 use super::biome::Biome;
@@ -136,12 +138,25 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.surface_height(x, z);
+                let shade_height = chunk.surface_height(x, z.saturating_sub(1));
+                let shade = match height.cmp(&shade_height) {
+                    Ordering::Less => 180usize,
+                    Ordering::Equal => 220,
+                    Ordering::Greater => 255,
+                };
 
                 let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome(x, height, z);
                 let block = chunk.block(x, height, z).unwrap(); // Block should definitely exist as we just figured out the height of it.
 
-                let colour = self.palette.pick(&block, biome);
+                let mut colour = self.palette.pick(&block, biome);
+
+                colour = [
+                    (colour[0] as usize * shade / 255) as u8,
+                    (colour[1] as usize * shade / 255) as u8,
+                    (colour[2] as usize * shade / 255) as u8,
+                    colour[3],
+                ];
 
                 let pixel = &mut data[z * 16 + x];
                 *pixel = colour;

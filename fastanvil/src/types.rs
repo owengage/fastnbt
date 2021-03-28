@@ -1,6 +1,7 @@
 use core::panic;
 use std::{cell::RefCell, collections::HashMap, convert::TryFrom, mem::size_of};
 
+use log::debug;
 use serde::Deserialize;
 
 use crate::{bits_per_block, Chunk, PackedBits, MAX_Y, MIN_Y};
@@ -35,20 +36,19 @@ impl Chunk for ChunkJava {
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
         // section. 384 world height (320 + 64), so 384/16 subchunks.
-        const V1_17: usize = size_of::<i32>() * 4 * 4 * 4 * 384 / 16;
+        const V1_17: usize = 4 * 4 * 4 * 384 / 16;
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
         // section. 256 world height, so 256/16 subchunks.
-        const V1_16: usize = size_of::<i32>() * 4 * 4 * 4 * 256 / 16;
+        const V1_16: usize = 4 * 4 * 4 * 256 / 16;
 
         // v1.15 was only x/z, i32 per column.
-        const V1_15: usize = size_of::<i32>() * 16 * 16;
+        const V1_15: usize = 16 * 16;
 
         match biomes.len() {
             V1_16 | V1_17 => {
                 let i = (z / 4) * 4 + (x / 4);
                 let biome = biomes[i];
-
                 Biome::try_from(biome).ok()
             }
             V1_15 => {
