@@ -20,8 +20,7 @@ but not extracting textures from older versions due to the added complexity it
 would require.
 
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
-your CPU. My 3.2 GiB world with 271k chunks is fully rendered to a 14000x17000
-PNG in about 7 seconds. What about yours?
+your CPU.
 
 ![alt rendered map](demo.png)
 
