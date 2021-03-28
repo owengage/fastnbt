@@ -26,12 +26,14 @@ mod bits;
 mod dimension;
 mod files;
 mod render;
+mod rendered_palette;
 mod types;
 
 pub use bits::*;
 pub use dimension::*;
 pub use files::*;
 pub use render::*;
+pub use rendered_palette::*;
 pub use types::*;
 
 #[cfg(test)]

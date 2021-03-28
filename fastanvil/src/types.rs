@@ -155,6 +155,9 @@ pub struct Block {
 
 impl ChunkJava {
     pub fn recalculate_heightmap(&self) {
+        // TODO: Find top section and start there, pointless checking 320 down
+        // if its a 1.16 chunk.
+
         let mut map = [0; 256];
         for z in 0..16 {
             for x in 0..16 {

@@ -1,16 +1,6 @@
-use std::{
-    collections::HashMap,
-    io::{Read, Seek},
-};
-
 use crate::{Block, CCoord, Chunk, RCoord, Region, MIN_Y};
 
-use super::{
-    biome::{self, Biome},
-    ChunkJava, RegionBuffer,
-};
-
-use log::debug;
+use super::biome::Biome;
 
 pub type Rgba = [u8; 4];
 
@@ -98,155 +88,14 @@ pub fn parse_region<F: ChunkRender + ?Sized>(
     region: &dyn Region,
     draw_to: &mut F,
 ) -> DrawResult<()> {
-    for x in 0isize..32 {
-        for z in 0isize..32 {
+    for z in 0isize..32 {
+        for x in 0isize..32 {
             let (x, z) = (CCoord(x), CCoord(z));
-
-            match region.chunk(x, z) {
-                Some(chunk) => draw_to.draw(x, z, &*chunk),
-                None => draw_to.draw_invalid(x, z),
-            }
+            region.chunk(x, z).map(|chunk| draw_to.draw(x, z, &*chunk));
         }
     }
 
     Ok(())
-}
-
-pub struct RenderedPalette {
-    pub blockstates: std::collections::HashMap<String, Rgba>,
-    pub grass: image::RgbaImage,
-    pub foliage: image::RgbaImage,
-}
-
-impl RenderedPalette {
-    fn pick_grass(&self, b: Option<Biome>) -> Rgba {
-        b.map(|b| {
-            let climate = biome::climate(b);
-            let t = climate.temperature.min(1.).max(0.);
-            let r = climate.rainfall.min(1.).max(0.) * t;
-
-            let t = 255 - (t * 255.).ceil() as u32;
-            let r = 255 - (r * 255.).ceil() as u32;
-
-            self.grass.get_pixel(t, r).0
-        })
-        .unwrap_or([255, 0, 0, 0])
-    }
-
-    fn pick_foliage(&self, b: Option<Biome>) -> Rgba {
-        b.map(|b| {
-            let climate = biome::climate(b);
-            let t = climate.temperature.min(1.).max(0.);
-            let r = climate.rainfall.min(1.).max(0.) * t;
-
-            let t = 255 - (t * 255.).ceil() as u32;
-            let r = 255 - (r * 255.).ceil() as u32;
-
-            self.foliage.get_pixel(t, r).0
-        })
-        .unwrap_or([255, 0, 0, 0])
-    }
-
-    fn pick_water(&self, b: Option<Biome>) -> Rgba {
-        b.map(|b| match b {
-            Biome::Swamp => [0x61, 0x7B, 0x64, 255],
-            Biome::River => [0x3F, 0x76, 0xE4, 255],
-            Biome::Ocean => [0x3F, 0x76, 0xE4, 255],
-            Biome::LukewarmOcean => [0x45, 0xAD, 0xF2, 255],
-            Biome::WarmOcean => [0x43, 0xD5, 0xEE, 255],
-            Biome::ColdOcean => [0x3D, 0x57, 0xD6, 255],
-            Biome::FrozenRiver => [0x39, 0x38, 0xC9, 255],
-            Biome::FrozenOcean => [0x39, 0x38, 0xC9, 255],
-            _ => [0x3f, 0x76, 0xe4, 255],
-        })
-        .unwrap_or([0x3f, 0x76, 0xe4, 255])
-    }
-}
-
-impl Palette for RenderedPalette {
-    fn pick(&self, block: &Block, biome: Option<Biome>) -> Rgba {
-        let missing_colour = [255, 0, 255, 255];
-        let snow_block: Block = Block {
-            name: "minecraft:snow_block".to_owned(),
-            properties: HashMap::new(),
-        };
-
-        // A bunch of blocks in the game seem to be special cased outside of the
-        // blockstate/model mechanism. For example leaves get coloured based on
-        // the tree type and the biome type, but this is not encoded in the
-        // blockstate or the model.
-        //
-        // This means we have to do a bunch of complex conditional logic in one
-        // of the most called functions. Yuck.
-        match block.name.strip_prefix("minecraft:") {
-            Some(id) => {
-                match id {
-                    "grass" | "tall_grass" | "vine" | "fern" | "large_fern" => {
-                        return self.pick_grass(biome);
-                    }
-                    "grass_block" => {
-                        let snowy = block
-                            .properties
-                            .get("snowy")
-                            .map(|s| *s == "true")
-                            .unwrap_or(false);
-
-                        if snowy {
-                            return self.pick(&snow_block, biome);
-                        } else {
-                            return self.pick_grass(biome);
-                        };
-                    }
-                    "water" | "bubble_column" => return self.pick_water(biome),
-                    "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves" => {
-                        return self.pick_foliage(biome)
-                    }
-                    "birch_leaves" => {
-                        return [0x80, 0xa7, 0x55, 255]; // game hardcodes this
-                    }
-                    "spruce_leaves" => {
-                        return [0x61, 0x99, 0x61, 255]; // game hardcodes this
-                    }
-                    // Kelp and seagrass don't look like much from the top as
-                    // they're flat. Maybe in future hard code a green tint to make
-                    // it show up?
-                    "kelp" | "seagrass" | "tall_seagrass" => {
-                        return self.pick_water(biome);
-                    }
-                    "snow" => {
-                        return self.pick(&snow_block, biome);
-                    }
-                    // Occurs a lot for the end, as layer 0 will be air in the void.
-                    // Rendering it black makes sense in the end, but might look
-                    // weird if it ends up elsewhere.
-                    "air" => {
-                        return [0, 0, 0, 255];
-                    }
-                    "cave_air" => {
-                        return [255, 0, 0, 255]; // when does this happen??
-                    }
-                    // Otherwise fall through to the general mechanism.
-                    _ => {}
-                }
-            }
-            None => {}
-        }
-
-        let col = self
-            .blockstates
-            .get(&block.encoded_description())
-            .or_else(|| self.blockstates.get(&block.name));
-
-        match col {
-            Some(c) => *c,
-            None => {
-                debug!("could not draw {}", block.name);
-                debug!("description {}", block.encoded_description());
-
-                missing_colour
-            }
-        }
-    }
 }
 
 pub struct RegionBlockDrawer<'a, P: Palette + ?Sized> {
@@ -284,8 +133,6 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
             return;
         }
 
-        let mut draw_cross = false;
-
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.surface_height(x, z);
@@ -300,10 +147,6 @@ impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
                 *pixel = colour;
                 self.painted_pixels += 1;
             }
-        }
-
-        if draw_cross {
-            self.draw_invalid(x, z);
         }
     }
 
