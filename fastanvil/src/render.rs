@@ -1,4 +1,4 @@
-use std::cmp::{max, Ordering};
+use std::cmp::Ordering;
 
 use crate::{Block, CCoord, Chunk, RCoord, Region, MIN_Y};
 
@@ -6,15 +6,63 @@ use super::biome::Biome;
 
 pub type Rgba = [u8; 4];
 
-/// ChunkRender objects can render a given chunk. What they render to is
-/// entirely up to the implementation.
-pub trait ChunkRender {
-    /// Draw the given chunk.
-    fn draw(&mut self, x: CCoord, z: CCoord, chunk: &dyn Chunk);
+pub trait TopShadeRender {
+    /// Render should render the given chunk to RGBA and return it. The chunk
+    /// above the current one is provided to allow top-shading. There might not be
+    /// a chunk present above the one being rendered.
+    fn render(&self, chunk: &dyn Chunk, above: Option<&dyn Chunk>) -> [Rgba; 16 * 16];
+}
 
-    /// Draw the invalid chunk. This means that the chunk was not of an expected
-    /// form and couldn't be deserialized into a chunk object.
-    fn draw_invalid(&mut self, x: CCoord, z: CCoord);
+pub struct TopShadeRenderer<'a, P: Palette> {
+    palette: &'a P,
+}
+
+impl<'a, P: Palette> TopShadeRenderer<'a, P> {
+    pub fn new(palette: &'a P) -> Self {
+        Self { palette }
+    }
+}
+
+impl<'a, P: Palette> TopShadeRender for TopShadeRenderer<'a, P> {
+    fn render(&self, chunk: &dyn Chunk, _above: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
+        let mut data = [[0, 0, 0, 0]; 16 * 16];
+
+        if chunk.status() != "full" && chunk.status() != "spawn" {
+            // Chunks that have been fully generated will have a 'full' status.
+            // Skip chunks that don't; the way they render is unpredictable.
+            return data;
+        }
+
+        for z in 0..16 {
+            for x in 0..16 {
+                let height = chunk.surface_height(x, z);
+                let shade_height = chunk.surface_height(x, z.saturating_sub(1));
+                let shade = match height.cmp(&shade_height) {
+                    Ordering::Less => 180usize,
+                    Ordering::Equal => 220,
+                    Ordering::Greater => 255,
+                };
+
+                let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
+                let biome = chunk.biome(x, height, z);
+                let block = chunk.block(x, height, z).unwrap(); // Block should definitely exist as we just figured out the height of it.
+
+                let mut colour = self.palette.pick(&block, biome);
+
+                colour = [
+                    (colour[0] as usize * shade / 255) as u8,
+                    (colour[1] as usize * shade / 255) as u8,
+                    (colour[2] as usize * shade / 255) as u8,
+                    colour[3],
+                ];
+
+                let pixel = &mut data[z * 16 + x];
+                *pixel = colour;
+            }
+        }
+
+        data
+    }
 }
 
 /// Palette can be used to take a block description to produce a colour that it
@@ -86,99 +134,36 @@ impl From<std::io::Error> for DrawError {
 
 pub type DrawResult<T> = std::result::Result<T, DrawError>;
 
-pub fn parse_region<F: ChunkRender + ?Sized>(
+pub fn parse_region<R: TopShadeRender>(
+    x: RCoord,
+    z: RCoord,
     region: &dyn Region,
-    draw_to: &mut F,
-) -> DrawResult<()> {
+    draw_to: R,
+) -> RegionMap<Rgba> {
+    let mut map = RegionMap::new(x, z, [0u8; 4]);
+
     for z in 0isize..32 {
         for x in 0isize..32 {
             let (x, z) = (CCoord(x), CCoord(z));
-            region.chunk(x, z).map(|chunk| draw_to.draw(x, z, &*chunk));
-        }
-    }
+            let data = map.chunk_mut(x, z);
 
-    Ok(())
-}
+            // TODO: Provide the top chunk to render shading properly!
+            // We will need to cache chunks to avoid doing a lot of extra work.
+            // This entire function should probably rethought, because
+            // eventually we're going to want to access the region above this
+            // one. Introduce the Dimension type.
+            let chunk_data = region
+                .chunk(x, z)
+                .map(|chunk| draw_to.render(&*chunk, None));
 
-pub struct RegionBlockDrawer<'a, P: Palette + ?Sized> {
-    pub map: RegionMap<Rgba>,
-    pub palette: &'a P,
-    pub processed_chunks: usize,
-    pub painted_pixels: usize,
-}
-
-impl<'a, P: Palette + ?Sized> RegionBlockDrawer<'a, P> {
-    pub fn new(map: RegionMap<Rgba>, palette: &'a P) -> Self {
-        Self {
-            map,
-            palette,
-            processed_chunks: 0,
-            painted_pixels: 0,
-        }
-    }
-}
-
-impl<'a, P: Palette + ?Sized> IntoMap for RegionBlockDrawer<'a, P> {
-    fn into_map(self) -> RegionMap<Rgba> {
-        self.map
-    }
-}
-
-impl<'a, P: Palette + ?Sized> ChunkRender for RegionBlockDrawer<'a, P> {
-    fn draw(&mut self, x: CCoord, z: CCoord, chunk: &dyn Chunk) {
-        let data = self.map.chunk_mut(x, z);
-        self.processed_chunks += 1;
-
-        if chunk.status() != "full" && chunk.status() != "spawn" {
-            // Chunks that have been fully generated will have a 'full' status.
-            // Skip chunks that don't; the way they render is unpredictable.
-            return;
-        }
-
-        for z in 0..16 {
-            for x in 0..16 {
-                let height = chunk.surface_height(x, z);
-                let shade_height = chunk.surface_height(x, z.saturating_sub(1));
-                let shade = match height.cmp(&shade_height) {
-                    Ordering::Less => 180usize,
-                    Ordering::Equal => 220,
-                    Ordering::Greater => 255,
-                };
-
-                let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
-                let biome = chunk.biome(x, height, z);
-                let block = chunk.block(x, height, z).unwrap(); // Block should definitely exist as we just figured out the height of it.
-
-                let mut colour = self.palette.pick(&block, biome);
-
-                colour = [
-                    (colour[0] as usize * shade / 255) as u8,
-                    (colour[1] as usize * shade / 255) as u8,
-                    (colour[2] as usize * shade / 255) as u8,
-                    colour[3],
-                ];
-
-                let pixel = &mut data[z * 16 + x];
-                *pixel = colour;
-                self.painted_pixels += 1;
-            }
-        }
-    }
-
-    fn draw_invalid(&mut self, x: CCoord, z: CCoord) {
-        let data = self.map.chunk_mut(x, z);
-
-        // Draw a red cross over the chunk
-        for z in 0..16isize {
-            for x in 0..16isize {
-                let pixel = &mut data[z as usize * 16 + x as usize];
-
-                *pixel = if (x - z).abs() < 3 || (x - (16 - z)).abs() < 3 {
-                    [255, 0, 0, 255]
-                } else {
-                    [0, 0, 0, 0]
+            // TODO: Must be a better way to do this.
+            chunk_data.map(|d| {
+                for i in 0..data.len() {
+                    data[i] = d[i];
                 }
-            }
+            });
         }
     }
+
+    map
 }

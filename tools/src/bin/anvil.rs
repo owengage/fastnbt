@@ -1,14 +1,13 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
-use fastanvil::{parse_region, CCoord, RCoord, RegionBlockDrawer, RegionLoader, RegionMap, Rgba};
+use fastanvil::{parse_region, CCoord, RCoord, RegionLoader, Rgba, TopShadeRenderer};
 use fastanvil::{Dimension, RenderedPalette};
-use fastanvil::{IntoMap, Palette};
-use fastanvil::{RegionBuffer, RegionFileLoader};
+
+use fastanvil::RegionFileLoader;
 use flate2::read::GzDecoder;
 use image;
-use log::{error, info};
+use log::{error, info, warn};
 use rayon::prelude::*;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -17,33 +16,6 @@ fn parse_coord(coord: &str) -> Option<(isize, isize)> {
     let mut s = coord.split(",");
     let x: isize = s.next()?.parse().ok()?;
     let z: isize = s.next()?.parse().ok()?;
-    Some((x, z))
-}
-
-/// Get all the paths to region files in a 'region' directory like 'region', 'DIM1' and 'DIM-1'.
-fn region_paths(in_path: &Path) -> Result<Vec<PathBuf>> {
-    let paths = std::fs::read_dir(in_path)?;
-
-    let paths = paths
-        .into_iter()
-        .filter_map(|path| path.ok())
-        .map(|path| path.path())
-        .filter(|path| path.is_file())
-        .filter(|path| {
-            let ext = path.extension();
-            ext.is_some() && ext.unwrap() == "mca"
-        })
-        .filter(|path| fs::metadata(path).unwrap().len() > 0)
-        .collect();
-
-    Ok(paths)
-}
-
-fn coords_from_region(region: &Path) -> Option<(isize, isize)> {
-    let filename = region.file_name()?.to_str()?;
-    let mut parts = filename.split('.').skip(1);
-    let x = parts.next()?.parse::<isize>().ok()?;
-    let z = parts.next()?.parse::<isize>().ok()?;
     Some((x, z))
 }
 
@@ -86,7 +58,7 @@ struct Rectangle {
     zmax: RCoord,
 }
 
-fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
+fn get_palette(path: Option<&str>) -> Result<RenderedPalette> {
     let path = match path {
         Some(path) => Path::new(path),
         None => panic!("no palette"),
@@ -134,7 +106,7 @@ fn get_palette(path: Option<&str>) -> Result<Box<dyn Palette + Sync + Send>> {
         foliage: foliage?,
     };
 
-    Ok(Box::new(p))
+    Ok(p)
 }
 
 fn render(args: &ArgMatches) -> Result<()> {
@@ -166,12 +138,7 @@ fn render(args: &ArgMatches) -> Result<()> {
 
     let region_len: usize = 32 * 16;
 
-    let pal: std::sync::Arc<dyn Palette + Send + Sync> =
-        get_palette(args.value_of("palette"))?.into();
-
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    let processed_chunks = AtomicUsize::new(0);
-    let painted_pixels = AtomicUsize::new(0);
+    let pal = get_palette(args.value_of("palette"))?;
 
     let region_maps: Vec<_> = coords
         .into_par_iter()
@@ -183,27 +150,22 @@ fn render(args: &ArgMatches) -> Result<()> {
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 info!("parsing region x: {}, z: {}", x.0, z.0);
-                let region = dimension.region(x, z)?; // TODO: log if no region?
+                let region = dimension.region(x, z).or_else(|| {
+                    warn!("region could not be loaded x: {}, z: {}", x.0, z.0);
+                    None
+                })?;
 
-                let map = RegionMap::new(x, z, [0, 0, 0, 0]);
-                let mut drawer = RegionBlockDrawer::new(map, &*pal);
-                parse_region(region.as_ref(), &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
+                let drawer = TopShadeRenderer::new(&pal);
+                let map = parse_region(x, z, region.as_ref(), drawer);
 
-                processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
-                painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
-
-                Some(drawer.into_map())
+                Some(map)
             } else {
                 None
             }
         })
         .collect();
 
-    info!("{} regions", region_maps.len());
-    info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
-    info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
-
-    info!("1 map.png");
+    info!("{} regions processed", region_maps.len());
 
     let dx = (x_range.end.0 - x_range.start.0) as usize;
     let dz = (z_range.end.0 - z_range.start.0) as usize;
@@ -236,99 +198,99 @@ fn render(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn tiles(args: &ArgMatches) -> Result<()> {
-    let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
-    let dim: &str = args.value_of("dimension").unwrap();
+// fn tiles(args: &ArgMatches) -> Result<()> {
+//     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
+//     let dim: &str = args.value_of("dimension").unwrap();
 
-    let subpath = match dim {
-        "end" => "DIM1/region",
-        "nether" => "DIM-1/region",
-        _ => "region",
-    };
+//     let subpath = match dim {
+//         "end" => "DIM1/region",
+//         "nether" => "DIM-1/region",
+//         _ => "region",
+//     };
 
-    let loader = RegionFileLoader::new(world.join(subpath));
+//     let loader = RegionFileLoader::new(world.join(subpath));
 
-    let coords = loader.list()?;
+//     let coords = loader.list()?;
 
-    let bounds = match (args.value_of("size"), args.value_of("offset")) {
-        (Some(size), Some(offset)) => {
-            make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
-        }
-        (None, _) => auto_size(&coords).unwrap(),
-        _ => panic!(),
-    };
+//     let bounds = match (args.value_of("size"), args.value_of("offset")) {
+//         (Some(size), Some(offset)) => {
+//             make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
+//         }
+//         (None, _) => auto_size(&coords).unwrap(),
+//         _ => panic!(),
+//     };
 
-    info!("Bounds: {:?}", bounds);
+//     info!("Bounds: {:?}", bounds);
 
-    let x_range = bounds.xmin..bounds.xmax;
-    let z_range = bounds.zmin..bounds.zmax;
+//     let x_range = bounds.xmin..bounds.xmax;
+//     let z_range = bounds.zmin..bounds.zmax;
 
-    let region_len: usize = 32 * 16;
+//     let region_len: usize = 32 * 16;
 
-    let pal: std::sync::Arc<dyn Palette + Send + Sync> =
-        get_palette(args.value_of("palette"))?.into();
+//     let pal: std::sync::Arc<dyn Palette + Send + Sync> =
+//         get_palette(args.value_of("palette"))?.into();
 
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    let processed_chunks = AtomicUsize::new(0);
-    let painted_pixels = AtomicUsize::new(0);
+//     use std::sync::atomic::{AtomicUsize, Ordering};
+//     let processed_chunks = AtomicUsize::new(0);
+//     let painted_pixels = AtomicUsize::new(0);
 
-    let regions_processed = coords
-        .into_par_iter()
-        .map(|coord| {
-            let loader = RegionFileLoader::new(world.join(subpath));
-            let dimension = Dimension::new(Box::new(loader));
+//     let regions_processed = coords
+//         .into_par_iter()
+//         .map(|coord| {
+//             let loader = RegionFileLoader::new(world.join(subpath));
+//             let dimension = Dimension::new(Box::new(loader));
 
-            let (x, z) = coord;
+//             let (x, z) = coord;
 
-            if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                info!("parsing region x: {}, z: {}", x.0, z.0);
-                let region = dimension.region(x, z)?; // TODO: log if no region?
+//             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
+//                 info!("parsing region x: {}, z: {}", x.0, z.0);
+//                 let region = dimension.region(x, z)?; // TODO: log if no region?
 
-                let map = RegionMap::new(x, z, [0, 0, 0, 0]);
-                let mut drawer = RegionBlockDrawer::new(map, &*pal);
-                parse_region(region.as_ref(), &mut drawer).unwrap_or_default(); // TODO handle some of the errors here
+//                 let pal = &*pal;
+//                 let drawer = TopShadeRenderer::new(pal);
+//                 let map = parse_region(region.as_ref(), drawer); // TODO handle some of the errors here
 
-                processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
-                painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
+//                 processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
+//                 painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
 
-                Some(drawer.into_map())
-            } else {
-                None
-            }
-        })
-        .filter_map(|region| region)
-        .map(|region| {
-            let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
+//                 Some(drawer.into_map())
+//             } else {
+//                 None
+//             }
+//         })
+//         .filter_map(|region| region)
+//         .map(|region| {
+//             let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
 
-            for xc in 0..32 {
-                for zc in 0..32 {
-                    let heightmap = region.chunk(CCoord(xc), CCoord(zc));
-                    let xcp = xc as isize;
-                    let zcp = zc as isize;
+//             for xc in 0..32 {
+//                 for zc in 0..32 {
+//                     let heightmap = region.chunk(CCoord(xc), CCoord(zc));
+//                     let xcp = xc as isize;
+//                     let zcp = zc as isize;
 
-                    for z in 0..16 {
-                        for x in 0..16 {
-                            let pixel = heightmap[z * 16 + x];
-                            let x = xcp * 16 + x as isize;
-                            let z = zcp * 16 + z as isize;
-                            img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
-                        }
-                    }
-                }
-            }
+//                     for z in 0..16 {
+//                         for x in 0..16 {
+//                             let pixel = heightmap[z * 16 + x];
+//                             let x = xcp * 16 + x as isize;
+//                             let z = zcp * 16 + z as isize;
+//                             img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
+//                         }
+//                     }
+//                 }
+//             }
 
-            img.save(format!("tiles/{}.{}.png", region.x.0, region.z.0))
-                .unwrap();
+//             img.save(format!("tiles/{}.{}.png", region.x.0, region.z.0))
+//                 .unwrap();
 
-            ()
-        })
-        .count();
+//             ()
+//         })
+//         .count();
 
-    info!("{} regions", regions_processed);
-    info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
-    info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
-    Ok(())
-}
+//     info!("{} regions", regions_processed);
+//     info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
+//     info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
+//     Ok(())
+// }
 
 fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info"))
@@ -406,7 +368,7 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         ("render", Some(args)) => render(args)?,
-        ("tiles", Some(args)) => tiles(args)?,
+        //("tiles", Some(args)) => tiles(args)?,
         _ => error!("{}", matches.usage()),
     };
 

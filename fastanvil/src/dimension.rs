@@ -27,6 +27,9 @@ pub trait Chunk {
 }
 
 pub trait Region {
+    /// Load the chunk at the given chunk coordinates, ie 0..32 for x and z.
+    /// Implmentations do not need to be concerned with caching chunks they have
+    /// loaded, this will be handled by the types using the region.
     fn chunk(&self, x: CCoord, z: CCoord) -> Option<Box<dyn Chunk>>;
 }
 
@@ -49,7 +52,11 @@ impl Display for LoaderError {
 /// An example implementation could be loading a region file from a local disk,
 /// or perhaps a WASM version loading from a file buffer in the browser.
 pub trait RegionLoader {
+    /// Get a particular region. Returns None if region does not exist.
     fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>>;
+
+    /// List the regions that this loader can return. Implmentations need to
+    /// provide this so that callers can efficiently find regions to process.
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
 }
 
