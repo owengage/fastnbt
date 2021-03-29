@@ -6,7 +6,7 @@ use fastanvil::{Dimension, RenderedPalette};
 use fastanvil::RegionFileLoader;
 use flate2::read::GzDecoder;
 use image;
-use log::{error, info, warn};
+use log::{error, info};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -149,15 +149,8 @@ fn render(args: &ArgMatches) -> Result<()> {
             let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                info!("parsing region x: {}, z: {}", x.0, z.0);
-                let region = dimension.region(x, z).or_else(|| {
-                    warn!("region could not be loaded x: {}, z: {}", x.0, z.0);
-                    None
-                })?;
-
                 let drawer = TopShadeRenderer::new(&pal);
-                let map = parse_region(x, z, region.as_ref(), drawer);
-
+                let map = parse_region(x, z, dimension, drawer);
                 Some(map)
             } else {
                 None

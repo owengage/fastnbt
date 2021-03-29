@@ -6,10 +6,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
-use std::{
-    borrow::BorrowMut,
-    io::{Read, Seek, SeekFrom},
-};
+use std::io::{Read, Seek, SeekFrom};
 use std::{cell::RefCell, convert::TryFrom};
 
 /// the size in bytes of a 'sector' in a region file. Sectors are Minecraft's size unit
@@ -25,16 +22,16 @@ pub mod tex;
 mod bits;
 mod dimension;
 mod files;
+mod java;
 mod render;
 mod rendered_palette;
-mod types;
 
 pub use bits::*;
 pub use dimension::*;
 pub use files::*;
+pub use java::*;
 pub use render::*;
 pub use rendered_palette::*;
-pub use types::*;
 
 #[cfg(test)]
 mod test;
@@ -65,7 +62,7 @@ impl<S: Seek + Read> Region for RegionBuffer<S> {
 
         let data = self.load_chunk(loc.x, loc.z).ok()?;
 
-        Some(Box::new(from_bytes::<ChunkJava>(&data).ok()?))
+        Some(Box::new(from_bytes::<JavaChunk>(&data).ok()?))
     }
 }
 
@@ -296,7 +293,7 @@ mod tests {
     #[test]
     fn invalid_offset() {
         let r = Builder::new().location(2, 1).build();
-        let mut r = RegionBuffer::new(r);
+        let r = RegionBuffer::new(r);
         match r.chunk_location(32, 32) {
             Err(Error::InvalidOffset(32, 32)) => {}
             _ => panic!("should error"),
@@ -306,7 +303,7 @@ mod tests {
     #[test]
     fn invalid_offset_only_in_x() {
         let r = Builder::new().location(2, 1).build();
-        let mut r = RegionBuffer::new(r);
+        let r = RegionBuffer::new(r);
         match r.chunk_location(32, 0) {
             Err(Error::InvalidOffset(32, 0)) => {}
             _ => panic!("should error"),
@@ -316,7 +313,7 @@ mod tests {
     #[test]
     fn invalid_offset_only_in_z() {
         let r = Builder::new().location(2, 1).build();
-        let mut r = RegionBuffer::new(r);
+        let r = RegionBuffer::new(r);
         match r.chunk_location(0, 32) {
             Err(Error::InvalidOffset(0, 32)) => {}
             _ => panic!("should error"),
@@ -326,7 +323,7 @@ mod tests {
     #[test]
     fn offset_beyond_data_given() {
         let r = Builder::new().location(2, 1).build_unpadded();
-        let mut r = RegionBuffer::new(r);
+        let r = RegionBuffer::new(r);
         match r.chunk_location(1, 0) {
             Err(Error::IO(inner)) if inner.kind() == std::io::ErrorKind::UnexpectedEof => {}
             o => panic!("should error {:?}", o),
@@ -335,7 +332,7 @@ mod tests {
     #[test]
     fn first_location() -> Result<()> {
         let r = Builder::new().location(2, 1).build();
-        let mut r = RegionBuffer::new(r);
+        let r = RegionBuffer::new(r);
 
         assert_eq!(
             ChunkLocation {

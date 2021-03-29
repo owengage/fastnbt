@@ -1,7 +1,5 @@
-use core::panic;
-use std::{cell::RefCell, collections::HashMap, convert::TryFrom, mem::size_of};
+use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
 
-use log::debug;
 use serde::Deserialize;
 
 use crate::{bits_per_block, Chunk, PackedBits, MAX_Y, MIN_Y};
@@ -11,12 +9,12 @@ use super::biome::Biome;
 /// A Minecraft chunk.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
-pub struct ChunkJava {
+pub struct JavaChunk {
     pub data_version: i32,
     pub level: Level,
 }
 
-impl Chunk for ChunkJava {
+impl Chunk for JavaChunk {
     fn status(&self) -> String {
         self.level.status.clone()
     }
@@ -29,7 +27,7 @@ impl Chunk for ChunkJava {
         self.level.lazy_heightmap.borrow().unwrap()[z * 16 + x] as isize
     }
 
-    fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
+    fn biome(&self, x: usize, _y: isize, z: usize) -> Option<Biome> {
         // TODO: Take into account height. For overworld this doesn't matter (at least not yet)
 
         let biomes = self.level.biomes.as_ref().unwrap();
@@ -153,7 +151,7 @@ pub struct Block {
     pub properties: HashMap<String, String>,
 }
 
-impl ChunkJava {
+impl JavaChunk {
     pub fn recalculate_heightmap(&self) {
         // TODO: Find top section and start there, pointless checking 320 down
         // if its a 1.16 chunk.

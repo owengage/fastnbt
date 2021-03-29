@@ -1,4 +1,4 @@
-use crate::{LoaderError, Result};
+use crate::LoaderError;
 use crate::{LoaderResult, RegionBuffer};
 use crate::{RCoord, Region, RegionLoader};
 use std::{

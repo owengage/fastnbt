@@ -1,17 +1,10 @@
 use std::cmp::Ordering;
 
-use crate::{Block, CCoord, Chunk, RCoord, Region, MIN_Y};
+use crate::{Block, CCoord, Chunk, Dimension, RCoord, MIN_Y};
 
 use super::biome::Biome;
 
 pub type Rgba = [u8; 4];
-
-pub trait TopShadeRender {
-    /// Render should render the given chunk to RGBA and return it. The chunk
-    /// above the current one is provided to allow top-shading. There might not be
-    /// a chunk present above the one being rendered.
-    fn render(&self, chunk: &dyn Chunk, above: Option<&dyn Chunk>) -> [Rgba; 16 * 16];
-}
 
 pub struct TopShadeRenderer<'a, P: Palette> {
     palette: &'a P,
@@ -21,10 +14,8 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
     pub fn new(palette: &'a P) -> Self {
         Self { palette }
     }
-}
 
-impl<'a, P: Palette> TopShadeRender for TopShadeRenderer<'a, P> {
-    fn render(&self, chunk: &dyn Chunk, _above: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
+    fn render(&self, chunk: &dyn Chunk, above: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         if chunk.status() != "full" && chunk.status() != "spawn" {
@@ -36,7 +27,12 @@ impl<'a, P: Palette> TopShadeRender for TopShadeRenderer<'a, P> {
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.surface_height(x, z);
-                let shade_height = chunk.surface_height(x, z.saturating_sub(1));
+
+                let shade_height = match z {
+                    0 => above.map(|c| c.surface_height(x, 15)).unwrap_or(height),
+                    z => chunk.surface_height(x, z - 1),
+                };
+
                 let shade = match height.cmp(&shade_height) {
                     Ordering::Less => 180usize,
                     Ordering::Equal => 220,
@@ -105,56 +101,46 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-#[derive(Debug)]
-pub enum DrawError {
-    ParseAnvil(super::Error),
-    ParseNbt(fastnbt::error::Error),
-    IO(std::io::Error),
-    MissingHeightMap,
-    InvalidPalette,
-}
-
-impl From<super::Error> for DrawError {
-    fn from(err: super::Error) -> DrawError {
-        DrawError::ParseAnvil(err)
-    }
-}
-
-impl From<fastnbt::error::Error> for DrawError {
-    fn from(err: fastnbt::error::Error) -> DrawError {
-        DrawError::ParseNbt(err)
-    }
-}
-
-impl From<std::io::Error> for DrawError {
-    fn from(err: std::io::Error) -> Self {
-        DrawError::IO(err)
-    }
-}
-
-pub type DrawResult<T> = std::result::Result<T, DrawError>;
-
-pub fn parse_region<R: TopShadeRender>(
+pub fn parse_region<P: Palette>(
     x: RCoord,
     z: RCoord,
-    region: &dyn Region,
-    draw_to: R,
+    dimension: Dimension,
+    renderer: TopShadeRenderer<P>,
 ) -> RegionMap<Rgba> {
     let mut map = RegionMap::new(x, z, [0u8; 4]);
+
+    let region = match dimension.region(x, z) {
+        Some(r) => r,
+        None => return map,
+    };
+
+    let mut cache: [Option<Box<dyn Chunk>>; 32] = Default::default();
+
+    dimension.region(x, RCoord(z.0 - 1)).map(|r| {
+        for x in 0..32 {
+            cache[x] = r.chunk(CCoord(x as isize), CCoord(31));
+        }
+    });
 
     for z in 0isize..32 {
         for x in 0isize..32 {
             let (x, z) = (CCoord(x), CCoord(z));
             let data = map.chunk_mut(x, z);
 
-            // TODO: Provide the top chunk to render shading properly!
-            // We will need to cache chunks to avoid doing a lot of extra work.
-            // This entire function should probably rethought, because
-            // eventually we're going to want to access the region above this
-            // one. Introduce the Dimension type.
-            let chunk_data = region
-                .chunk(x, z)
-                .map(|chunk| draw_to.render(&*chunk, None));
+            let chunk_data = region.chunk(x, z).map(|chunk| {
+                // Get the chunk at the same x coordinate from the cache. This
+                // should be the chunk that is directly above the current. We
+                // know this because once we have processed this chunk we put it
+                // in the cache in the same place. So the next time we get the
+                // current one will be when we're processing directly below us.
+                //
+                // Thanks to the default None value this works fine for the
+                // first row or for any missing chunks.
+                let above = cache[x.0 as usize].as_ref().map(|c| &**c);
+                let res = renderer.render(&*chunk, above);
+                cache[x.0 as usize] = Some(chunk);
+                res
+            });
 
             // TODO: Must be a better way to do this.
             chunk_data.map(|d| {

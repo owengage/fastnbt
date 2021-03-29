@@ -99,7 +99,7 @@ mod test {
 
     struct DummyLoader;
     impl RegionLoader for DummyLoader {
-        fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>> {
+        fn region(&self, _x: RCoord, _z: RCoord) -> Option<Box<dyn Region>> {
             Some(Box::new(DummyRegion))
         }
 
