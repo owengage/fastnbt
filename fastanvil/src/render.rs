@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{Block, CCoord, Chunk, Dimension, RCoord, MIN_Y};
+use crate::{Block, CCoord, Chunk, Dimension, HeightMode, RCoord, MIN_Y};
 
 use super::biome::Biome;
 
@@ -8,11 +8,15 @@ pub type Rgba = [u8; 4];
 
 pub struct TopShadeRenderer<'a, P: Palette> {
     palette: &'a P,
+    height_mode: HeightMode,
 }
 
 impl<'a, P: Palette> TopShadeRenderer<'a, P> {
-    pub fn new(palette: &'a P) -> Self {
-        Self { palette }
+    pub fn new(palette: &'a P, mode: HeightMode) -> Self {
+        Self {
+            palette,
+            height_mode: mode,
+        }
     }
 
     fn render(&self, chunk: &dyn Chunk, above: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
@@ -26,34 +30,24 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
         for z in 0..16 {
             for x in 0..16 {
-                let height = chunk.surface_height(x, z);
-
-                let shade_height = match z {
-                    0 => above.map(|c| c.surface_height(x, 15)).unwrap_or(height),
-                    z => chunk.surface_height(x, z - 1),
-                };
-
-                let shade = match height.cmp(&shade_height) {
-                    Ordering::Less => 180usize,
-                    Ordering::Equal => 220,
-                    Ordering::Greater => 255,
-                };
+                let height = chunk.surface_height(x, z, self.height_mode);
 
                 let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome(x, height, z);
                 let block = chunk.block(x, height, z).unwrap(); // Block should definitely exist as we just figured out the height of it.
 
-                let mut colour = self.palette.pick(&block, biome);
+                let colour = self.palette.pick(&block, biome);
 
-                colour = [
-                    (colour[0] as usize * shade / 255) as u8,
-                    (colour[1] as usize * shade / 255) as u8,
-                    (colour[2] as usize * shade / 255) as u8,
-                    colour[3],
-                ];
+                let shade_height = match z {
+                    // if top of chunk, get height from the chunk above.
+                    0 => above
+                        .map(|c| c.surface_height(x, 15, self.height_mode))
+                        .unwrap_or(height),
+                    z => chunk.surface_height(x, z - 1, self.height_mode),
+                };
+                let colour = top_shade_colour(colour, height, shade_height);
 
-                let pixel = &mut data[z * 16 + x];
-                *pixel = colour;
+                data[z * 16 + x] = colour;
             }
         }
 
@@ -116,6 +110,8 @@ pub fn parse_region<P: Palette>(
 
     let mut cache: [Option<Box<dyn Chunk>>; 32] = Default::default();
 
+    // Cache the last row of chunks from the above region to allow top-shading
+    // on region boundaries.
     dimension.region(x, RCoord(z.0 - 1)).map(|r| {
         for x in 0..32 {
             cache[x] = r.chunk(CCoord(x as isize), CCoord(31));
@@ -142,14 +138,25 @@ pub fn parse_region<P: Palette>(
                 res
             });
 
-            // TODO: Must be a better way to do this.
             chunk_data.map(|d| {
-                for i in 0..data.len() {
-                    data[i] = d[i];
-                }
+                data[..].clone_from_slice(&d);
             });
         }
     }
 
     map
+}
+
+fn top_shade_colour(colour: Rgba, height: isize, shade_height: isize) -> Rgba {
+    let shade = match height.cmp(&shade_height) {
+        Ordering::Less => 180usize,
+        Ordering::Equal => 220,
+        Ordering::Greater => 255,
+    };
+    [
+        (colour[0] as usize * shade / 255) as u8,
+        (colour[1] as usize * shade / 255) as u8,
+        (colour[2] as usize * shade / 255) as u8,
+        colour[3],
+    ]
 }

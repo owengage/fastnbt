@@ -1,6 +1,6 @@
 use fastnbt::de::from_bytes;
 
-use crate::{Chunk, JavaChunk};
+use crate::{Chunk, HeightMode, JavaChunk};
 
 const ETHO_OLD_HEIGHTS: &[u8] = include_bytes!("../../resources/etho-old-heightmaps.chunk");
 const ETHO_MAX_HEIGHTS: &[u8] = include_bytes!("../../resources/etho-max-heights.chunk");
@@ -13,7 +13,7 @@ fn extract_heights(chunk: &mut JavaChunk) -> [isize; 256] {
     let mut heights = [0; 256];
     for z in 0..16 {
         for x in 0..16 {
-            heights[z * 16 + x] = chunk.surface_height(x, z);
+            heights[z * 16 + x] = chunk.surface_height(x, z, HeightMode::Calculate);
         }
     }
     heights
@@ -119,7 +119,7 @@ fn etho() {
     // Based Etho's LP episode 550 world download. r.-1.-1.mca, chunk with index
     // x=27. z=0.
     let mut chunk: JavaChunk = from_bytes(ETHO).unwrap();
-    chunk.recalculate_heightmap();
+    chunk.recalculate_heightmap(HeightMode::Calculate);
 
     let expected_heights = [
         63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63,
@@ -143,7 +143,7 @@ fn etho_empty() {
     // Based Etho's LP episode 550 world download. r.-1.-1.mca, chunk with index
     // x=27. z=0.
     let mut chunk: JavaChunk = from_bytes(ETHO_EMPTY).unwrap();
-    chunk.recalculate_heightmap();
+    chunk.recalculate_heightmap(HeightMode::Calculate);
 
     let expected_heights = [
         75, 76, 76, 76, 75, 75, 67, 67, 66, 66, 66, 66, 66, 66, 66, 66, 75, 75, 75, 75, 75, 67, 67,

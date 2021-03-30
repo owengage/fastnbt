@@ -1,6 +1,6 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
-use fastanvil::{parse_region, CCoord, RCoord, RegionLoader, Rgba, TopShadeRenderer};
+use fastanvil::{parse_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, TopShadeRenderer};
 use fastanvil::{Dimension, RenderedPalette};
 
 use fastanvil::RegionFileLoader;
@@ -112,6 +112,10 @@ fn get_palette(path: Option<&str>) -> Result<RenderedPalette> {
 fn render(args: &ArgMatches) -> Result<()> {
     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
     let dim: &str = args.value_of("dimension").unwrap();
+    let height_mode = match args.is_present("calculate-heights") {
+        true => HeightMode::Calculate,
+        false => HeightMode::Trust,
+    };
 
     let subpath = match dim {
         "end" => "DIM1/region",
@@ -149,8 +153,9 @@ fn render(args: &ArgMatches) -> Result<()> {
             let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                let drawer = TopShadeRenderer::new(&pal);
+                let drawer = TopShadeRenderer::new(&pal, height_mode);
                 let map = parse_region(x, z, dimension, drawer);
+                info!("processed r.{}.{}.mca", x.0, z.0);
                 Some(map)
             } else {
                 None
@@ -324,6 +329,12 @@ fn main() -> Result<()> {
                     Arg::with_name("jar")
                         .long("jar")
                         .takes_value(true)
+                        .required(false),
+                )
+                .arg(
+                    Arg::with_name("calculate-heights")
+                        .long("calculate-heights")
+                        .takes_value(false)
                         .required(false),
                 ),
         )

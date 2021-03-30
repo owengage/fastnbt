@@ -84,13 +84,18 @@ pub fn expand_blockstates(data: &[i64], palette_len: usize) -> Vec<u16> {
 /// Expand heightmap data. This is equivalent to `expand_generic(data, 9)`.
 pub fn expand_heightmap(data: &[i64]) -> Vec<u16> {
     let bits_per_item = 9;
-    let heights_per_chunk = 16 * 16;
+
+    // Should be 37 longs for 1.16. 7 values per long, 256 values total.
+    // How does 1.17 store this? How does it fit into 9 bits? A simple signed
+    // 9-bit number wouldn't be able to fit the range.
 
     // If it's tightly packed assume 1.15 format.
-    if heights_per_chunk * bits_per_item == data.len() * 64 {
-        expand_generic_1_15(data, bits_per_item)
+    if data.len() == 37 {
+        let mut v = expand_generic_1_16(data, bits_per_item);
+        v.resize(256, 0); // theres some straggler bits at the end that we don't want.
+        v
     } else {
-        expand_generic_1_16(data, bits_per_item)
+        expand_generic_1_15(data, bits_per_item)
     }
 }
 

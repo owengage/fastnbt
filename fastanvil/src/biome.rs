@@ -80,6 +80,10 @@ pub enum Biome {
     EndMidlands = 41,
     EndHighlands = 42,
     EndBarrens = 43,
+    SoulSandValley = 170,
+    CrimsonForest = 171,
+    WarpedForest = 172,
+    BasaltDeltas = 173,
     TheVoid = 127,
 }
 
@@ -171,9 +175,9 @@ pub fn climate(b: Biome) -> Climate {
         Biome::ModifiedBadlandsPlateau => climate(2.0, 0.0),
         Biome::BambooJungle => climate(0.95, 0.9),
         Biome::BambooJungleHills => climate(0.95, 0.9),
-        //  Biome::SoulSandValley => climate(2.0, 0.0),
-        //  Biome::CrimsonForest => climate(2.0, 0.0),
-        //  Biome::WarpedForest => climate(2.0, 0.0),
-        //  Biome::BasaltDeltas => climate(2.0, 0.0),
+        Biome::SoulSandValley => climate(2.0, 0.0),
+        Biome::CrimsonForest => climate(2.0, 0.0),
+        Biome::WarpedForest => climate(2.0, 0.0),
+        Biome::BasaltDeltas => climate(2.0, 0.0),
     }
 }

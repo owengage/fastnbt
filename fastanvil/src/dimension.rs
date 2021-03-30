@@ -8,12 +8,18 @@ pub struct RCoord(pub isize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CCoord(pub isize);
 
+#[derive(Clone, Copy)]
+pub enum HeightMode {
+    Trust,     // trust height maps from chunk data
+    Calculate, // calculate height maps manually, much slower.
+}
+
 pub trait Chunk {
     fn status(&self) -> String;
 
     /// Get the height of the first air-like block above something not air-like.
     /// Will panic if given x/z coordinates outside of 0..16.
-    fn surface_height(&self, x: usize, z: usize) -> isize;
+    fn surface_height(&self, x: usize, z: usize, mode: HeightMode) -> isize;
 
     /// Get the biome of the given coordinate. A biome may not exist if the
     /// section of the chunk accessed is not present. For example,

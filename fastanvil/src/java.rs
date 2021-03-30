@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
 
 use serde::Deserialize;
 
-use crate::{bits_per_block, Chunk, PackedBits, MAX_Y, MIN_Y};
+use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
 
 use super::biome::Biome;
 
@@ -19,9 +19,9 @@ impl Chunk for JavaChunk {
         self.level.status.clone()
     }
 
-    fn surface_height(&self, x: usize, z: usize) -> isize {
+    fn surface_height(&self, x: usize, z: usize, mode: HeightMode) -> isize {
         if self.level.lazy_heightmap.borrow().is_none() {
-            self.recalculate_heightmap();
+            self.recalculate_heightmap(mode);
         }
 
         self.level.lazy_heightmap.borrow().unwrap()[z * 16 + x] as isize
@@ -98,6 +98,8 @@ pub struct Level {
     /// Can be empty if the chunk hasn't been generated properly yet.
     pub sections: Option<Vec<Section>>,
 
+    pub heightmaps: Option<Heightmaps>,
+
     // Status of the chunk. Typically anything except 'full' means the chunk
     // hasn't been fully generated yet. We use this to skip chunks on map edges
     // that haven't been fully generated yet.
@@ -110,21 +112,18 @@ pub struct Level {
     sec_map: RefCell<HashMap<i8, usize>>,
 
     #[serde(skip)]
-    lazy_heightmap: RefCell<Option<[i16; 256]>>,
+    lazy_heightmap: RefCell<Option<[u16; 256]>>,
 }
 
-// /// Various heightmaps kept up to date by Minecraft.
-// #[derive(Deserialize, Debug)]
-// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-// pub struct Heightmaps {
-//     pub motion_blocking: Option<Heightmap>,
-//     pub motion_blocking_no_leaves: Option<Heightmap>,
-//     pub ocean_floor: Option<Heightmap>,
-//     pub world_surface: Option<Heightmap>,
-
-//     #[serde(skip)]
-//     unpacked_motion_blocking: Option<[u16; 16 * 16]>,
-// }
+/// Various heightmaps kept up to date by Minecraft.
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct Heightmaps {
+    pub motion_blocking: Option<Vec<i64>>,
+    //pub motion_blocking_no_leaves: Option<Heightmap>,
+    //pub ocean_floor: Option<Heightmap>,
+    //pub world_surface: Option<Heightmap>,
+}
 
 /// A vertical section of a chunk (ie a 16x16x16 block cube)
 #[derive(Deserialize, Debug)]
@@ -152,11 +151,31 @@ pub struct Block {
 }
 
 impl JavaChunk {
-    pub fn recalculate_heightmap(&self) {
+    pub fn recalculate_heightmap(&self, mode: HeightMode) {
         // TODO: Find top section and start there, pointless checking 320 down
         // if its a 1.16 chunk.
 
         let mut map = [0; 256];
+
+        match mode {
+            HeightMode::Trust => {
+                let updated = self
+                    .level
+                    .heightmaps
+                    .as_ref()
+                    .and_then(|hm| hm.motion_blocking.as_ref())
+                    .map(|hm| expand_heightmap(hm.as_slice()))
+                    .map(|hm| map.copy_from_slice(hm.as_slice()))
+                    .is_some();
+
+                if updated {
+                    self.level.lazy_heightmap.replace(Some(map));
+                    return;
+                }
+            }
+            HeightMode::Calculate => {} // fall through to calc mode
+        }
+
         for z in 0..16 {
             for x in 0..16 {
                 // start at top until we hit a non-air block.
@@ -172,7 +191,7 @@ impl JavaChunk {
                         .as_ref()
                         .contains(&block.unwrap().name.as_str())
                     {
-                        map[z * 16 + x] = y as i16;
+                        map[z * 16 + x] = y as u16;
                         break;
                     }
                 }

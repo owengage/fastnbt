@@ -5,6 +5,7 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
+use log::{error, info};
 use num_enum::TryFromPrimitive;
 use std::io::{Read, Seek, SeekFrom};
 use std::{cell::RefCell, convert::TryFrom};
@@ -118,6 +119,7 @@ impl<S: Seek + Read> RegionBuffer<S> {
         self.data.borrow_mut().seek(SeekFrom::Start(pos as u64))?;
 
         let mut buf = [0u8; 4];
+
         self.data.borrow_mut().read_exact(&mut buf[..])?;
 
         let mut off = 0usize;
@@ -175,6 +177,8 @@ impl<S: Seek + Read> RegionBuffer<S> {
 
     /// Return the raw, compressed data for a chunk at ChunkLocation
     fn load_raw_chunk(&self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
+        error!("enter load_raw_chunk");
+
         self.data.borrow_mut().seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;
