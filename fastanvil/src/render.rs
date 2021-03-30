@@ -34,9 +34,16 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
                 let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
                 let biome = chunk.biome(x, height, z);
-                let block = chunk.block(x, height, z).unwrap(); // Block should definitely exist as we just figured out the height of it.
+                let block = chunk.block(x, height, z);
 
-                let colour = self.palette.pick(&block, biome);
+                // TODO: Under what circumstances does the block not exist?
+                // Feels like it always should. Seems to be related to a section
+                // of the chunk existing, but having an empty palette and block
+                // states. Does not fall on any decernable boundary.
+                let colour = match block {
+                    Some(block) => self.palette.pick(&block, biome),
+                    None => [255, 0, 255, 255],
+                };
 
                 let shade_height = match z {
                     // if top of chunk, get height from the chunk above.
@@ -54,7 +61,6 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         data
     }
 }
-
 /// Palette can be used to take a block description to produce a colour that it
 /// should render to.
 pub trait Palette {

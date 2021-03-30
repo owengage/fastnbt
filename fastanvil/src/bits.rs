@@ -1,6 +1,7 @@
 //! functionality around bit manipulations specific to the Anvil file format.
 
 use bit_field::{BitArray, BitField};
+use log::debug;
 use serde::Deserialize;
 
 /// PackedBits can be used in place of blockstates in chunks to avoid
@@ -82,8 +83,10 @@ pub fn expand_blockstates(data: &[i64], palette_len: usize) -> Vec<u16> {
 }
 
 /// Expand heightmap data. This is equivalent to `expand_generic(data, 9)`.
-pub fn expand_heightmap(data: &[i64]) -> Vec<u16> {
+pub fn expand_heightmap(data: &[i64], data_version: i32) -> Vec<i16> {
     let bits_per_item = 9;
+
+    let after1_17 = data_version >= 2695;
 
     // Should be 37 longs for 1.16. 7 values per long, 256 values total.
     // How does 1.17 store this? How does it fit into 9 bits? A simple signed
@@ -93,9 +96,22 @@ pub fn expand_heightmap(data: &[i64]) -> Vec<u16> {
     if data.len() == 37 {
         let mut v = expand_generic_1_16(data, bits_per_item);
         v.resize(256, 0); // theres some straggler bits at the end that we don't want.
-        v
+
+        // Switch to signed. If 1.17 subtract 64.
+        let shift = if after1_17 { -64 } else { 0 };
+
+        let mut res = vec![];
+        for h in v {
+            res.push(h as i16 + shift);
+        }
+        res
     } else {
-        expand_generic_1_15(data, bits_per_item)
+        let v = expand_generic_1_15(data, bits_per_item);
+        let mut res = vec![];
+        for h in v {
+            res.push(h as i16);
+        }
+        res
     }
 }
 
@@ -189,7 +205,7 @@ mod tests {
             4620710844295151872,
         ];
 
-        let actual = expand_heightmap(&input[..]);
+        let actual = expand_heightmap(&input[..], 0);
         assert_eq!(&[128; 16 * 16][..], actual.as_slice());
     }
 
@@ -234,7 +250,7 @@ mod tests {
             2526951242973911180,
         ];
 
-        let actual = expand_heightmap(&input[..]);
+        let actual = expand_heightmap(&input[..], 0);
         assert_eq!(
             &[
                 72, 73, 72, 72, 72, 73, 72, 72, 72, 72, 72, 72, 72, 72, 72, 73, 72, 72, 72, 72, 73,

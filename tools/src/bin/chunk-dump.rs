@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use fastanvil::{JavaChunk, RegionBuffer};
+use fastnbt::Value;
 use log::error;
 
 fn main() {
@@ -11,12 +12,12 @@ fn main() {
 
     region
         .for_each_chunk(|x, z, data| {
-            // let mut file = std::fs::File::create(format!("chunks/{}.{}.nbt", x, z)).unwrap();
-            // file.write_all(data).unwrap();
+            let mut file = std::fs::File::create(format!("chunks/{}.{}.nbt", x, z)).unwrap();
+            file.write_all(data).unwrap();
 
-            // let mut file = std::fs::File::create(format!("chunks/{}.{}.txt", x, z)).unwrap();
-            //let chunk: JavaChunk = fastnbt::de::from_bytes(data).unwrap();
-            //file.write_all(format!("{:#?}", chunk).as_bytes()).unwrap();
+            let mut file = std::fs::File::create(format!("chunks/{}.{}.txt", x, z)).unwrap();
+            let chunk: fastnbt::Value = fastnbt::de::from_bytes(data).unwrap();
+            file.write_all(format!("{:#?}", chunk).as_bytes()).unwrap();
         })
         .unwrap();
 }

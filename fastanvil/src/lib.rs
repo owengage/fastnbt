@@ -177,8 +177,6 @@ impl<S: Seek + Read> RegionBuffer<S> {
 
     /// Return the raw, compressed data for a chunk at ChunkLocation
     fn load_raw_chunk(&self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
-        error!("enter load_raw_chunk");
-
         self.data.borrow_mut().seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;

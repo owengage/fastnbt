@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
 
+use log::warn;
 use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
@@ -78,6 +79,7 @@ impl Chunk for JavaChunk {
         }
 
         let pal_index = sec.unpacked_states.borrow().as_ref().unwrap()[state_index] as usize;
+
         (sec.palette.get(pal_index)).cloned()
     }
 }
@@ -112,7 +114,7 @@ pub struct Level {
     sec_map: RefCell<HashMap<i8, usize>>,
 
     #[serde(skip)]
-    lazy_heightmap: RefCell<Option<[u16; 256]>>,
+    lazy_heightmap: RefCell<Option<[i16; 256]>>,
 }
 
 /// Various heightmaps kept up to date by Minecraft.
@@ -164,13 +166,15 @@ impl JavaChunk {
                     .heightmaps
                     .as_ref()
                     .and_then(|hm| hm.motion_blocking.as_ref())
-                    .map(|hm| expand_heightmap(hm.as_slice()))
+                    .map(|hm| expand_heightmap(hm.as_slice(), self.data_version))
                     .map(|hm| map.copy_from_slice(hm.as_slice()))
                     .is_some();
 
                 if updated {
                     self.level.lazy_heightmap.replace(Some(map));
                     return;
+                } else {
+                    warn!("failed to extract height map, defaulting to calculating");
                 }
             }
             HeightMode::Calculate => {} // fall through to calc mode
@@ -191,7 +195,7 @@ impl JavaChunk {
                         .as_ref()
                         .contains(&block.unwrap().name.as_str())
                     {
-                        map[z * 16 + x] = y as u16;
+                        map[z * 16 + x] = y as i16;
                         break;
                     }
                 }
