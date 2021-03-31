@@ -87,31 +87,28 @@ pub fn expand_heightmap(data: &[i64], data_version: i32) -> Vec<i16> {
     let bits_per_item = 9;
 
     let after1_17 = data_version >= 2695;
+    const LEN_1_16_TO_17: usize = 37;
+    const LEN_1_15: usize = 36;
 
-    // Should be 37 longs for 1.16. 7 values per long, 256 values total.
-    // How does 1.17 store this? How does it fit into 9 bits? A simple signed
-    // 9-bit number wouldn't be able to fit the range.
+    match data.len() {
+        LEN_1_16_TO_17 => {
+            // We extract 256 9-bit **unsigned** integers from the data. This is
+            // one integer per column in the chunk. In 1.16 onwards we store 7
+            // of these per 64bit long, meaning there's padding bits, and a long
+            // at the end with extra values that are unused. We resize down to
+            // get rid of these extra values.
+            let mut v = expand_generic_1_16(data, bits_per_item);
+            v.resize(256, 0);
 
-    // If it's tightly packed assume 1.15 format.
-    if data.len() == 37 {
-        let mut v = expand_generic_1_16(data, bits_per_item);
-        v.resize(256, 0); // theres some straggler bits at the end that we don't want.
-
-        // Switch to signed. If 1.17 subtract 64.
-        let shift = if after1_17 { -64 } else { 0 };
-
-        let mut res = vec![];
-        for h in v {
-            res.push(h as i16 + shift);
+            // Switch to signed. If 1.17 subtract 64 to allow the negative heights.
+            let shift = if after1_17 { -64 } else { 0 };
+            v.into_iter().map(|h| h as i16 + shift).collect()
         }
-        res
-    } else {
-        let v = expand_generic_1_15(data, bits_per_item);
-        let mut res = vec![];
-        for h in v {
-            res.push(h as i16);
-        }
-        res
+        LEN_1_15 => expand_generic_1_15(data, bits_per_item)
+            .into_iter()
+            .map(|h| h as i16)
+            .collect(),
+        _ => panic!("did not understand height format"),
     }
 }
 
