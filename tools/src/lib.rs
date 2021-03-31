@@ -22,7 +22,7 @@ impl Display for ErrorMessage {
 }
 
 fn avg_colour(rgba_data: &[u8]) -> Rgba {
-    let mut avg = [0f64; 3];
+    let mut avg = [0f64; 4];
     let mut count = 0;
 
     for p in rgba_data.chunks(4) {
@@ -31,6 +31,7 @@ fn avg_colour(rgba_data: &[u8]) -> Rgba {
             avg[0] = avg[0] + ((p[0] as u64) * (p[0] as u64)) as f64;
             avg[1] = avg[1] + ((p[1] as u64) * (p[1] as u64)) as f64;
             avg[2] = avg[2] + ((p[2] as u64) * (p[2] as u64)) as f64;
+            avg[3] = avg[3] + ((p[3] as u64) * (p[3] as u64)) as f64;
             count = count + 1;
         }
     }
@@ -39,7 +40,7 @@ fn avg_colour(rgba_data: &[u8]) -> Rgba {
         (avg[0] / count as f64).sqrt() as u8,
         (avg[1] / count as f64).sqrt() as u8,
         (avg[2] / count as f64).sqrt() as u8,
-        255,
+        (avg[3] / count as f64).sqrt() as u8,
     ]
 }
 

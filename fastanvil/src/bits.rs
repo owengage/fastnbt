@@ -1,7 +1,6 @@
 //! functionality around bit manipulations specific to the Anvil file format.
 
 use bit_field::{BitArray, BitField};
-use log::debug;
 use serde::Deserialize;
 
 /// PackedBits can be used in place of blockstates in chunks to avoid
