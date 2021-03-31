@@ -1,6 +1,6 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
-use fastanvil::{parse_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, TopShadeRenderer};
+use fastanvil::{render_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, TopShadeRenderer};
 use fastanvil::{Dimension, RenderedPalette};
 
 use fastanvil::RegionFileLoader;
@@ -154,7 +154,7 @@ fn render(args: &ArgMatches) -> Result<()> {
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
-                let map = parse_region(x, z, dimension, drawer);
+                let map = render_region(x, z, dimension, drawer);
                 info!("processed r.{}.{}.mca", x.0, z.0);
                 Some(map)
             } else {
