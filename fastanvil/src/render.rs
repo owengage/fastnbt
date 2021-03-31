@@ -37,41 +37,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         for z in 0..16 {
             for x in 0..16 {
                 let height = chunk.surface_height(x, z, self.height_mode);
-
-                let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because we want the block below the air.
-                let biome = chunk.biome(x, height, z);
-                let block = chunk.block(x, height, z);
-
-                // TODO: Under what circumstances does the block not exist?
-                // Feels like it always should. Seems to be related to a section
-                // of the chunk existing, but having an empty palette and block
-                // states. Does not fall on any decernable boundary.
-                let mut colour = match block {
-                    Some(ref block) => self.palette.pick(&block, biome),
-                    None => [255, 0, 255, 255],
-                };
-
-                // Now that we have the colour of the top layer, we can check
-                // the transparency of it. If it is transparent we can look for
-                // a block below it to get a better render.
-
-                let transparency_depth = 3;
-                let mut depth = 0;
-                let mut last_height = height;
-
-                while colour[3] != 255 && depth <= transparency_depth {
-                    let (below_block, below_height) = block_below(x, last_height, z, chunk);
-                    if let Some(below_block) = below_block {
-                        let below_colour = self.palette.pick(&below_block, biome); // TODO: Biome might have changed.
-                        colour = a_over_b_colour(colour, below_colour);
-                    }
-
-                    depth = depth + 1;
-                    last_height = below_height;
-                }
-
-                // fudge alpha to max so final pixel has no transparency.
-                colour[3] = 255;
+                let colour = self.drill_for_colour(x, height, z, chunk);
 
                 let shade_height = match z {
                     // if top of chunk, get height from the chunk above.
@@ -88,8 +54,49 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
         data
     }
+
+    /// Drill for colour. Starting at y_start, make way down the column until we
+    /// have an opaque colour to return. This tackles things like transparency.
+    fn drill_for_colour(&self, x: usize, y_start: isize, z: usize, chunk: &dyn Chunk) -> Rgba {
+        let height = if y_start == MIN_Y { MIN_Y } else { y_start - 1 }; // -1 because we want the block below the air.
+        let biome = chunk.biome(x, height, z);
+        let block = chunk.block(x, height, z);
+
+        // TODO: Under what circumstances does the block not exist?
+        // Feels like it always should. Seems to be related to a section
+        // of the chunk existing, but having an empty palette and block
+        // states. Does not fall on any decernable boundary.
+        let mut colour = match block {
+            Some(ref block) => self.palette.pick(&block, biome),
+            None => [255, 0, 255, 255],
+        };
+
+        // Now that we have the colour of the top layer, we can check
+        // the transparency of it. If it is transparent we can look for
+        // a block below it to get a better render.
+
+        let transparency_depth = 3;
+        let mut depth = 0;
+        let mut last_height = height;
+
+        while colour[3] != 255 && depth <= transparency_depth {
+            let (below_block, below_height) = block_below(x, last_height, z, chunk);
+            if let Some(below_block) = below_block {
+                let below_colour = self.palette.pick(&below_block, biome); // TODO: Biome might have changed.
+                colour = a_over_b_colour(colour, below_colour);
+            }
+
+            depth = depth + 1;
+            last_height = below_height;
+        }
+
+        // fudge alpha to max so final pixel has no transparency.
+        colour[3] = 255;
+        colour
+    }
 }
 
+/// Find the first non-air block below the given block.
 fn block_below(x: usize, mut y: isize, z: usize, chunk: &dyn Chunk) -> (Option<Block>, isize) {
     while y >= MIN_Y {
         y = y - 1;
@@ -110,6 +117,8 @@ fn block_below(x: usize, mut y: isize, z: usize, chunk: &dyn Chunk) -> (Option<B
     (None, y)
 }
 
+/// Merge two potentially transparent colours, A and B, into one as if colour A
+/// was laid on top of colour B.
 fn a_over_b_colour(colour: [u8; 4], below_colour: [u8; 4]) -> [u8; 4] {
     let linear = |c: u8| (((c as usize).pow(2)) as f32) / ((255 * 255) as f32);
 
@@ -174,7 +183,7 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub fn parse_region<P: Palette>(
+pub fn render_region<P: Palette>(
     x: RCoord,
     z: RCoord,
     dimension: Dimension,
@@ -226,6 +235,12 @@ pub fn parse_region<P: Palette>(
     map
 }
 
+/// Apply top-shading to the given colour based on the relative height of the
+/// block above it. Darker if the above block is taller, and lighter if it's
+/// smaller.
+///
+/// Technically this function darkens colours, but this is also how Minecraft
+/// itself shades maps.
 fn top_shade_colour(colour: Rgba, height: isize, shade_height: isize) -> Rgba {
     let shade = match height.cmp(&shade_height) {
         Ordering::Less => 180usize,
