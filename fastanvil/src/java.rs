@@ -63,6 +63,15 @@ impl Chunk for JavaChunk {
     fn block(&self, x: usize, y: isize, z: usize) -> Option<Block> {
         let sec = self.get_section_for_y(y)?;
 
+        // If a section is entirely air, then the block states are missing
+        // entirely, presumably to save space.
+        if sec.block_states.is_none() {
+            return Some(Block {
+                name: "minecraft:air".to_owned(),
+                properties: HashMap::new(),
+            });
+        }
+
         let sec_y = y - sec.y as isize * 16;
         let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
 

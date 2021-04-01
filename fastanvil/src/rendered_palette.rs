@@ -106,7 +106,7 @@ impl Palette for RenderedPalette {
                     // Kelp and seagrass don't look like much from the top as
                     // they're flat. Maybe in future hard code a green tint to make
                     // it show up?
-                    "kelp" | "seagrass" | "tall_seagrass" => {
+                    "kelp" | "kelp_plant" | "seagrass" | "tall_seagrass" => {
                         return self.pick_water(biome);
                     }
                     "snow" => {
