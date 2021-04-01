@@ -1,11 +1,19 @@
 # fastnbt project
 
+NBT deserializer and in-browser Rust-to-WASM powered Minecraft map renderer.
+
+Demo at [owengage.com/anvil](https://owengage.com/anvil/?world=alpha-banana):
+
+![alt rendered map](demo.png)
+
+# Useful places
+
 * For docs on NBT deserializing see
   [docs.rs/crate/fastnbt](https://docs.rs/crate/fastnbt)
 * For docs on handling minecraft worlds see
   [docs.rs/crate/fastanvil](https://docs.rs/crate/fastanvil)
-* To render *your* world in the browser, see
-  [owengage.com/anvil](https://owengage.com/anvil)
+* To render *your* world in the browser, see [owengage.com/anvil](https://owengage.com/anvil)
+  
 
 This repository contains multiple related projects.
 
@@ -22,7 +30,6 @@ would require.
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU.
 
-![alt rendered map](demo.png)
 
 # Serde deserializer example
 
@@ -73,34 +80,6 @@ fn main() {
 
     println!("{:#?}", player);
 }
-```
-
-# Render your map
-
-```bash
-cargo install fastnbt-tools
-
-# Extract a minecraft version for getting the palette out.
-# This will be simpler in future.
-# on macOS: `pushd ~/Library/Application\ Support/minecraft/versions/1.16.1/ && mkdir unpacked && cd unpacked`
-pushd ~/.minecraft/versions/1.16.1/ && mkdir unpacked && cd unpacked
-unzip ../1.16.1.jar
-popd
-
-# Create a palette to render with
-anvil-palette ~/.minecraft/versions/1.16.1/unpacked 
-
- # render entire overworld
-anvil render ~/path/to/world-dir --palette=palette.tar
-
-# render entire end
-anvil render ~/path/to/world-dir --dimension=end --palette=palette.tar 
-
-# render 6 by 6 regions around 0,0.
-anvil render ~/path/to/world-dir --size=6,6  --palette=palette.tar 
-
-# render 10 by 10 offset by x: -4, z: 10.
-anvil render ~/path/to/world-dir --size=10,10 --offset=-4,10  --palette=palette.tar 
 ```
 
 # Development priorities

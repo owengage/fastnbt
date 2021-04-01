@@ -28,7 +28,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         }
     }
 
-    fn render(&self, chunk: &dyn Chunk, above: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
+    fn render(&self, chunk: &dyn Chunk, north: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         if chunk.status() != "full" && chunk.status() != "spawn" {
@@ -39,18 +39,19 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
         for z in 0..16 {
             for x in 0..16 {
-                let height = chunk.surface_height(x, z, self.height_mode);
-                let height = if height == MIN_Y { MIN_Y } else { height - 1 }; // -1 because surface is the top air block.
-                let colour = self.drill_for_colour(x, height, z, chunk);
+                let air_height = chunk.surface_height(x, z, self.height_mode);
+                let block_height = (air_height - 1).max(MIN_Y);
 
-                let shade_height = match z {
+                let colour = self.drill_for_colour(x, block_height, z, chunk);
+
+                let north_air_height = match z {
                     // if top of chunk, get height from the chunk above.
-                    0 => above
+                    0 => north
                         .map(|c| c.surface_height(x, 15, self.height_mode))
-                        .unwrap_or(height),
+                        .unwrap_or(block_height),
                     z => chunk.surface_height(x, z - 1, self.height_mode),
                 };
-                let colour = top_shade_colour(colour, height, shade_height);
+                let colour = top_shade_colour(colour, air_height, north_air_height);
 
                 data[z * 16 + x] = colour;
             }
@@ -258,8 +259,8 @@ pub fn render_region<P: Palette>(
                 //
                 // Thanks to the default None value this works fine for the
                 // first row or for any missing chunks.
-                let above = cache[x.0 as usize].as_ref().map(|c| &**c);
-                let res = renderer.render(&*chunk, above);
+                let north = cache[x.0 as usize].as_ref().map(|c| &**c);
+                let res = renderer.render(&*chunk, north);
                 cache[x.0 as usize] = Some(chunk);
                 res
             });
