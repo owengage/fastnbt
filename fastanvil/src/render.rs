@@ -25,7 +25,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         }
     }
 
-    fn render(&self, chunk: &dyn Chunk, north: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
+    pub fn render(&self, chunk: &dyn Chunk, north: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         if chunk.status() != "full" && chunk.status() != "spawn" {
