@@ -5,7 +5,6 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
-use log::{error, info};
 use num_enum::TryFromPrimitive;
 use std::io::{Read, Seek, SeekFrom};
 use std::{cell::RefCell, convert::TryFrom};

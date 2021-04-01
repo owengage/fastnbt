@@ -1,6 +1,4 @@
-use std::{cmp::Ordering, thread::current};
-
-use log::{info, warn};
+use std::cmp::Ordering;
 
 use crate::{Block, CCoord, Chunk, Dimension, HeightMode, RCoord, MIN_Y};
 
@@ -8,7 +6,6 @@ use super::biome::Biome;
 
 pub type Rgba = [u8; 4];
 
-const WATER_OPAQUE_DEPTH: isize = 15;
 /// Palette can be used to take a block description to produce a colour that it
 /// should render to.
 pub trait Palette {
@@ -101,7 +98,6 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
                     }
                 }
             } else {
-                warn!("chunk.block() returned None in drill");
                 return colour;
             }
         }

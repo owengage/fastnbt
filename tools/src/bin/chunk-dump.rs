@@ -1,8 +1,6 @@
 use std::io::Write;
 
-use fastanvil::{JavaChunk, RegionBuffer};
-use fastnbt::Value;
-use log::error;
+use fastanvil::RegionBuffer;
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();

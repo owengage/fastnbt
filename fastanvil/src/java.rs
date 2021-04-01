@@ -1,6 +1,5 @@
 use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
 
-use log::warn;
 use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
@@ -182,8 +181,6 @@ impl JavaChunk {
                 if updated {
                     self.level.lazy_heightmap.replace(Some(map));
                     return;
-                } else {
-                    warn!("failed to extract height map, defaulting to calculating");
                 }
             }
             HeightMode::Calculate => {} // fall through to calc mode
