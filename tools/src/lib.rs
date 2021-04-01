@@ -27,13 +27,11 @@ fn avg_colour(rgba_data: &[u8]) -> Rgba {
 
     for p in rgba_data.chunks(4) {
         // alpha is reasonable.
-        if p[3] > 128 {
-            avg[0] = avg[0] + ((p[0] as u64) * (p[0] as u64)) as f64;
-            avg[1] = avg[1] + ((p[1] as u64) * (p[1] as u64)) as f64;
-            avg[2] = avg[2] + ((p[2] as u64) * (p[2] as u64)) as f64;
-            avg[3] = avg[3] + ((p[3] as u64) * (p[3] as u64)) as f64;
-            count = count + 1;
-        }
+        avg[0] = avg[0] + ((p[0] as u64) * (p[0] as u64)) as f64;
+        avg[1] = avg[1] + ((p[1] as u64) * (p[1] as u64)) as f64;
+        avg[2] = avg[2] + ((p[2] as u64) * (p[2] as u64)) as f64;
+        avg[3] = avg[3] + ((p[3] as u64) * (p[3] as u64)) as f64;
+        count = count + 1;
     }
 
     [
