@@ -1,10 +1,18 @@
 use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
 
+use lazy_static::lazy_static;
 use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
 
 use super::biome::Biome;
+
+lazy_static! {
+    static ref AIR: Block = Block {
+        name: "minecraft:air".to_owned(),
+        properties: HashMap::new(),
+    };
+}
 
 /// A Minecraft chunk.
 #[derive(Deserialize, Debug)]
@@ -59,16 +67,13 @@ impl Chunk for JavaChunk {
         }
     }
 
-    fn block(&self, x: usize, y: isize, z: usize) -> Option<Block> {
+    fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {
         let sec = self.get_section_for_y(y)?;
 
         // If a section is entirely air, then the block states are missing
         // entirely, presumably to save space.
         if sec.block_states.is_none() {
-            return Some(Block {
-                name: "minecraft:air".to_owned(),
-                properties: HashMap::new(),
-            });
+            return Some(&AIR);
         }
 
         let sec_y = y - sec.y as isize * 16;
@@ -88,7 +93,7 @@ impl Chunk for JavaChunk {
 
         let pal_index = sec.unpacked_states.borrow().as_ref().unwrap()[state_index] as usize;
 
-        (sec.palette.get(pal_index)).cloned()
+        sec.palette.get(pal_index)
     }
 }
 

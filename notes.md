@@ -11,6 +11,18 @@
   which can be many allocations in the case of a block with properties. Maybe
   some interface that lets us pass a closure, that is then called with a refence
   to the existing block?
+* Try not unpacking heights/biomes etc, especially for 1.16 onwards as the
+  process of getting a value is reasonably straight forward.
+
+### Ref block
+
+Change `chunk.block()` to return `Option<&Block>` rather than `Option<Block>`,
+saves a reasonably complicated copy.
+
+Pre times for cliff-side: 19.3, 11.3, 11.1, 10.8, 10.6, 10.9
+After ref block: 16.3, 9.5, 9.5, 9.4, 9.4, 9.3, 9.3
+
+Definite improvement it seems.
 
 ## TODOs
 

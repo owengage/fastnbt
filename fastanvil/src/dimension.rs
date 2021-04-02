@@ -29,7 +29,7 @@ pub trait Chunk {
     /// Get the block at the given coordinates. A block may not exist if the
     /// section of the chunk accessed is not present. For example,
     /// trying to access the block at height 1234 would return None.
-    fn block(&self, x: usize, y: isize, z: usize) -> Option<Block>;
+    fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block>;
 }
 
 pub trait Region {

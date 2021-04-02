@@ -296,6 +296,7 @@ dependencies = [
  "fastnbt",
  "flate2",
  "image",
+ "lazy_static",
  "log",
  "num_enum",
  "serde",
