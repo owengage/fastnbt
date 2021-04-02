@@ -19,6 +19,8 @@
 - [x] Ocean transparency
 - [ ] Kelp visible.
 - [ ] Coral under the water!
+- [ ] Make PackedBits self contained.
+- [ ] Handle invalid region files more gracefully. eg empty file.
 
 ### Maybe
 
