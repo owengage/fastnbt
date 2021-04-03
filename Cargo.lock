@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "fastanvil"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "bit_field",
  "byteorder",
@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "byteorder",
  "flate2",
@@ -315,7 +315,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt-tools"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "clap",
  "env_logger",
