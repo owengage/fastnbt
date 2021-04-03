@@ -82,7 +82,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
                     | "minecraft:kelp_plant"
                     | "minecraft:sea_grass"
                     | "minecraft:tall_seagrass" => {
-                        let mut block_colour = self.palette.pick(current_block, Some(Biome::Ocean));
+                        let mut block_colour = self.palette.pick(current_block, current_biome);
                         let water_depth = water_depth(x, current_height, z, chunk);
                         let alpha = water_depth_to_alpha(water_depth);
 

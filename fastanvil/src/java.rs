@@ -35,9 +35,7 @@ impl Chunk for JavaChunk {
         self.level.lazy_heightmap.borrow().unwrap()[z * 16 + x] as isize
     }
 
-    fn biome(&self, x: usize, _y: isize, z: usize) -> Option<Biome> {
-        // TODO: Take into account height. For overworld this doesn't matter (at least not yet)
-
+    fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
         let biomes = self.level.biomes.as_ref().unwrap();
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
@@ -53,7 +51,10 @@ impl Chunk for JavaChunk {
 
         match biomes.len() {
             V1_16 | V1_17 => {
-                let i = (z / 4) * 4 + (x / 4);
+                let after1_17 = self.data_version >= 2695;
+                let y_shifted = if after1_17 { y + 64 } else { y } as usize;
+
+                let i = (z / 4) * 4 + (x / 4) + (y_shifted / 4) * 16;
                 let biome = biomes[i];
                 Biome::try_from(biome).ok()
             }
