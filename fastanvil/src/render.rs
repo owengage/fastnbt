@@ -107,7 +107,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 }
 
 fn water_depth_to_alpha(water_depth: isize) -> u8 {
-    // Water will absorb a fraction of the light per unit depth. So if we way
+    // Water will absorb a fraction of the light per unit depth. So if we say
     // that every metre of water absorbs half the light going through it, then 2
     // metres would absorb 3/4, 3 metres would absorb 7/8 etc.
     //
@@ -154,11 +154,12 @@ fn water_depth(x: usize, mut y: isize, z: usize, chunk: &dyn Chunk) -> isize {
 
 /// Merge two potentially transparent colours, A and B, into one as if colour A
 /// was laid on top of colour B.
+///
+/// See https://en.wikipedia.org/wiki/Alpha_compositing
 fn a_over_b_colour(colour: [u8; 4], below_colour: [u8; 4]) -> [u8; 4] {
     let linear = |c: u8| (((c as usize).pow(2)) as f32) / ((255 * 255) as f32);
 
     let over_component = |ca: u8, aa: u8, cb: u8, ab: u8| {
-        // See https://en.wikipedia.org/wiki/Alpha_compositing
         let ca = linear(ca);
         let cb = linear(cb);
         let aa = linear(aa);
@@ -169,7 +170,6 @@ fn a_over_b_colour(colour: [u8; 4], below_colour: [u8; 4]) -> [u8; 4] {
     };
 
     let over_alpha = |aa: u8, ab: u8| {
-        // See https://en.wikipedia.org/wiki/Alpha_compositing
         let aa = linear(aa);
         let ab = linear(ab);
         let a_out = aa + ab * (1. - aa);
