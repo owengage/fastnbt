@@ -85,9 +85,24 @@ pub fn expand_blockstates(data: &[i64], palette_len: usize) -> Vec<u16> {
 pub fn expand_heightmap(data: &[i64], data_version: i32) -> Vec<i16> {
     let bits_per_item = 9;
 
-    let after1_17 = data_version >= 2695;
+    let _after1_17 = data_version >= 2695;
     const LEN_1_16_TO_17: usize = 37;
     const LEN_1_15: usize = 36;
+
+    // Likely that 1.18 will have something like this to calculate world
+    // heights. It was how the snapshots did it.
+
+    // // We extract 256 9-bit **unsigned** integers from the data. This is
+    // // one integer per column in the chunk. In 1.16 onwards we store 7
+    // // of these per 64bit long, meaning there's padding bits, and a long
+    // // at the end with extra values that are unused. We resize down to
+    // // get rid of these extra values.
+    // let mut v = expand_generic_1_16(data, bits_per_item);
+    // v.resize(256, 0);
+
+    // // Switch to signed. If 1.17 subtract 64 to allow the negative heights.
+    // let shift = if after1_17 { -64 } else { 0 };
+    // v.into_iter().map(|h| h as i16 + shift).collect()
 
     match data.len() {
         LEN_1_16_TO_17 => {
@@ -99,15 +114,14 @@ pub fn expand_heightmap(data: &[i64], data_version: i32) -> Vec<i16> {
             let mut v = expand_generic_1_16(data, bits_per_item);
             v.resize(256, 0);
 
-            // Switch to signed. If 1.17 subtract 64 to allow the negative heights.
-            let shift = if after1_17 { -64 } else { 0 };
-            v.into_iter().map(|h| h as i16 + shift).collect()
+            // Reinterpret as signed.
+            v.into_iter().map(|h| h as i16).collect()
         }
         LEN_1_15 => expand_generic_1_15(data, bits_per_item)
             .into_iter()
             .map(|h| h as i16)
             .collect(),
-        _ => panic!("did not understand height format"),
+        _ => panic!("did not understand height format, try calculated mode"),
     }
 }
 
