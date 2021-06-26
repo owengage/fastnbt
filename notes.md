@@ -7,12 +7,14 @@
   chunk.block() function when this happens, but we could optimise heightmap
   calculation if we take advantage of this explicitly. Maybe a dedicated 'skip
   air' function on a chunk trait.
-* `chunk.block()` is pretty inefficient, it's highly used and clones the block,
+* [x] `chunk.block()` is pretty inefficient, it's highly used and clones the block,
   which can be many allocations in the case of a block with properties. Maybe
   some interface that lets us pass a closure, that is then called with a refence
   to the existing block?
 * Try not unpacking heights/biomes etc, especially for 1.16 onwards as the
   process of getting a value is reasonably straight forward.
+* A custom `sections` type that takes care of the arrangement automatically,
+  rather than maintaining a seperate sec_map variable. It's super error prone atm.
 
 ### Ref block
 

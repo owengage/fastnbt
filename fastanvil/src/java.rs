@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
+use std::{cell::RefCell, collections::HashMap, convert::TryFrom, io::Write};
 
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -51,10 +51,13 @@ impl Chunk for JavaChunk {
 
         match biomes.len() {
             V1_16 | V1_17 => {
-                let after1_17 = self.data_version >= 2695;
-                let y_shifted = if after1_17 { y + 64 } else { y } as usize;
+                //let after1_17 = self.data_version >= 2695;
+                //let y_shifted = if after1_17 { y + 64 } else { y } as usize;
 
+                // TODO: work out why y can be 0. Hole in the world?
+                let y_shifted = y.max(0) as usize;
                 let i = (z / 4) * 4 + (x / 4) + (y_shifted / 4) * 16;
+
                 let biome = biomes[i];
                 Biome::try_from(biome).ok()
             }
@@ -79,6 +82,11 @@ impl Chunk for JavaChunk {
 
         let sec_y = y - sec.y as isize * 16;
         let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
+
+        if state_index > 5000 {
+            println!("Oops: {}, {}, {}", state_index, sec_y, y);
+            std::io::stdout().flush();
+        }
 
         if *sec.unpacked_states.borrow() == None {
             let bits_per_item = bits_per_block(sec.palette.len());
@@ -122,10 +130,11 @@ pub struct Level {
     pub status: String,
 
     // Maps the y value from each section to the index in the `sections` field.
-    // Makes it quicker to find the correct section when all you have is the height.
+    // Makes it quicker to find the correct section when all you have is the
+    // height. To get the index in the sections vector, sec_map?[sec_y+4].
     #[serde(skip)]
     #[serde(default)]
-    sec_map: RefCell<HashMap<i8, usize>>,
+    sec_map: RefCell<Option<[Option<usize>; 24]>>,
 
     #[serde(skip)]
     lazy_heightmap: RefCell<Option<[i16; 256]>>,
@@ -218,11 +227,13 @@ impl JavaChunk {
     }
 
     fn calculate_sec_map(&self) {
-        let mut map = self.level.sec_map.borrow_mut();
+        let mut map: [Option<usize>; 24] = Default::default();
 
         for (i, sec) in self.level.sections.iter().flatten().enumerate() {
-            map.insert(sec.y, i);
+            map[(sec.y + 4) as usize] = Some(i);
         }
+
+        self.level.sec_map.replace(Some(map));
     }
 
     fn get_section_for_y(&self, y: isize) -> Option<&Section> {
@@ -230,18 +241,18 @@ impl JavaChunk {
             return None;
         }
 
-        if self.level.sec_map.borrow().is_empty() {
+        if self.level.sec_map.borrow().is_none() {
             self.calculate_sec_map();
         }
 
         // Need to be careful. y = -5 should return -1. If we did normal integer
-        // division 5/16 would give us 0.
+        // division -5/16 would give us 0.
         let containing_section_y = ((y as f64) / 16.0).floor() as i8;
 
-        let section_index = *self.level.sec_map.borrow().get(&(containing_section_y))?;
+        let section_index =
+            self.level.sec_map.borrow().unwrap()[(containing_section_y + 4) as usize]?;
 
-        let sec = self.level.sections.as_ref()?.get(section_index);
-        sec
+        self.level.sections.as_ref()?.get(section_index)
     }
 }
 
