@@ -2,7 +2,7 @@
 
 NBT deserializer and in-browser Rust-to-WASM powered Minecraft map renderer.
 
-Demo at [owengage.com/anvil](https://owengage.com/anvil/?world=alpha-banana):
+Demo of Hermitcraft S7 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft7):
 
 ![alt rendered map](demo.png)
 
