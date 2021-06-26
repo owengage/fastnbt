@@ -22,10 +22,10 @@ This repository contains multiple related projects.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
 
-Aim to support only the latest version of Minecraft. Works with 1.17 snapshot
-worlds and 1.16 worlds at the moment. Endevour to support old chunks in worlds,
-but not extracting textures from older versions due to the added complexity it
-would require.
+Aim to support only the latest version of Minecraft. Works with 1.17 worlds and
+1.16 worlds at the moment. Might work for more. Endevour to support old chunks
+in worlds, but not extracting textures from older versions due to the added
+complexity it would require.
 
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU.
@@ -97,8 +97,8 @@ For the libraries
 
 ```toml
 [dependencies]
-fastnbt = "0.17"
-fastanvil = "0.17"
+fastnbt = "0.18"
+fastanvil = "0.18"
 ```
 
 For the `anvil` executable
