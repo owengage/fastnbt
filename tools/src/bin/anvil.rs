@@ -235,10 +235,6 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 
     let pal = get_palette(args.value_of("palette"))?;
 
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    let processed_chunks = AtomicUsize::new(0);
-    let painted_pixels = AtomicUsize::new(0);
-
     let regions_processed = coords
         .into_par_iter()
         .map(|coord| {
@@ -285,8 +281,6 @@ fn tiles(args: &ArgMatches) -> Result<()> {
         .count();
 
     info!("{} regions", regions_processed);
-    info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
-    info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
     Ok(())
 }
 
