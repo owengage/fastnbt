@@ -143,7 +143,7 @@ impl<S: Seek + Read> RegionBuffer<S> {
     /// [`stream::Parser`]: ../stream/struct.Parser.html
     pub fn load_chunk(&self, x: usize, z: usize) -> Result<Vec<u8>> {
         let data = self.load_raw_chunk_at(x, z)?;
-        Ok(decompress_chunk(&data))
+        decompress_chunk(&data)
     }
 
     /// Call function with each uncompressed, non-empty chunk, calls f(x, z, data).
@@ -206,7 +206,7 @@ impl<S: Seek + Read> RegionBuffer<S> {
 }
 
 // Read Information Bytes of Minecraft Chunk and decompress it
-fn decompress_chunk(data: &Vec<u8>) -> Vec<u8> {
+fn decompress_chunk(data: &Vec<u8>) -> Result<Vec<u8>> {
     // Metadata encodes the length in bytes and the compression type
     let meta = ChunkMeta::new(data.as_slice()).unwrap();
 
@@ -218,8 +218,8 @@ fn decompress_chunk(data: &Vec<u8>) -> Vec<u8> {
     };
     let mut outbuf = Vec::new();
     // read the whole Chunk
-    decoder.read_to_end(&mut outbuf).unwrap();
-    outbuf
+    decoder.read_to_end(&mut outbuf)?;
+    Ok(outbuf)
 }
 
 #[derive(Debug)]
