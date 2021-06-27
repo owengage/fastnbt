@@ -103,7 +103,7 @@ fn avoiding_alloc_with_chunk() {
     struct Level<'a> {
         #[serde(rename = "Sections")]
         #[serde(borrow)]
-        pub sections: Option<Vec<Section<'a>>>,
+        pub _sections: Option<Vec<Section<'a>>>,
     }
 
     #[derive(Deserialize, Debug)]

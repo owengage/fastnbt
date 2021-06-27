@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::HashMap, convert::TryFrom, io::Write};
+use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
 
 use lazy_static::lazy_static;
-use log::warn;
+
 use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
@@ -83,11 +83,6 @@ impl Chunk for JavaChunk {
 
         let sec_y = y - sec.y as isize * 16;
         let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
-
-        if state_index > 5000 {
-            println!("Oops: {}, {}, {}", state_index, sec_y, y);
-            std::io::stdout().flush();
-        }
 
         if *sec.unpacked_states.borrow() == None {
             let bits_per_item = bits_per_block(sec.palette.len());
