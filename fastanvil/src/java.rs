@@ -8,6 +8,9 @@ use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX
 
 use super::biome::Biome;
 
+mod section_tower;
+pub use section_tower::*;
+
 lazy_static! {
     static ref AIR: Block = Block {
         name: "minecraft:air".to_owned(),
@@ -73,7 +76,7 @@ impl Chunk for JavaChunk {
     }
 
     fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {
-        let sec = self.get_section_for_y(y)?;
+        let sec = self.level.sections.as_ref()?.get_section_for_y(y)?;
 
         // If a section is entirely air, then the block states are missing
         // entirely, presumably to save space.
@@ -116,7 +119,7 @@ pub struct Level {
     pub biomes: Option<Vec<i32>>,
 
     /// Can be empty if the chunk hasn't been generated properly yet.
-    pub sections: Option<Vec<Section>>,
+    pub sections: Option<SectionTower>,
 
     pub heightmaps: Option<Heightmaps>,
 
@@ -124,13 +127,6 @@ pub struct Level {
     // hasn't been fully generated yet. We use this to skip chunks on map edges
     // that haven't been fully generated yet.
     pub status: String,
-
-    // Maps the y value from each section to the index in the `sections` field.
-    // Makes it quicker to find the correct section when all you have is the
-    // height. To get the index in the sections vector, sec_map?[sec_y+4].
-    #[serde(skip)]
-    #[serde(default)]
-    sec_map: RefCell<Option<[Option<usize>; 24]>>,
 
     #[serde(skip)]
     lazy_heightmap: RefCell<Option<[i16; 256]>>,
@@ -220,41 +216,6 @@ impl JavaChunk {
         }
 
         self.level.lazy_heightmap.replace(Some(map));
-    }
-
-    fn calculate_sec_map(&self) {
-        let mut map: [Option<usize>; 24] = Default::default();
-
-        for (i, sec) in self.level.sections.iter().flatten().enumerate() {
-            map[(sec.y + 4) as usize] = Some(i);
-        }
-
-        self.level.sec_map.replace(Some(map));
-    }
-
-    fn get_section_for_y(&self, y: isize) -> Option<&Section> {
-        if self.level.sections.as_ref()?.is_empty() {
-            return None;
-        }
-
-        if y >= MAX_Y || y < MIN_Y {
-            // TODO: This occurs a lot in hermitcraft season 7. Probably some
-            // form of bug?
-            return None;
-        }
-
-        if self.level.sec_map.borrow().is_none() {
-            self.calculate_sec_map();
-        }
-
-        // Need to be careful. y = -5 should return -1. If we did normal integer
-        // division -5/16 would give us 0.
-        let containing_section_y = ((y as f64) / 16.0).floor() as i8;
-
-        let section_index =
-            self.level.sec_map.borrow().unwrap()[(containing_section_y + 4) as usize]?;
-
-        self.level.sections.as_ref()?.get(section_index)
     }
 }
 
