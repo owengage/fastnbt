@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, convert::TryFrom, io::Write};
 
 use lazy_static::lazy_static;
+use log::warn;
 use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
@@ -238,6 +239,12 @@ impl JavaChunk {
 
     fn get_section_for_y(&self, y: isize) -> Option<&Section> {
         if self.level.sections.as_ref()?.is_empty() {
+            return None;
+        }
+
+        if y >= MAX_Y || y < MIN_Y {
+            // TODO: This occurs a lot in hermitcraft season 7. Probably some
+            // form of bug?
             return None;
         }
 

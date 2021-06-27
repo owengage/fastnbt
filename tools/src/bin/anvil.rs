@@ -196,99 +196,99 @@ fn render(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-// fn tiles(args: &ArgMatches) -> Result<()> {
-//     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
-//     let dim: &str = args.value_of("dimension").unwrap();
+fn tiles(args: &ArgMatches) -> Result<()> {
+    let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
+    let dim: &str = args.value_of("dimension").unwrap();
+    let out: &str = args.value_of("out").unwrap();
+    let height_mode = match args.is_present("calculate-heights") {
+        true => HeightMode::Calculate,
+        false => HeightMode::Trust,
+    };
 
-//     let subpath = match dim {
-//         "end" => "DIM1/region",
-//         "nether" => "DIM-1/region",
-//         _ => "region",
-//     };
+    let subpath = match dim {
+        "end" => "DIM1/region",
+        "nether" => "DIM-1/region",
+        _ => "region",
+    };
 
-//     let loader = RegionFileLoader::new(world.join(subpath));
+    // don't care if dir already exists.
+    std::fs::DirBuilder::new().create(out).unwrap_or_default();
 
-//     let coords = loader.list()?;
+    let loader = RegionFileLoader::new(world.join(subpath));
 
-//     let bounds = match (args.value_of("size"), args.value_of("offset")) {
-//         (Some(size), Some(offset)) => {
-//             make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
-//         }
-//         (None, _) => auto_size(&coords).unwrap(),
-//         _ => panic!(),
-//     };
+    let coords = loader.list()?;
 
-//     info!("Bounds: {:?}", bounds);
+    let bounds = match (args.value_of("size"), args.value_of("offset")) {
+        (Some(size), Some(offset)) => {
+            make_bounds(parse_coord(size).unwrap(), parse_coord(offset).unwrap())
+        }
+        (None, _) => auto_size(&coords).unwrap(),
+        _ => panic!(),
+    };
 
-//     let x_range = bounds.xmin..bounds.xmax;
-//     let z_range = bounds.zmin..bounds.zmax;
+    info!("Bounds: {:?}", bounds);
 
-//     let region_len: usize = 32 * 16;
+    let x_range = bounds.xmin..bounds.xmax;
+    let z_range = bounds.zmin..bounds.zmax;
 
-//     let pal: std::sync::Arc<dyn Palette + Send + Sync> =
-//         get_palette(args.value_of("palette"))?.into();
+    let region_len: usize = 32 * 16;
 
-//     use std::sync::atomic::{AtomicUsize, Ordering};
-//     let processed_chunks = AtomicUsize::new(0);
-//     let painted_pixels = AtomicUsize::new(0);
+    let pal = get_palette(args.value_of("palette"))?;
 
-//     let regions_processed = coords
-//         .into_par_iter()
-//         .map(|coord| {
-//             let loader = RegionFileLoader::new(world.join(subpath));
-//             let dimension = Dimension::new(Box::new(loader));
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let processed_chunks = AtomicUsize::new(0);
+    let painted_pixels = AtomicUsize::new(0);
 
-//             let (x, z) = coord;
+    let regions_processed = coords
+        .into_par_iter()
+        .map(|coord| {
+            let loader = RegionFileLoader::new(world.join(subpath));
+            let dimension = Dimension::new(Box::new(loader));
 
-//             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-//                 info!("parsing region x: {}, z: {}", x.0, z.0);
-//                 let region = dimension.region(x, z)?; // TODO: log if no region?
+            let (x, z) = coord;
 
-//                 let pal = &*pal;
-//                 let drawer = TopShadeRenderer::new(pal);
-//                 let map = parse_region(region.as_ref(), drawer); // TODO handle some of the errors here
+            if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
+                let drawer = TopShadeRenderer::new(&pal, height_mode);
+                let map = render_region(x, z, dimension, drawer);
+                info!("processed r.{}.{}.mca", x.0, z.0);
+                Some(map)
+            } else {
+                None
+            }
+        })
+        .filter_map(|region| region)
+        .map(|region| {
+            let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
 
-//                 processed_chunks.fetch_add(drawer.processed_chunks, Ordering::SeqCst);
-//                 painted_pixels.fetch_add(drawer.painted_pixels, Ordering::SeqCst);
+            for xc in 0..32 {
+                for zc in 0..32 {
+                    let heightmap = region.chunk(CCoord(xc), CCoord(zc));
+                    let xcp = xc as isize;
+                    let zcp = zc as isize;
 
-//                 Some(drawer.into_map())
-//             } else {
-//                 None
-//             }
-//         })
-//         .filter_map(|region| region)
-//         .map(|region| {
-//             let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
+                    for z in 0..16 {
+                        for x in 0..16 {
+                            let pixel = heightmap[z * 16 + x];
+                            let x = xcp * 16 + x as isize;
+                            let z = zcp * 16 + z as isize;
+                            img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
+                        }
+                    }
+                }
+            }
 
-//             for xc in 0..32 {
-//                 for zc in 0..32 {
-//                     let heightmap = region.chunk(CCoord(xc), CCoord(zc));
-//                     let xcp = xc as isize;
-//                     let zcp = zc as isize;
+            img.save(format!("{}/{}.{}.png", out, region.x.0, region.z.0))
+                .unwrap();
 
-//                     for z in 0..16 {
-//                         for x in 0..16 {
-//                             let pixel = heightmap[z * 16 + x];
-//                             let x = xcp * 16 + x as isize;
-//                             let z = zcp * 16 + z as isize;
-//                             img.put_pixel(x as u32, z as u32, image::Rgba(pixel))
-//                         }
-//                     }
-//                 }
-//             }
+            ()
+        })
+        .count();
 
-//             img.save(format!("tiles/{}.{}.png", region.x.0, region.z.0))
-//                 .unwrap();
-
-//             ()
-//         })
-//         .count();
-
-//     info!("{} regions", regions_processed);
-//     info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
-//     info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
-//     Ok(())
-// }
+    info!("{} regions", regions_processed);
+    info!("{} chunks", processed_chunks.load(Ordering::SeqCst));
+    info!("{} pixels painted", painted_pixels.load(Ordering::SeqCst));
+    Ok(())
+}
 
 fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info"))
@@ -362,9 +362,22 @@ fn main() -> Result<()> {
                         .default_value("overworld"),
                 )
                 .arg(
+                    Arg::with_name("out")
+                        .long("out")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("tiles"),
+                )
+                .arg(
                     Arg::with_name("palette")
                         .long("palette")
                         .takes_value(true)
+                        .required(false),
+                )
+                .arg(
+                    Arg::with_name("calculate-heights")
+                        .long("calculate-heights")
+                        .takes_value(false)
                         .required(false),
                 ),
         )
@@ -372,7 +385,7 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         ("render", Some(args)) => render(args)?,
-        //("tiles", Some(args)) => tiles(args)?,
+        ("tiles", Some(args)) => tiles(args)?,
         _ => error!("{}", matches.usage()),
     };
 
