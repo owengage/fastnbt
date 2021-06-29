@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use log::debug;
 
 use crate::{
@@ -64,7 +62,8 @@ impl Palette for RenderedPalette {
         let missing_colour = [255, 0, 255, 255];
         let snow_block: Block = Block {
             name: "minecraft:snow_block".to_owned(),
-            properties: Default::default(),
+            encoded: Default::default(),
+            snowy: true,
         };
 
         // A bunch of blocks in the game seem to be special cased outside of the
@@ -126,7 +125,7 @@ impl Palette for RenderedPalette {
 
         let col = self
             .blockstates
-            .get(&block.encoded_description())
+            .get(block.encoded_description())
             .or_else(|| self.blockstates.get(&block.name));
 
         match col {

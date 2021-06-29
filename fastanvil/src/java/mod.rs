@@ -6,18 +6,18 @@ use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
 
-use self::block_props::BlockProps;
-
 use super::biome::Biome;
 
 mod block_props;
 mod section_tower;
+pub use block_props::Block;
 pub use section_tower::*;
 
 lazy_static! {
     static ref AIR: Block = Block {
         name: "minecraft:air".to_owned(),
-        properties: Default::default(),
+        encoded: Default::default(),
+        snowy: false,
     };
 }
 
@@ -160,16 +160,6 @@ pub struct Section {
     unpacked_states: RefCell<Option<[u16; 16 * 16 * 16]>>,
 }
 
-/// A block within the world.
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct Block {
-    pub name: String,
-
-    #[serde(default)]
-    pub properties: BlockProps,
-}
-
 impl JavaChunk {
     pub fn recalculate_heightmap(&self, mode: HeightMode) {
         // TODO: Find top section and start there, pointless checking 320 down
@@ -219,26 +209,5 @@ impl JavaChunk {
         }
 
         self.level.lazy_heightmap.replace(Some(map));
-    }
-}
-
-impl Block {
-    pub fn snowy(&self) -> bool {
-        self.properties.snowy
-    }
-
-    /// Creates a string of the format "id|prop1=val1,prop2=val2". The
-    /// properties are ordered lexigraphically. This somewhat matches the way
-    /// Minecraft stores variants in blockstates, but with the block ID/name
-    /// prepended.
-    pub fn encoded_description(&self) -> String {
-        let id = self.name.to_string() + "|" + &self.properties.encoded;
-        id
-
-        // Note: If we want to handle water logging, we're going to have to
-        // remove the filter here and handle it in whatever parses the encoded
-        // ID itself. This will probably be pretty ugly. It can probably be
-        // contained in the palette generation code entirely, so shouldn't
-        // impact speed too hard.
     }
 }

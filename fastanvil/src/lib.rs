@@ -7,7 +7,6 @@ use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
 use std::io::{Read, Seek, SeekFrom};
 use std::{cell::RefCell, convert::TryFrom};
 
