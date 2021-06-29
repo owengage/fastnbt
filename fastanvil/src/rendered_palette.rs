@@ -64,7 +64,7 @@ impl Palette for RenderedPalette {
         let missing_colour = [255, 0, 255, 255];
         let snow_block: Block = Block {
             name: "minecraft:snow_block".to_owned(),
-            properties: HashMap::new(),
+            properties: Default::default(),
         };
 
         // A bunch of blocks in the game seem to be special cased outside of the
@@ -81,11 +81,7 @@ impl Palette for RenderedPalette {
                         return self.pick_grass(biome);
                     }
                     "grass_block" => {
-                        let snowy = block
-                            .properties
-                            .get("snowy")
-                            .map(|s| *s == "true")
-                            .unwrap_or(false);
+                        let snowy = block.snowy();
 
                         if snowy {
                             return self.pick(&snow_block, biome);

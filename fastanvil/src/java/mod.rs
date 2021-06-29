@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, convert::TryFrom};
+use std::{cell::RefCell, convert::TryFrom};
 
 use lazy_static::lazy_static;
 
@@ -6,15 +6,18 @@ use serde::Deserialize;
 
 use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
 
+use self::block_props::BlockProps;
+
 use super::biome::Biome;
 
+mod block_props;
 mod section_tower;
 pub use section_tower::*;
 
 lazy_static! {
     static ref AIR: Block = Block {
         name: "minecraft:air".to_owned(),
-        properties: HashMap::new(),
+        properties: Default::default(),
     };
 }
 
@@ -164,7 +167,7 @@ pub struct Block {
     pub name: String,
 
     #[serde(default)]
-    pub properties: HashMap<String, String>,
+    pub properties: BlockProps,
 }
 
 impl JavaChunk {
@@ -220,29 +223,16 @@ impl JavaChunk {
 }
 
 impl Block {
+    pub fn snowy(&self) -> bool {
+        self.properties.snowy
+    }
+
     /// Creates a string of the format "id|prop1=val1,prop2=val2". The
     /// properties are ordered lexigraphically. This somewhat matches the way
     /// Minecraft stores variants in blockstates, but with the block ID/name
     /// prepended.
     pub fn encoded_description(&self) -> String {
-        let mut id = self.name.to_string() + "|";
-        let mut sep = "";
-
-        let mut props = self
-            .properties
-            .iter()
-            .filter(|(k, _)| **k != "waterlogged") // TODO: Handle water logging. See note below
-            .filter(|(k, _)| **k != "powered") // TODO: Handle power
-            .collect::<Vec<_>>();
-
-        // need to sort the properties for a consistent ID
-        props.sort();
-
-        for (k, v) in props {
-            id = id + sep + k + "=" + v;
-            sep = ",";
-        }
-
+        let id = self.name.to_string() + "|" + &self.properties.encoded;
         id
 
         // Note: If we want to handle water logging, we're going to have to
