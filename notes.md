@@ -13,8 +13,14 @@
   to the existing block?
 * Try not unpacking heights/biomes etc, especially for 1.16 onwards as the
   process of getting a value is reasonably straight forward.
-* A custom `sections` type that takes care of the arrangement automatically,
-  rather than maintaining a seperate sec_map variable. It's super error prone atm.
+* [x] A custom `sections` type that takes care of the arrangement automatically,
+  rather than maintaining a seperate sec_map variable. It's super error prone
+  atm.
+* I changed chunks to be implemented through dynamic dispatch. This means that
+  the `block` method on the chunk is virtual. This *might* be a lost
+  opportunity, it might be much faster if this was non-virtual. Flamegraph shows
+  that half the time spent in this method isn't attributed to anything. I
+  imagin that time is the virtual call not showing up.
 
 ### Ref block
 

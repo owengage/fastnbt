@@ -5,7 +5,3 @@ members = [
     "fastanvil",
     "tools"
 ]
-
-
-[profile.release]
-debug = true
