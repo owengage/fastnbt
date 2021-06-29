@@ -1,23 +1,31 @@
-use crate::LoaderError;
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+
+use crate::{Chunk, LoaderError};
 use crate::{LoaderResult, RegionBuffer};
 use crate::{RCoord, Region, RegionLoader};
+use std::marker::PhantomData;
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
-pub struct RegionFileLoader {
+pub struct RegionFileLoader<C: Chunk> {
     region_dir: PathBuf,
+    _d: PhantomData<C>,
 }
 
-impl RegionFileLoader {
+impl<C: Chunk> RegionFileLoader<C> {
     pub fn new(region_dir: PathBuf) -> Self {
-        Self { region_dir }
+        Self {
+            region_dir,
+            _d: PhantomData,
+        }
     }
 }
 
-impl RegionLoader for RegionFileLoader {
-    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>> {
+impl<C: Chunk + DeserializeOwned> RegionLoader<C> for RegionFileLoader<C> {
+    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region<C>>> {
         let path = self.region_dir.join(format!("r.{}.{}.mca", x.0, z.0));
         let file = std::fs::File::open(path).ok()?;
         let region = RegionBuffer::new(file);

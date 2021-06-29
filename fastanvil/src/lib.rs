@@ -6,6 +6,8 @@ use byteorder::{BigEndian, ReadBytesExt};
 use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use std::io::{Read, Seek, SeekFrom};
 use std::{cell::RefCell, convert::TryFrom};
 
@@ -56,13 +58,13 @@ pub struct RegionBuffer<S: Seek + Read> {
     data: RefCell<S>,
 }
 
-impl<S: Seek + Read> Region for RegionBuffer<S> {
-    fn chunk(&self, x: CCoord, z: CCoord) -> Option<Box<dyn Chunk>> {
+impl<S: Seek + Read, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> {
+    fn chunk(&self, x: CCoord, z: CCoord) -> Option<C> {
         let loc = self.chunk_location(x.0 as usize, z.0 as usize).ok()?;
 
         let data = self.load_chunk(loc.x, loc.z).ok()?;
 
-        Some(Box::new(from_bytes::<JavaChunk>(&data).ok()?))
+        Some(from_bytes::<C>(&data).ok()?)
     }
 }
 

@@ -25,7 +25,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         }
     }
 
-    pub fn render(&self, chunk: &dyn Chunk, north: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
+    pub fn render<C: Chunk>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         if chunk.status() != "full" && chunk.status() != "spawn" {
@@ -59,7 +59,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
     /// Drill for colour. Starting at y_start, make way down the column until we
     /// have an opaque colour to return. This tackles things like transparency.
-    fn drill_for_colour(&self, x: usize, y_start: isize, z: usize, chunk: &dyn Chunk) -> Rgba {
+    fn drill_for_colour<C: Chunk>(&self, x: usize, y_start: isize, z: usize, chunk: &C) -> Rgba {
         // TODO: Biome might have changed as height changes.
 
         let mut current_height = y_start; // -1 because we want the block below the air.
@@ -124,7 +124,7 @@ fn water_depth_to_alpha(water_depth: isize) -> u8 {
     (180 + 2 * water_depth).min(250) as u8
 }
 
-fn water_depth(x: usize, mut y: isize, z: usize, chunk: &dyn Chunk) -> isize {
+fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C) -> isize {
     let is_water = |block_name: &str| match block_name {
         "minecraft:water"
         | "minecraft:bubble_column"
@@ -218,10 +218,10 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub fn render_region<P: Palette>(
+pub fn render_region<P: Palette, C: Chunk>(
     x: RCoord,
     z: RCoord,
-    dimension: Dimension,
+    dimension: Dimension<C>,
     renderer: TopShadeRenderer<P>,
 ) -> RegionMap<Rgba> {
     let mut map = RegionMap::new(x, z, [0u8; 4]);
@@ -231,7 +231,7 @@ pub fn render_region<P: Palette>(
         None => return map,
     };
 
-    let mut cache: [Option<Box<dyn Chunk>>; 32] = Default::default();
+    let mut cache: [Option<C>; 32] = Default::default();
 
     // Cache the last row of chunks from the above region to allow top-shading
     // on region boundaries.
@@ -255,8 +255,8 @@ pub fn render_region<P: Palette>(
                 //
                 // Thanks to the default None value this works fine for the
                 // first row or for any missing chunks.
-                let north = cache[x.0 as usize].as_ref().map(|c| &**c);
-                let res = renderer.render(&*chunk, north);
+                let north = cache[x.0 as usize].as_ref().map(|c| c);
+                let res = renderer.render(&chunk, north);
                 cache[x.0 as usize] = Some(chunk);
                 res
             });
