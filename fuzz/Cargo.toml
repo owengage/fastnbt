@@ -1,0 +1,38 @@
+[package]
+name = "fastanvil-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.3"
+[dependencies.fastanvil]
+path = "../fastanvil"
+[dependencies.fastnbt]
+path = "../fastnbt"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "deserialize_chunk"
+path = "fuzz_targets/deserialize_chunk.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "deserialize_value"
+path = "fuzz_targets/deserialize_value.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "read_region"
+path = "fuzz_targets/read_region.rs"
+test = false
+doc = false
