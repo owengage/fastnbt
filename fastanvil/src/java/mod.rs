@@ -118,7 +118,6 @@ pub struct Level {
     #[serde(rename = "zPos")]
     pub z_pos: i32,
 
-    #[serde(default)]
     pub biomes: Option<Vec<i32>>,
 
     /// Can be empty if the chunk hasn't been generated properly yet.
