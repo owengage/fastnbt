@@ -57,7 +57,7 @@ impl Chunk for JavaChunk {
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
         // section. 384 world height (320 + 64), so 384/16 subchunks.
-        const V1_17: usize = 4 * 4 * 4 * 384 / 16;
+        //const V1_17: usize = 4 * 4 * 4 * 384 / 16;
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
         // section. 256 world height, so 256/16 subchunks.
@@ -67,12 +67,12 @@ impl Chunk for JavaChunk {
         const V1_15: usize = 16 * 16;
 
         match biomes.len() {
-            V1_16 | V1_17 => {
+            V1_16 => {
                 //let after1_17 = self.data_version >= 2695;
                 //let y_shifted = if after1_17 { y + 64 } else { y } as usize;
 
-                // TODO: work out why y can be 0. Hole in the world?
-                let y_shifted = y.max(0) as usize;
+                // TODO: work out why y can be 0 or greater than max.
+                let y_shifted = y.clamp(0, 255) as usize;
                 let i = (z / 4) * 4 + (x / 4) + (y_shifted / 4) * 16;
 
                 let biome = biomes[i];
