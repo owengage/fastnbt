@@ -70,7 +70,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
             let current_block = chunk.block(x, current_height, z);
 
             if let Some(current_block) = current_block.as_ref() {
-                match current_block.name.as_str() {
+                match current_block.name() {
                     "minecraft:air" | "minecraft:cave_air" => {
                         current_height = current_height - 1;
                     }
@@ -142,7 +142,7 @@ fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C) -> isize {
             None => return depth,
         };
 
-        if is_water(&block.name) {
+        if is_water(block.name()) {
             depth = depth + 1;
         } else {
             return depth;

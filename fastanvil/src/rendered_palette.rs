@@ -2,7 +2,7 @@ use log::debug;
 
 use crate::{
     biome::{self, Biome},
-    Block, Palette, Rgba,
+    Block, Palette, Rgba, SNOW_BLOCK,
 };
 
 pub struct RenderedPalette {
@@ -60,11 +60,6 @@ impl RenderedPalette {
 impl Palette for RenderedPalette {
     fn pick(&self, block: &Block, biome: Option<Biome>) -> Rgba {
         let missing_colour = [255, 0, 255, 255];
-        let snow_block: Block = Block {
-            name: "minecraft:snow_block".to_owned(),
-            encoded: Default::default(),
-            snowy: true,
-        };
 
         // A bunch of blocks in the game seem to be special cased outside of the
         // blockstate/model mechanism. For example leaves get coloured based on
@@ -73,7 +68,7 @@ impl Palette for RenderedPalette {
         //
         // This means we have to do a bunch of complex conditional logic in one
         // of the most called functions. Yuck.
-        match block.name.strip_prefix("minecraft:") {
+        match block.name().strip_prefix("minecraft:") {
             Some(id) => {
                 match id {
                     "grass" | "tall_grass" | "vine" | "fern" | "large_fern" => {
@@ -83,7 +78,7 @@ impl Palette for RenderedPalette {
                         let snowy = block.snowy();
 
                         if snowy {
-                            return self.pick(&snow_block, biome);
+                            return self.pick(&SNOW_BLOCK, biome);
                         } else {
                             return self.pick_grass(biome);
                         };
@@ -105,7 +100,7 @@ impl Palette for RenderedPalette {
                         return self.pick_water(biome);
                     }
                     "snow" => {
-                        return self.pick(&snow_block, biome);
+                        return self.pick(&SNOW_BLOCK, biome);
                     }
                     // Occurs a lot for the end, as layer 0 will be air in the void.
                     // Rendering it black makes sense in the end, but might look
@@ -126,12 +121,12 @@ impl Palette for RenderedPalette {
         let col = self
             .blockstates
             .get(block.encoded_description())
-            .or_else(|| self.blockstates.get(&block.name));
+            .or_else(|| self.blockstates.get(block.name()));
 
         match col {
             Some(c) => *c,
             None => {
-                debug!("could not draw {}", block.name);
+                debug!("could not draw {}", block.name());
                 debug!("description {}", block.encoded_description());
 
                 missing_colour

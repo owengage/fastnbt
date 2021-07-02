@@ -1,5 +1,4 @@
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
 
 use crate::{Chunk, LoaderError};
 use crate::{LoaderResult, RegionBuffer};

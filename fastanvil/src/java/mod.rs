@@ -8,16 +8,23 @@ use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX
 
 use super::biome::Biome;
 
-mod block_props;
+mod block;
 mod section_tower;
-pub use block_props::Block;
+pub use block::Block;
 pub use section_tower::*;
 
 lazy_static! {
-    static ref AIR: Block = Block {
+    pub static ref AIR: Block = Block {
         name: "minecraft:air".to_owned(),
-        encoded: Default::default(),
+        encoded: "minecraft:air|".to_owned(),
         snowy: false,
+        properties: Default::default(),
+    };
+    pub static ref SNOW_BLOCK: Block = Block {
+        name: "minecraft:snow_block".to_owned(),
+        encoded: "minecraft:snow_block|".to_owned(),
+        snowy: true,
+        properties: Default::default(),
     };
 }
 
@@ -199,7 +206,7 @@ impl JavaChunk {
 
                     if !["minecraft:air", "minecraft:cave_air"]
                         .as_ref()
-                        .contains(&block.unwrap().name.as_str())
+                        .contains(&block.unwrap().name())
                     {
                         map[z * 16 + x] = y as i16;
                         break;
