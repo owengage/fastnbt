@@ -8,7 +8,7 @@ use serde::Deserialize;
 /// default just retains a reference to the data in the input, and `unpack_into`
 /// can be used to get the unpacked version when needed.
 #[derive(Deserialize, Debug)]
-pub struct PackedBits(Vec<i64>);
+pub struct PackedBits(pub Vec<i64>);
 
 impl PackedBits {
     pub fn unpack_blockstates(&self, bits_per_item: usize, buf: &mut [u16]) {

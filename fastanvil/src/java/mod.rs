@@ -4,13 +4,16 @@ use lazy_static::lazy_static;
 
 use serde::Deserialize;
 
-use crate::{bits_per_block, expand_heightmap, Chunk, HeightMode, PackedBits, MAX_Y, MIN_Y};
+use crate::{expand_heightmap, Chunk, HeightMode, MAX_Y, MIN_Y};
 
 use super::biome::Biome;
 
 mod block;
+mod blockstates;
 mod section_tower;
-pub use block::Block;
+
+pub use block::*;
+pub use blockstates::*;
 pub use section_tower::*;
 
 lazy_static! {
@@ -94,22 +97,12 @@ impl Chunk for JavaChunk {
             return Some(&AIR);
         }
 
-        let sec_y = y - sec.y as isize * 16;
-        let state_index = (sec_y as usize * 16 * 16) + z * 16 + x;
+        let sec_y = (y - sec.y as isize * 16) as usize;
 
-        if *sec.unpacked_states.borrow() == None {
-            let bits_per_item = bits_per_block(sec.palette.len());
-            *sec.unpacked_states.borrow_mut() = Some([0; 16 * 16 * 16]);
-
-            let mut states = sec.unpacked_states.borrow_mut();
-            let buf = states.as_mut().unwrap();
-
-            sec.block_states
-                .as_ref()?
-                .unpack_blockstates(bits_per_item, &mut buf[..]);
-        }
-
-        let pal_index = sec.unpacked_states.borrow().as_ref().unwrap()[state_index] as usize;
+        let pal_index = sec
+            .block_states
+            .as_ref()?
+            .state(x, sec_y, z, sec.palette.len());
 
         sec.palette.get(pal_index)
     }
@@ -158,13 +151,10 @@ pub struct Heightmaps {
 pub struct Section {
     pub y: i8,
 
-    pub block_states: Option<PackedBits>,
+    pub block_states: Option<Blockstates>,
 
     #[serde(default)]
     pub palette: Vec<Block>,
-
-    #[serde(skip)]
-    unpacked_states: RefCell<Option<[u16; 16 * 16 * 16]>>,
 }
 
 impl JavaChunk {
