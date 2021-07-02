@@ -53,7 +53,7 @@ impl Chunk for JavaChunk {
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
-        let biomes = self.level.biomes.as_ref().unwrap();
+        let biomes = self.level.biomes.as_ref()?;
 
         // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
         // section. 384 world height (320 + 64), so 384/16 subchunks.
@@ -93,18 +93,14 @@ impl Chunk for JavaChunk {
 
         // If a section is entirely air, then the block states are missing
         // entirely, presumably to save space.
-        if sec.block_states.is_none() {
-            return Some(&AIR);
+        match &sec.block_states {
+            None => Some(&AIR),
+            Some(blockstates) => {
+                let sec_y = (y - sec.y as isize * 16) as usize;
+                let pal_index = blockstates.state(x, sec_y, z, sec.palette.len());
+                sec.palette.get(pal_index)
+            }
         }
-
-        let sec_y = (y - sec.y as isize * 16) as usize;
-
-        let pal_index = sec
-            .block_states
-            .as_ref()?
-            .state(x, sec_y, z, sec.palette.len());
-
-        sec.palette.get(pal_index)
     }
 }
 
