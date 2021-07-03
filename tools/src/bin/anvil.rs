@@ -21,7 +21,7 @@ fn parse_coord(coord: &str) -> Option<(isize, isize)> {
     Some((x, z))
 }
 
-fn auto_size(coords: &Vec<(RCoord, RCoord)>) -> Option<Rectangle> {
+fn auto_size(coords: &[(RCoord, RCoord)]) -> Option<Rectangle> {
     if coords.len() == 0 {
         return None;
     }

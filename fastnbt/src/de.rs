@@ -172,6 +172,7 @@
 //! ```
 
 use std::convert::{TryFrom, TryInto};
+use std::ops::Range;
 
 use crate::error::{Error, Result};
 use crate::Tag;
@@ -277,6 +278,20 @@ where
             let element_tag = de.input.consume_tag()?;
             let size = de.input.consume_list_size()?;
 
+            // End values have no payload. An end tag on it's own is the payload
+            // of an empty compound. A logical interpretation is that this could
+            // be a list of zero-sized units, but this mean an easy short malicious payload of a
+            // massive list taking up lots of memory (as the Value type's unit
+            // variant would not be zero sized.
+            //
+            // If this becomes as actual problem we could potentially do some
+            // weird 'list of end' type that just stores the size of the list.
+            if element_tag == Tag::End {
+                return Err(Error::bespoke(
+                    "unexpected list of type 'end', which is not supported".into(),
+                ));
+            }
+
             de.layers.push(Layer::List {
                 remaining_elements: size,
                 element_tag,
@@ -290,7 +305,9 @@ where
                 Tag::ByteArray => Tag::Byte,
                 Tag::IntArray => Tag::Int,
                 Tag::LongArray => Tag::Long,
-                _ => panic!(),
+                // We just matched on the tag value, so it must equal one of the
+                // above tags unless we've updated one match and not the other.
+                _ => panic!("array tag not listed"),
             };
 
             de.layers.push(Layer::List {
@@ -301,11 +318,25 @@ where
             // Going to pretend we're in a list to reuse the ListAccess.
             visitor.visit_seq(ListAccess::new(de, size))
         }
-        _ => todo!("any value"),
+        // This would really only occur when we encounter a list where the
+        // element type is 'End', but we specifically handle that case, so we
+        // should never get here.
+        Tag::End => Err(Error::bespoke(
+            "unexpected end tag, was expecting payload of a value".into(),
+        )),
     }
 }
 
 impl<'de> InputHelper<'de> {
+    // Safely get a subslice, erroring if there's not enough input.
+    fn sublice(&self, r: Range<usize>) -> Result<&'de [u8]> {
+        if r.end <= self.0.len() {
+            Ok(&self.0[r])
+        } else {
+            Err(Error::unexpected_eof())
+        }
+    }
+
     fn consume_tag(&mut self) -> Result<Tag> {
         let tag_byte = self.0.read_u8()?;
         Tag::try_from(tag_byte).or_else(|_| Err(Error::invalid_tag(tag_byte)))
@@ -317,7 +348,7 @@ impl<'de> InputHelper<'de> {
 
     fn consume_size_prefixed_string(&mut self) -> Result<&'de str> {
         let len = self.0.read_u16::<BigEndian>()? as usize;
-        let s = std::str::from_utf8(&self.0[..len])
+        let s = std::str::from_utf8(self.sublice(0..len)?)
             .map_err(|_| Error::nonunicode_string(&self.0[..len]));
         self.0 = &self.0[len..];
         s

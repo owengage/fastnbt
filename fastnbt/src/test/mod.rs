@@ -4,6 +4,7 @@ use crate::Tag;
 
 mod builder;
 mod de;
+mod fuzz;
 mod minecraft_chunk;
 mod stream;
 

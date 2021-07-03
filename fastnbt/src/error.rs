@@ -48,6 +48,10 @@ impl Error {
         ))
     }
 
+    pub(crate) fn unexpected_eof() -> Error {
+        Error(format!("eof: unexpectedly ran out of input"))
+    }
+
     pub(crate) fn bespoke(msg: String) -> Error {
         Error(msg)
     }
