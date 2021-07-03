@@ -4,9 +4,10 @@ use std::io;
 
 fn main() {
     let stdin = io::stdin();
-    let decoder = GzDecoder::new(stdin);
+    // let decoder = GzDecoder::new(stdin);
 
-    let mut parser = Parser::new(decoder);
+    // let mut parser = Parser::new(decoder);
+    let mut parser = Parser::new(stdin);
     let mut indent = 0;
 
     loop {

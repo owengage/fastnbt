@@ -1114,16 +1114,12 @@ fn integrals_in_fullvalue() {
         .end_compound()
         .build();
 
-    let v: Value = from_bytes(payload.as_slice()).unwrap();
-    match v {
-        Value::Compound(ref map) => {
-            let a = &map["a"];
-            match a {
-                Value::Integral(i) => assert_eq!(*i, 1),
-                _ => panic!("{:?}", a),
-            }
-        }
-        _ => panic!(),
+    let v: HashMap<String, Value> = from_bytes(payload.as_slice()).unwrap();
+
+    let a = &v["a"];
+    match a {
+        Value::Int(i) => assert_eq!(*i, 1),
+        _ => panic!("{:?}", a),
     }
 }
 
@@ -1173,7 +1169,9 @@ fn byte_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::IntegralArray(arr) => assert_eq!(arr, &[1, 2, 3]),
+                Value::List(arr) => {
+                    assert_eq!(arr, &[Value::Byte(1), Value::Byte(2), Value::Byte(3)])
+                }
                 _ => panic!("{:?}", a),
             }
         }
@@ -1194,10 +1192,23 @@ fn int_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::IntegralArray(arr) => assert_eq!(arr, &[1, 2, 3]),
+                Value::List(arr) => assert_eq!(arr, &[Value::Int(1), Value::Int(2), Value::Int(3)]),
                 _ => panic!("{:?}", a),
             }
         }
         _ => panic!(),
     }
+}
+
+#[test]
+fn list_of_end_tags() {
+    // Some old worlds store empty lists as a list of end tags rather than a
+    // of a given type.
+    let payload = Builder::new()
+        .start_compound("")
+        .start_list("list", Tag::End, 0)
+        .end_compound()
+        .build();
+
+    let _v: Value = from_bytes(payload.as_slice()).unwrap();
 }

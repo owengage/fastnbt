@@ -71,13 +71,14 @@
 //! deserializing to Rust objects directly.
 //!
 
-use serde::Deserialize;
-
 pub mod de;
 pub mod error;
 pub mod stream;
+mod value;
 
-use std::{collections::HashMap, convert::TryFrom};
+pub use value::Value;
+
+use std::convert::TryFrom;
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -109,56 +110,6 @@ pub enum Tag {
     IntArray = 11,
     /// Represents as array of Long (i64).
     LongArray = 12,
-}
-
-/// Value is a complete NBT value. It owns it's data. The Byte, Short, Int and
-/// Long NBT types are all deserialized into `i64`. Compounds and Lists are
-/// resursively deserialized.
-///
-/// ```no_run
-/// # use fastnbt::Value;
-/// # use fastnbt::error::Result;
-/// # use std::collections::HashMap;
-/// #
-/// # fn main() -> Result<()> {
-/// #   let mut buf = vec![];
-///     let compound: HashMap<String, Value> = fastnbt::de::from_bytes(buf.as_slice())?;
-///     match compound["DataVersion"] {
-///         Value::Integral(ver) => println!("Version: {}", ver),
-///         _ => {},
-///     }
-///     println!("{:#?}", compound);
-/// #   Ok(())
-/// # }
-/// ```
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Value {
-    /// Any integral value, ie a byte, short, int and long all deserialize to
-    /// this type. This simplifies both usage and implementation. If you care
-    /// about the exact integral type you may need to write a custom
-    /// `Deserialise` type with serde. Please also open an issue with your use
-    /// case!
-    Integral(i64),
-
-    /// A double. serde distinguishes between f32 and f64, so we do too.
-    Double(f64),
-
-    /// A float. serde distinguishes between f32 and f64, so we do too.
-    Float(f32),
-
-    /// An array of i64. This will either have been a ByteArray, IntArray or
-    /// LongArray in the original NBT.
-    IntegralArray(Vec<i64>),
-
-    /// A unicode string.
-    String(String),
-
-    /// A List of NBT values. Each value may have a different structure/type.
-    List(Vec<Value>),
-
-    /// A compound, which is a struct-like object.
-    Compound(HashMap<String, Value>),
 }
 
 // Crates exist to generate this code for us, but would add to our compile
