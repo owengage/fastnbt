@@ -23,11 +23,12 @@ fastnbt = "0.18"
 
 # Comparison to other NBT crates
 
-There are other crates for NBT out there, this tries to give an honest comparison to them.
+There are other crates for NBT out there, this tries to give an honest
+comparison to them. The Hemtite `nbt` crate was the only other crate I found with serde deserialization.
 
 | Feature | `fastnbt` | Hematite `nbt` | note |
 | ------- | --------- | -------------- | ---- |
-| Benchmark world render\* | 23.8+-0.7s | 31.6+-0.9s | making `fastnbt` 33% faster in this test |
+| Benchmark world render (relative)\* | 1.00 | 1.09 | About 9% faster. See note. |
 | Deserialization | yes | yes | |
 | Serialization | no | yes | |
 | `Value`-like type | yes | yes | |
@@ -37,7 +38,10 @@ There are other crates for NBT out there, this tries to give an honest compariso
 | WASM compatible | yes | unknown | | 
 
 
-\*see 01-11-2020.md in benchmarks directory
+\* This is rendering the overworld of Etho's Lets Play Episode. Exact relative
+figures are 1000±7 for fastnbt and 1090±7 for hematite-nbt. This used the
+`anvil tiles` executable, swapping out the deserializer only, so performance
+tweaks in rendering chunks are not counted.
 
 \*\*intended feature
 
@@ -45,6 +49,5 @@ There are other crates for NBT out there, this tries to give an honest compariso
 
 Some things I want to finish off properly for 1.0
 
-* Better error handling, eg non-exhaustive to make it easier to introduce new
-  error types in future.
+* Make sure `Value` type can be perfectly reserialised if serialization is ever supported.
 * Establish policy about minimum Rust versions.

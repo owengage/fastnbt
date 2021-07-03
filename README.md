@@ -1,23 +1,27 @@
 # fastnbt project
+[![Latest Version]][crates.io]
+[![docs-shield]][docs]
+[![Build Status]][actions]
+
+[docs]: https://docs.rs/fastnbt/latest/fastnbt/index.html
+[docs-shield]: https://img.shields.io/docsrs/fastnbt
+
+[Build Status]:
+https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
+[actions]: https://github.com/owengage/fastnbt/actions?query=branch%3Amaster
+[Latest Version]: https://img.shields.io/crates/v/fastnbt.svg
+[crates.io]: https://crates.io/crates/fastnbt
 
 NBT deserializer and in-browser Rust-to-WASM powered Minecraft map renderer.
 
-Demo of Hermitcraft S7 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft7):
+# Demo
+Demo of Hermitcraft season 7 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft7)
 
-![alt rendered map](demo.png)
-
-# Useful places
-
-* For docs on NBT deserializing see
-  [docs.rs/crate/fastnbt](https://docs.rs/crate/fastnbt)
-* For docs on handling minecraft worlds see
-  [docs.rs/crate/fastanvil](https://docs.rs/crate/fastanvil)
-* To render *your* world in the browser, see [owengage.com/anvil](https://owengage.com/anvil)
-  
+![alt rendered map](demo.png)  
 
 This repository contains multiple related projects.
 
-* [fastnbt](fastnbt/README.md): Fast (or trying to be!) deserializer and parser
+* [fastnbt](fastnbt/README.md): Fast (or trying to be!) serde deserializer
   for *Minecraft: Java Edition*'s NBT data format.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
@@ -30,6 +34,7 @@ complexity it would require.
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU.
 
+See [fastnbt's README](fastnbt/README.md) for performance comparison.
 
 # Serde deserializer example
 
