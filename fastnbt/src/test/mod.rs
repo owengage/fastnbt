@@ -7,6 +7,7 @@ mod de;
 mod fuzz;
 mod minecraft_chunk;
 mod stream;
+mod de_arrays;
 
 fn assert_try_into(tag: Tag) {
     assert_eq!(tag, (tag as u8).try_into().unwrap());

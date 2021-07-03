@@ -111,6 +111,17 @@ pub enum Tag {
     LongArray = 12,
 }
 
+pub enum NbtArrayTag {
+    Byte,
+    Int,
+    Long,
+}
+
+struct NbtArray<Container> {
+    tag: NbtArrayTag,
+    data: Container,
+}
+
 /// Value is a complete NBT value. It owns it's data. The Byte, Short, Int and
 /// Long NBT types are all deserialized into `i64`. Compounds and Lists are
 /// resursively deserialized.
