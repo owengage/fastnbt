@@ -1169,8 +1169,8 @@ fn byte_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::List(arr) => {
-                    assert_eq!(arr, &[Value::Byte(1), Value::Byte(2), Value::Byte(3)])
+                Value::ByteArray(arr) => {
+                    assert_eq!(arr, &[1, 2, 3])
                 }
                 _ => panic!("{:?}", a),
             }
@@ -1192,7 +1192,7 @@ fn int_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::List(arr) => assert_eq!(arr, &[Value::Int(1), Value::Int(2), Value::Int(3)]),
+                Value::IntArray(arr) => assert_eq!(arr, &[1, 2, 3]),
                 _ => panic!("{:?}", a),
             }
         }

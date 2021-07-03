@@ -22,8 +22,29 @@ use serde::{de::Visitor, Deserialize};
 /// #   Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
 pub enum Value {
+    Long(i64),
+    Int(i32),
+    Short(i16),
+    Byte(i8),
+    Double(f64),
+    Float(f32),
+    String(String),
+    ByteArray(Vec<u8>),
+    // The reason these don't work is because my deserializer is happy to parse
+    // int and long arrays are bytes, entirely because we wanted to enable
+    // getting these arrays without allocations. We don't actually use this
+    // functionality anymore though. I could remove the ability?
+    IntArray(Vec<i32>),
+    LongArray(Vec<i64>),
+    List(Vec<Value>),
+    Compound(HashMap<String, Value>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value2 {
     Byte(i8),
     Short(i16),
     Int(i32),
@@ -31,18 +52,18 @@ pub enum Value {
     Float(f32),
     Double(f64),
     String(String),
-    List(Vec<Value>),
-    Compound(HashMap<String, Value>),
+    List(Vec<Value2>),
+    Compound(HashMap<String, Value2>),
+    ByteArray(Vec<u8>),
 }
-
-impl<'de> Deserialize<'de> for Value {
+impl<'de> Deserialize<'de> for Value2 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         struct ValueVis;
         impl<'de> Visitor<'de> for ValueVis {
-            type Value = Value;
+            type Value = Value2;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(formatter, "an NBT compatible value")
@@ -59,42 +80,42 @@ impl<'de> Deserialize<'de> for Value {
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Byte(v))
+                Ok(Value2::Byte(v))
             }
 
             fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Short(v))
+                Ok(Value2::Short(v))
             }
 
             fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Int(v))
+                Ok(Value2::Int(v))
             }
 
             fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Long(v))
+                Ok(Value2::Long(v))
             }
 
             fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Float(v))
+                Ok(Value2::Float(v))
             }
 
             fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
-                Ok(Value::Double(v))
+                Ok(Value2::Double(v))
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -115,7 +136,7 @@ impl<'de> Deserialize<'de> for Value {
             where
                 E: serde::de::Error,
             {
-                Ok(Value::String(v))
+                Ok(Value2::String(v))
             }
 
             fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
@@ -131,11 +152,11 @@ impl<'de> Deserialize<'de> for Value {
             {
                 let mut values = vec![];
 
-                while let Some(el) = seq.next_element::<Value>()? {
+                while let Some(el) = seq.next_element::<Value2>()? {
                     values.push(el);
                 }
 
-                Ok(Value::List(values))
+                Ok(Value2::List(values))
             }
 
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -144,14 +165,18 @@ impl<'de> Deserialize<'de> for Value {
             {
                 let mut obj = HashMap::new();
 
-                while let Some((k, v)) = map.next_entry::<String, Value>()? {
+                while let Some((k, v)) = map.next_entry::<String, Value2>()? {
                     obj.insert(k, v);
                 }
 
-                Ok(Value::Compound(obj))
+                Ok(Value2::Compound(obj))
             }
         }
 
         deserializer.deserialize_any(ValueVis)
     }
 }
+
+// Plan:
+// Make a pedantic value that we decode into. Taggless. Might need to order
+// these tags from largest int type to smallest to make it work.

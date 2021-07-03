@@ -76,7 +76,7 @@ pub mod error;
 pub mod stream;
 mod value;
 
-pub use value::Value;
+pub use value::*;
 
 use std::convert::TryFrom;
 
