@@ -280,13 +280,13 @@ where
 
             // End values have no payload. An end tag on it's own is the payload
             // of an empty compound. A logical interpretation is that this could
-            // be a list of zero-sized units, but this mean an easy short malicious payload of a
-            // massive list taking up lots of memory (as the Value type's unit
-            // variant would not be zero sized.
+            // be a list of zero-sized units, but this mean an easy short
+            // malicious payload of a massive list taking up lots of memory (as
+            // the Value type's unit variant would not be zero sized.
             //
-            // If this becomes as actual problem we could potentially do some
-            // weird 'list of end' type that just stores the size of the list.
-            if element_tag == Tag::End {
+            // Some old chunks store empty lists as as 'list of end', so if the
+            // size is zero we let it slide.
+            if element_tag == Tag::End && size != 0 {
                 return Err(Error::bespoke(
                     "unexpected list of type 'end', which is not supported".into(),
                 ));
