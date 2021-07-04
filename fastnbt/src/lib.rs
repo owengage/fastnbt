@@ -12,7 +12,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! fastnbt = "0.18"
+//! fastnbt = "0.19"
 //! ```
 //!
 //! # Byte, Int and Long array types

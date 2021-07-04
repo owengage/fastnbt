@@ -18,7 +18,7 @@ deserialized. This can also be done for lists of any integral type into
 
 ```toml
 [dependencies]
-fastnbt = "0.18"
+fastnbt = "0.19"
 ```
 
 # Comparison to other NBT crates
