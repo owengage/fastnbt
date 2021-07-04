@@ -129,7 +129,7 @@ pub enum Tag {
 /// #   let mut buf = vec![];
 ///     let compound: HashMap<String, Value> = fastnbt::de::from_bytes(buf.as_slice())?;
 ///     match compound["DataVersion"] {
-///         Value::Integral(ver) => println!("Version: {}", ver),
+///         Value::Int(ver) => println!("Version: {}", ver),
 ///         _ => {},
 ///     }
 ///     println!("{:#?}", compound);
@@ -139,31 +139,90 @@ pub enum Tag {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Value {
-    /// Any integral value, ie a byte, short, int and long all deserialize to
-    /// this type. This simplifies both usage and implementation. If you care
-    /// about the exact integral type you may need to write a custom
-    /// `Deserialise` type with serde. Please also open an issue with your use
-    /// case!
-    Integral(i64),
-
-    /// A double. serde distinguishes between f32 and f64, so we do too.
+    #[serde(deserialize_with = "strict_i8")]
+    Byte(i8),
+    #[serde(deserialize_with = "strict_i16")]
+    Short(i16),
+    #[serde(deserialize_with = "strict_i32")]
+    Int(i32),
+    Long(i64),
     Double(f64),
-
-    /// A float. serde distinguishes between f32 and f64, so we do too.
     Float(f32),
-
-    /// An array of i64. This will either have been a ByteArray, IntArray or
-    /// LongArray in the original NBT.
-    IntegralArray(Vec<i64>),
-
-    /// A unicode string.
     String(String),
-
-    /// A List of NBT values. Each value may have a different structure/type.
+    ByteArray(ByteArray),
+    IntArray(IntArray),
+    LongArray(LongArray),
     List(Vec<Value>),
-
-    /// A compound, which is a struct-like object.
     Compound(HashMap<String, Value>),
+}
+
+fn strict_i8<'de, D>(de: D) -> std::result::Result<i8, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    struct StrictI8Visitor;
+    impl<'de> serde::de::Visitor<'de> for StrictI8Visitor {
+        type Value = i8;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "expecting exactly i8")
+        }
+
+        fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(v)
+        }
+    }
+
+    de.deserialize_i8(StrictI8Visitor)
+}
+
+fn strict_i16<'de, D>(de: D) -> std::result::Result<i16, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    struct Stricti16Visitor;
+    impl<'de> serde::de::Visitor<'de> for Stricti16Visitor {
+        type Value = i16;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "expecting exactly i16")
+        }
+
+        fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(v)
+        }
+    }
+
+    de.deserialize_i16(Stricti16Visitor)
+}
+
+fn strict_i32<'de, D>(de: D) -> std::result::Result<i32, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    struct Stricti32Visitor;
+    impl<'de> serde::de::Visitor<'de> for Stricti32Visitor {
+        type Value = i32;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "expecting exactly i32")
+        }
+
+        fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(v)
+        }
+    }
+
+    de.deserialize_i32(Stricti32Visitor)
 }
 
 // Crates exist to generate this code for us, but would add to our compile

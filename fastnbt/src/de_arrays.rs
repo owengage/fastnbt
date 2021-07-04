@@ -1,3 +1,4 @@
+use core::panic;
 use std::convert::TryInto;
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -56,12 +57,11 @@ impl<'a, 'de> de::MapAccess<'de> for ArrayWrapperAccess<'a, 'de> {
                 seed.deserialize(t.into_deserializer())
             }
             ArrWrapStage::Data => {
-                // Can we just read directly from the input and return the
-                // value? Need to make a deserializer...
                 self.stage = ArrWrapStage::Done;
                 seed.deserialize(ArrayDeserializer {
                     de: &mut *self.de,
                     size: self.size,
+                    tag: self.tag,
                 })
             }
             ArrWrapStage::Done => panic!("extra key"),
@@ -73,14 +73,16 @@ struct ArrayAccess<'a, 'de> {
     de: &'a mut Deserializer<'de>,
     hint: i32,
     remaining: i32,
+    tag: Tag,
 }
 
 impl<'a, 'de> ArrayAccess<'a, 'de> {
-    fn new(de: &'a mut Deserializer<'de>, size: i32) -> Self {
+    fn new(de: &'a mut Deserializer<'de>, tag: Tag, size: i32) -> Self {
         Self {
             de,
             hint: size,
             remaining: size,
+            tag,
         }
     }
 }
@@ -99,9 +101,9 @@ impl<'a, 'de> de::SeqAccess<'de> for ArrayAccess<'a, 'de> {
     {
         if self.remaining > 0 {
             self.remaining = self.remaining - 1;
-            let val = seed.deserialize(ArrayDeserializer {
+            let val = seed.deserialize(ArrayElementDeserializer {
                 de: self.de,
-                size: 0, // not important here. Maybe split ArrayDeserializer into two types.
+                tag: self.tag,
             })?;
             Ok(Some(val))
         } else {
@@ -110,36 +112,32 @@ impl<'a, 'de> de::SeqAccess<'de> for ArrayAccess<'a, 'de> {
     }
 }
 
-pub(crate) struct ArrayDeserializer<'a, 'de> {
+pub(crate) struct ArrayElementDeserializer<'a, 'de> {
     pub(crate) de: &'a mut Deserializer<'de>,
-    pub(crate) size: i32,
+    pub(crate) tag: Tag,
 }
 
-// Job is to start deserializing a Seq which is a *Array type, and to actually
-// deserialize the elements.
-impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
+impl<'a, 'de> serde::Deserializer<'de> for ArrayElementDeserializer<'a, 'de> {
     type Error = Error;
 
     forward_to_deserialize_any! {
-        bool i16 i128 u16  u128 f32 f64 char str string
+        bool i16 i128 u16  u128 f32 f64 char str string seq
         bytes byte_buf option unit unit_struct newtype_struct tuple
         tuple_struct map struct enum identifier ignored_any
     }
 
-    fn deserialize_any<V>(self, _: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::bespoke(
-            "fastnbt issue: unexpected any in ArrayDeserializer".into(),
-        ))
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        visitor.visit_seq(ArrayAccess::new(self.de, self.size)) // TOOD: size
+        // This happens when we know we're in an array type value, but the type
+        // we're deserializing into does not.
+        match self.tag {
+            Tag::ByteArray => self.deserialize_i8(visitor),
+            Tag::IntArray => self.deserialize_i32(visitor),
+            Tag::LongArray => self.deserialize_i64(visitor),
+            t => panic!("invalid tag for array deserializer: {:?}", t),
+        }
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
@@ -188,5 +186,30 @@ impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
     {
         let val = self.de.input.0.read_u64::<BigEndian>()?;
         visitor.visit_u64(val)
+    }
+}
+
+pub(crate) struct ArrayDeserializer<'a, 'de> {
+    pub(crate) de: &'a mut Deserializer<'de>,
+    pub(crate) size: i32,
+    pub(crate) tag: Tag,
+}
+
+// Job is to start deserializing a Seq which is a *Array type, and to actually
+// deserialize the elements.
+impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
+    type Error = Error;
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string seq
+        bytes byte_buf option unit unit_struct newtype_struct tuple
+        tuple_struct map struct enum identifier ignored_any
+    }
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_seq(ArrayAccess::new(self.de, self.tag, self.size)) // TOOD: size
     }
 }

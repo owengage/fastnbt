@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::Tag;
 use crate::{de::from_bytes, Value};
+use crate::{ByteArray, IntArray, LongArray, Tag};
 
 use super::builder::Builder;
 use serde::Deserialize;
@@ -709,7 +709,6 @@ fn byte_array_from_list_bytes() -> Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn byte_array_from_nbt_short_list() -> Result<()> {
     #[derive(Deserialize)]
@@ -800,9 +799,9 @@ fn newtype_struct() -> Result<()> {
 fn vec_from_nbt_byte_array() -> Result<()> {
     #[derive(Deserialize)]
     struct V {
-        a: Vec<u8>,
-        b: Vec<u32>,
-        c: Vec<u64>,
+        a: ByteArray,
+        b: IntArray,
+        c: LongArray,
     }
 
     let payload = Builder::new()
@@ -823,9 +822,9 @@ fn vec_from_nbt_byte_array() -> Result<()> {
         .build();
 
     let v: V = from_bytes(payload.as_slice())?;
-    assert_eq!(v.a, [1, 2, 3]);
-    assert_eq!(v.b, [4, 5, 6]);
-    assert_eq!(v.c, [7, 8, 9]);
+    assert_eq!(*v.a, [1, 2, 3]);
+    assert_eq!(*v.b, [4, 5, 6]);
+    assert_eq!(*v.c, [7, 8, 9]);
     Ok(())
 }
 
@@ -1054,7 +1053,7 @@ fn integrals_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::Integral(i) => assert_eq!(*i, 1),
+                Value::Int(i) => assert_eq!(*i, 1),
                 _ => panic!("{:?}", a),
             }
         }
@@ -1108,7 +1107,7 @@ fn byte_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::IntegralArray(arr) => assert_eq!(arr, &[1, 2, 3]),
+                Value::ByteArray(arr) => assert_eq!(&**arr, &[1, 2, 3]),
                 _ => panic!("{:?}", a),
             }
         }
@@ -1129,8 +1128,8 @@ fn int_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::IntegralArray(arr) => assert_eq!(arr, &[1, 2, 3]),
-                _ => panic!("{:?}", a),
+                Value::IntArray(arr) => assert_eq!(&**arr, &[1, 2, 3]),
+                _ => panic!("incorrect value: {:?}", a),
             }
         }
         _ => panic!(),

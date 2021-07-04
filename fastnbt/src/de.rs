@@ -174,7 +174,7 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
-use crate::de_arrays::{ArrayDeserializer, ArrayWrapperAccess};
+use crate::de_arrays::ArrayWrapperAccess;
 use crate::error::{Error, Result};
 use crate::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
