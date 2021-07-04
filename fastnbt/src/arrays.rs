@@ -1,3 +1,7 @@
+//! This module contains the NBT array data types you need to deserialize your
+//! own data structures. These types own their data, for types that borrow from
+//! the input you can use [`borrow`][`crate::borrow`].
+
 use std::ops::Deref;
 
 use serde::Deserialize;

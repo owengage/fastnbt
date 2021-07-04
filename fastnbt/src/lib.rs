@@ -2,8 +2,10 @@
 //! This format is used by the game to store various things, such as the world
 //! data and player inventories.
 //!
-//! For documentation and examples of serde deserialization, see the
-//! [`de`](de/index.html) module.
+//! * For documentation and examples of serde deserialization, see [`de`].
+//! * For a `serde_json`-like `Value` type see [`Value`].
+//! * For NBT array types see [`ByteArray`], [`IntArray`], and [`LongArray`].
+//! * For 'zero-copy' NBT array types see [`borrow`].
 //!
 //! Both this and related crates are under one [fastnbt Github
 //! repository](https://github.com/owengage/fastnbt)
@@ -13,14 +15,14 @@
 //! fastnbt = "0.18"
 //! ```
 //!
-//! # Byte/int/long array types
+//! # Byte, Int and Long array types
 //!
 //! To support `Value` capturing all NBT tag information, this deserializer
-//! treats the `ByteArray`, `IntArray` and `LongArray` types slightly weirdly.
-//! In order to capture these types in your own structs, use the appropriate
-//! type in this crate: [`fastnbt::ByteArray`], [`fastnbt::IntArray`] and
-//! [`fastnbt::LongArray`]. These types have an `iter()` method similar to
-//! `Vec`.
+//! produces the `ByteArray`, `IntArray` and `LongArray` NBT data as a map
+//! containing the original NBT tag and the data. In order to capture these
+//! types in your own structs, use the appropriate type in this crate:
+//! [`ByteArray`], [`IntArray`] and [`LongArray`]. These types have an `iter()`
+//! method similar to [`Vec`][`std::vec::Vec`].
 //!
 //! # Quick example
 //!

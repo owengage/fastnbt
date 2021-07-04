@@ -1,9 +1,15 @@
+//! This module contains types enabling 'zero-copy' capture of the array NBT types.
+//!
+//! The [`ByteArray`], [`IntArray`], and [`LongArray`] types are the types to
+//! use in your own data structures. They all implement an `iter()` method to
+//! allow you to iterate over the data they contain.
+//!
+//! For versions that own their data, see the crate root.
+
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Deserialize;
 
-use crate::{CompTag, INT_ARRAY_TAG, LONG_ARRAY_TAG};
-
-use super::BYTE_ARRAY_TAG;
+use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
 
 #[derive(Deserialize, Debug, Clone, Copy)]
 pub struct ByteArray<'a> {
