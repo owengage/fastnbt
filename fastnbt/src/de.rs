@@ -174,9 +174,11 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
+use crate::de_arrays::{ArrayDeserializer, ArrayWrapperAccess};
 use crate::error::{Error, Result};
 use crate::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
+
 use serde::{de, forward_to_deserialize_any};
 
 /// Deserialize into a `T` from some NBT data. See the [`de`] module for more
@@ -214,7 +216,7 @@ where
 ///
 /// [`de`]: ./index.html
 pub struct Deserializer<'de> {
-    input: InputHelper<'de>,
+    pub(crate) input: InputHelper<'de>,
     layers: Vec<Layer>,
 }
 
@@ -252,7 +254,7 @@ enum Layer {
 /// input. If we wrote the helper functions as part of the Deserializer impl, it
 /// would force borrowing the entire deserializer mutably. This helper allows us
 /// to borrow just the input, making us free to also borrow/mutate the layers.
-struct InputHelper<'de>(&'de [u8]);
+pub(crate) struct InputHelper<'de>(pub(crate) &'de [u8]);
 
 fn consume_value<'de, V>(de: &mut Deserializer<'de>, visitor: V, tag: Tag) -> Result<V::Value>
 where
@@ -310,13 +312,10 @@ where
                 _ => panic!("array tag not listed"),
             };
 
-            de.layers.push(Layer::List {
-                remaining_elements: size,
-                element_tag: non_array_tag,
-            });
+            visitor.visit_map(ArrayWrapperAccess::new(de, size, tag))
 
             // Going to pretend we're in a list to reuse the ListAccess.
-            visitor.visit_seq(ListAccess::new(de, size))
+            //visitor.visit_seq(ListAccess::new(de, size))
         }
         // This would really only occur when we encounter a list where the
         // element type is 'End', but we specifically handle that case, so we

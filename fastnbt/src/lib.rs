@@ -77,10 +77,12 @@ pub mod de;
 pub mod error;
 pub mod stream;
 
-use std::{collections::HashMap, convert::TryFrom};
+pub(crate) mod de_arrays;
+
+use std::{collections::HashMap, convert::TryFrom, ops::Deref};
 
 /// An NBT tag. This does not carry the value or the name of the data.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum Tag {
     /// Represents the end of a Compound object.
@@ -111,15 +113,18 @@ pub enum Tag {
     LongArray = 12,
 }
 
-pub enum NbtArrayTag {
-    Byte,
-    Int,
-    Long,
+#[derive(Deserialize, Debug, Clone)]
+struct ByteArray {
+    tag: u8,
+    data: Vec<u8>,
 }
 
-struct NbtArray<Container> {
-    tag: NbtArrayTag,
-    data: Container,
+impl Deref for ByteArray {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
 }
 
 /// Value is a complete NBT value. It owns it's data. The Byte, Short, Int and
@@ -196,6 +201,26 @@ impl TryFrom<u8> for Tag {
             12 => LongArray,
             13..=u8::MAX => return Err(()),
         })
+    }
+}
+
+impl From<Tag> for u8 {
+    fn from(tag: Tag) -> Self {
+        match tag {
+            Tag::End => 0,
+            Tag::Byte => 1,
+            Tag::Short => 2,
+            Tag::Int => 3,
+            Tag::Long => 4,
+            Tag::Float => 5,
+            Tag::Double => 6,
+            Tag::ByteArray => 7,
+            Tag::String => 8,
+            Tag::List => 9,
+            Tag::Compound => 10,
+            Tag::IntArray => 11,
+            Tag::LongArray => 12,
+        }
     }
 }
 
