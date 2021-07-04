@@ -82,6 +82,13 @@ impl Builder {
             .int_array_payload(arr)
     }
 
+    pub fn long_array(self, name: &str, arr: &[i64]) -> Self {
+        self.tag(Tag::LongArray)
+            .name(name)
+            .int_payload(arr.len().try_into().unwrap())
+            .long_array_payload(arr)
+    }
+
     pub fn string_payload(self, s: &str) -> Self {
         self.name(s)
     }

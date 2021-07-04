@@ -1,5 +1,6 @@
 use std::{cell::RefCell, convert::TryFrom};
 
+use fastnbt::{IntArray, LongArray};
 use lazy_static::lazy_static;
 
 use serde::Deserialize;
@@ -114,7 +115,7 @@ pub struct Level {
     #[serde(rename = "zPos")]
     pub z_pos: i32,
 
-    pub biomes: Option<Vec<i32>>,
+    pub biomes: Option<IntArray>,
 
     /// Can be empty if the chunk hasn't been generated properly yet.
     pub sections: Option<SectionTower>,
@@ -134,7 +135,7 @@ pub struct Level {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub struct Heightmaps {
-    pub motion_blocking: Option<Vec<i64>>,
+    pub motion_blocking: Option<LongArray>,
     //pub motion_blocking_no_leaves: Option<Heightmap>,
     //pub ocean_floor: Option<Heightmap>,
     //pub world_surface: Option<Heightmap>,

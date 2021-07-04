@@ -77,9 +77,12 @@ pub mod de;
 pub mod error;
 pub mod stream;
 
+mod arrays;
+pub use arrays::*;
+
 pub(crate) mod de_arrays;
 
-use std::{collections::HashMap, convert::TryFrom, ops::Deref};
+use std::{collections::HashMap, convert::TryFrom};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -111,20 +114,6 @@ pub enum Tag {
     IntArray = 11,
     /// Represents as array of Long (i64).
     LongArray = 12,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct ByteArray {
-    tag: u8,
-    data: Vec<u8>,
-}
-
-impl Deref for ByteArray {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
-    }
 }
 
 /// Value is a complete NBT value. It owns it's data. The Byte, Short, Int and

@@ -1,13 +1,13 @@
-use std::ops::Deref;
-
 use serde::Deserialize;
 
 use crate::error::Result;
 use crate::ByteArray;
+use crate::IntArray;
+use crate::LongArray;
 use crate::{de::from_bytes, test::builder::Builder};
 
 #[test]
-fn byte_array_from_nbt_byte_array() -> Result<()> {
+fn byte_array() -> Result<()> {
     #[derive(Deserialize)]
     struct V {
         bs: ByteArray,
@@ -25,4 +25,91 @@ fn byte_array_from_nbt_byte_array() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn int_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        is: IntArray,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .int_array("is", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(&*v.is, &[1, 2, 3, 4, 5]);
+
+    Ok(())
+}
+
+#[test]
+fn long_array() -> Result<()> {
+    #[derive(Deserialize)]
+    struct V {
+        ls: LongArray,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .long_array("ls", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice())?;
+    assert_eq!(&*v.ls, &[1, 2, 3, 4, 5]);
+
+    Ok(())
+}
+
+#[test]
+fn long_array_cannot_be_deserialized_to_int_array() {
+    #[derive(Deserialize)]
+    struct V {
+        _ls: IntArray,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .long_array("_ls", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
+}
+
+#[test]
+fn long_array_cannot_be_deserialized_to_byte_array() {
+    #[derive(Deserialize)]
+    struct V {
+        _ls: ByteArray,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .long_array("_ls", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
+}
+
+#[test]
+fn int_array_cannot_be_deserialized_to_byte_array() {
+    #[derive(Deserialize)]
+    struct V {
+        _ls: ByteArray,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .int_array("_ls", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
+}
+
 // TODO: Zero copy stuff
+// TODO: wrong array type fails

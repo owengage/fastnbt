@@ -1,6 +1,7 @@
 //! functionality around bit manipulations specific to the Anvil file format.
 
 use bit_field::{BitArray, BitField};
+use fastnbt::LongArray;
 use serde::Deserialize;
 
 /// PackedBits can be used in place of blockstates in chunks to avoid
@@ -8,7 +9,7 @@ use serde::Deserialize;
 /// default just retains a reference to the data in the input, and `unpack_into`
 /// can be used to get the unpacked version when needed.
 #[derive(Deserialize, Debug)]
-pub struct PackedBits(pub Vec<i64>);
+pub struct PackedBits(pub LongArray);
 
 impl PackedBits {
     pub fn unpack_blockstates(&self, bits_per_item: usize, buf: &mut [u16]) {
@@ -26,7 +27,7 @@ impl PackedBits {
     }
 
     fn unpack_1_16(&self, bits_per_item: usize, buf: &mut [u16]) {
-        let data = &self.0;
+        let data = &*self.0;
 
         let mut buf_i = 0;
         let values_per_64bits = 64 / bits_per_item;
@@ -49,7 +50,7 @@ impl PackedBits {
         //println!("1.15 packing {}", data.len());
         // TODO: Get around having to allocate here.
         let mut v: Vec<u64> = vec![];
-        for datum in &self.0 {
+        for datum in &*self.0 {
             v.push(*datum as u64);
         }
 
@@ -340,7 +341,7 @@ mod tests {
             63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 61, 61,
         ];
 
-        let packed = PackedBits(height_ints);
+        let packed = PackedBits(LongArray::new(height_ints));
         let mut buf = vec![0; 16 * 16];
         packed.unpack_blockstates(9, buf.as_mut_slice());
         assert_eq!(&expected[..], &buf[..]);
