@@ -303,19 +303,7 @@ where
         }
         Tag::ByteArray | Tag::IntArray | Tag::LongArray => {
             let size = de.input.consume_list_size()?;
-            let non_array_tag = match tag {
-                Tag::ByteArray => Tag::Byte,
-                Tag::IntArray => Tag::Int,
-                Tag::LongArray => Tag::Long,
-                // We just matched on the tag value, so it must equal one of the
-                // above tags unless we've updated one match and not the other.
-                _ => panic!("array tag not listed"),
-            };
-
             visitor.visit_map(ArrayWrapperAccess::new(de, size, tag))
-
-            // Going to pretend we're in a list to reuse the ListAccess.
-            //visitor.visit_seq(ListAccess::new(de, size))
         }
         // This would really only occur when we encounter a list where the
         // element type is 'End', but we specifically handle that case, so we
@@ -328,7 +316,7 @@ where
 
 impl<'de> InputHelper<'de> {
     // Safely get a subslice, erroring if there's not enough input.
-    fn sublice(&self, r: Range<usize>) -> Result<&'de [u8]> {
+    pub(crate) fn subslice(&self, r: Range<usize>) -> Result<&'de [u8]> {
         if r.end <= self.0.len() {
             Ok(&self.0[r])
         } else {
@@ -347,7 +335,7 @@ impl<'de> InputHelper<'de> {
 
     fn consume_size_prefixed_string(&mut self) -> Result<&'de str> {
         let len = self.0.read_u16::<BigEndian>()? as usize;
-        let s = std::str::from_utf8(self.sublice(0..len)?)
+        let s = std::str::from_utf8(self.subslice(0..len)?)
             .map_err(|_| Error::nonunicode_string(&self.0[..len]));
         self.0 = &self.0[len..];
         s

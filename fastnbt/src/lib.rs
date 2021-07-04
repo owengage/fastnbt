@@ -98,6 +98,9 @@ pub use arrays::*;
 
 pub(crate) mod de_arrays;
 
+#[cfg(test)]
+mod test;
+
 use std::{collections::HashMap, convert::TryFrom};
 
 /// An NBT tag. This does not carry the value or the name of the data.
@@ -292,9 +295,8 @@ impl From<Tag> for u8 {
     }
 }
 
-#[cfg(test)]
-mod test;
-
+/// Compile time NBT tag type. Useful for forcing a custom type to have a field
+/// that must be a given tag. Used for the Array types.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct CompTag<const N: u8>;
 

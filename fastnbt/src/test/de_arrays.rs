@@ -165,3 +165,21 @@ fn long_array_zero_copy() {
     let v: V = from_bytes(payload.as_slice()).unwrap();
     assert!(v.data.iter().eq([1, 2, 3, 4, 5]));
 }
+
+#[test]
+fn array_subslice_doesnt_panic() {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        #[serde(borrow)]
+        _data: borrow::LongArray<'a>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("")
+        .long_array("_data", &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        .end_compound()
+        .build();
+
+    // cut off the data
+    assert!(matches!(from_bytes::<V>(&payload[..20]), Err(_)));
+}

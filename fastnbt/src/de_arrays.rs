@@ -1,6 +1,5 @@
 use core::panic;
 use std::convert::TryInto;
-use std::io::Read;
 use std::num::TryFromIntError;
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -96,7 +95,6 @@ impl<'a, 'de> de::SeqAccess<'de> for ArrayAccess<'a, 'de> {
         self.hint.try_into().ok()
     }
 
-    #[inline]
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: serde::de::DeserializeSeed<'de>,
@@ -133,7 +131,10 @@ impl<'a, 'de> serde::Deserializer<'de> for ArrayElementDeserializer<'a, 'de> {
         V: de::Visitor<'de>,
     {
         // This happens when we know we're in an array type value, but the type
-        // we're deserializing into does not.
+        // we're deserializing into does not have an explicit element type in
+        // mind. For example, this happens when deserializing our Value type,
+        // and might happen if someone made a custom type matching our
+        // deserializers model for these array types.
         match self.tag {
             Tag::ByteArray => self.deserialize_i8(visitor),
             Tag::IntArray => self.deserialize_i32(visitor),
@@ -212,13 +213,14 @@ impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_seq(ArrayAccess::new(self.de, self.tag, self.size)) // TOOD: size
+        visitor.visit_seq(ArrayAccess::new(self.de, self.tag, self.size))
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        // This code path happens when we're deserializing borrow:*Array types.
         let len: usize = self
             .size
             .try_into()
@@ -226,7 +228,7 @@ impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
 
         let total_bytes = len * element_size(self.tag);
 
-        let res = &self.de.input.0[0..total_bytes];
+        let res = &self.de.input.subslice(0..total_bytes)?;
         self.de.input.0 = &self.de.input.0[total_bytes..];
         visitor.visit_borrowed_bytes(res)
     }
