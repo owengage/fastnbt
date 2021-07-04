@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use crate::borrow;
 use crate::error::Result;
 use crate::ByteArray;
 use crate::IntArray;
@@ -111,5 +112,56 @@ fn int_array_cannot_be_deserialized_to_byte_array() {
     assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
 }
 
-// TODO: Zero copy stuff
-// TODO: wrong array type fails
+#[test]
+fn byte_array_zero_copy() {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        #[serde(borrow)]
+        data: borrow::ByteArray<'a>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .byte_array("data", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+    assert!(v.data.iter().eq([1, 2, 3, 4, 5]));
+}
+
+#[test]
+fn int_array_zero_copy() {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        #[serde(borrow)]
+        data: borrow::IntArray<'a>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .int_array("data", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+    assert!(v.data.iter().eq([1, 2, 3, 4, 5]));
+}
+
+#[test]
+fn long_array_zero_copy() {
+    #[derive(Deserialize)]
+    struct V<'a> {
+        #[serde(borrow)]
+        data: borrow::LongArray<'a>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .long_array("data", &[1, 2, 3, 4, 5])
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+    assert!(v.data.iter().eq([1, 2, 3, 4, 5]));
+}

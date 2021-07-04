@@ -28,7 +28,7 @@ comparison to them. The Hemtite `nbt` crate was the only other crate I found wit
 
 | Feature | `fastnbt` | Hematite `nbt` | note |
 | ------- | --------- | -------------- | ---- |
-| Benchmark world render (relative)\* | 1.00 | 1.09 | About 9% faster. See note. |
+| Benchmark world render time (relative)\* | 1.00 | 1.37 | fastnbt is ~37% faster. See note. |
 | Deserialization | yes | yes | |
 | Serialization | no | yes | |
 | `Value`-like type | yes | yes | |
@@ -39,7 +39,7 @@ comparison to them. The Hemtite `nbt` crate was the only other crate I found wit
 
 
 \* This is rendering the overworld of Etho's Lets Play Episode. Exact relative
-figures are 1000±7 for fastnbt and 1090±7 for hematite-nbt. This used the
+figures are 1000±13 for fastnbt and 1370±7 for hematite-nbt. This used the
 `anvil tiles` executable, swapping out the deserializer only, so performance
 tweaks in rendering chunks are not counted.
 

@@ -1,10 +1,8 @@
 use std::ops::Deref;
 
-use serde::{de::Error, Deserialize};
+use serde::Deserialize;
 
-const BYTE_ARRAY_TAG: u8 = 7;
-const INT_ARRAY_TAG: u8 = 11;
-const LONG_ARRAY_TAG: u8 = 12;
+use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ByteArray {
@@ -54,22 +52,5 @@ impl Deref for LongArray {
 
     fn deref(&self) -> &Self::Target {
         &self.data
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct CompTag<const N: u8>;
-
-impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let tag: u8 = Deserialize::deserialize(deserializer)?;
-        if tag != N {
-            Err(Error::custom("unexpected array type"))
-        } else {
-            Ok(Self)
-        }
     }
 }

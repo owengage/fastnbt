@@ -1,5 +1,7 @@
 use core::panic;
 use std::convert::TryInto;
+use std::io::Read;
+use std::num::TryFromIntError;
 
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::de::{self, IntoDeserializer};
@@ -202,7 +204,7 @@ impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string seq
-        bytes byte_buf option unit unit_struct newtype_struct tuple
+     byte_buf option unit unit_struct newtype_struct tuple
         tuple_struct map struct enum identifier ignored_any
     }
 
@@ -211,5 +213,30 @@ impl<'a, 'de> serde::Deserializer<'de> for ArrayDeserializer<'a, 'de> {
         V: de::Visitor<'de>,
     {
         visitor.visit_seq(ArrayAccess::new(self.de, self.tag, self.size)) // TOOD: size
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let len: usize = self
+            .size
+            .try_into()
+            .map_err(|e: TryFromIntError| Error::bespoke(e.to_string()))?;
+
+        let total_bytes = len * element_size(self.tag);
+
+        let res = &self.de.input.0[0..total_bytes];
+        self.de.input.0 = &self.de.input.0[total_bytes..];
+        visitor.visit_borrowed_bytes(res)
+    }
+}
+
+fn element_size(tag: Tag) -> usize {
+    match tag {
+        Tag::ByteArray => std::mem::size_of::<i8>(),
+        Tag::IntArray => std::mem::size_of::<i32>(),
+        Tag::LongArray => std::mem::size_of::<i64>(),
+        _ => panic!("element size of non-array type"),
     }
 }

@@ -13,14 +13,26 @@
 //! fastnbt = "0.18"
 //! ```
 //!
+//! # Byte/int/long array types
+//!
+//! To support `Value` capturing all NBT tag information, this deserializer
+//! treats the `ByteArray`, `IntArray` and `LongArray` types slightly weirdly.
+//! In order to capture these types in your own structs, use the appropriate
+//! type in this crate: [`fastnbt::ByteArray`], [`fastnbt::IntArray`] and
+//! [`fastnbt::LongArray`]. These types have an `iter()` method similar to
+//! `Vec`.
+//!
 //! # Quick example
 //!
 //! This example demonstrates printing out a players inventory and ender chest
 //! contents from the [player dat
 //! files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds.
-//! We leverage serde's renaming attribute to have rustfmt conformant field
-//! names, use lifetimes to save on some string allocations, and use the `Value`
-//! type to deserialize a field we don't specify the exact structure of.
+//!
+//! Here we
+//! * use serde's renaming attributes to have rustfmt conformant field names,
+//! * use lifetimes to save on some string allocations, and
+//! * use the `Value` type to deserialize a field we don't know the exact
+//!   structure of.
 //!
 //!```no_run
 //! use fastnbt::error::Result;
@@ -73,11 +85,13 @@
 
 use serde::Deserialize;
 
+pub mod borrow;
 pub mod de;
 pub mod error;
 pub mod stream;
 
 mod arrays;
+
 pub use arrays::*;
 
 pub(crate) mod de_arrays;
@@ -115,6 +129,10 @@ pub enum Tag {
     /// Represents as array of Long (i64).
     LongArray = 12,
 }
+
+pub(crate) const BYTE_ARRAY_TAG: u8 = 7;
+pub(crate) const INT_ARRAY_TAG: u8 = 11;
+pub(crate) const LONG_ARRAY_TAG: u8 = 12;
 
 /// Value is a complete NBT value. It owns it's data. The Byte, Short, Int and
 /// Long NBT types are all deserialized into `i64`. Compounds and Lists are
@@ -274,3 +292,20 @@ impl From<Tag> for u8 {
 
 #[cfg(test)]
 mod test;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CompTag<const N: u8>;
+
+impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let tag: u8 = Deserialize::deserialize(deserializer)?;
+        if tag != N {
+            Err(serde::de::Error::custom("unexpected array type"))
+        } else {
+            Ok(Self)
+        }
+    }
+}
