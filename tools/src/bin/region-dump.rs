@@ -1,5 +1,6 @@
+use std::io::Write;
+
 use fastanvil::RegionBuffer;
-use fastnbt::stream::{Parser, Value};
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
@@ -8,33 +9,13 @@ fn main() {
     let mut region = RegionBuffer::new(file);
 
     region
-        .for_each_chunk(|_x, _z, data| {
-            let mut parser = Parser::new(data.as_slice());
-            let mut indent = 0;
+        .for_each_chunk(|x, z, data| {
+            let mut file = std::fs::File::create(format!("chunks/{}.{}.nbt", x, z)).unwrap();
+            file.write_all(data).unwrap();
 
-            loop {
-                match parser.next() {
-                    Err(e) => {
-                        println!("{:?}", e);
-                        break;
-                    }
-                    Ok(value) => {
-                        match value {
-                            Value::CompoundEnd => indent -= 4,
-                            Value::ListEnd => indent -= 4,
-                            _ => {}
-                        }
-
-                        println!("{:indent$}{:?}", "", value, indent = indent);
-
-                        match value {
-                            Value::Compound(_) => indent += 4,
-                            Value::List(_, _, _) => indent += 4,
-                            _ => {}
-                        }
-                    }
-                }
-            }
+            let mut file = std::fs::File::create(format!("chunks/{}.{}.txt", x, z)).unwrap();
+            let chunk: fastnbt::Value = fastnbt::de::from_bytes(data).unwrap();
+            file.write_all(format!("{:#?}", chunk).as_bytes()).unwrap();
         })
         .unwrap();
 }

@@ -103,7 +103,10 @@ pub(crate) mod de_arrays;
 #[cfg(test)]
 mod test;
 
-use std::convert::TryFrom;
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt::Display,
+};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -190,7 +193,7 @@ impl From<Tag> for u8 {
 
 /// Compile time NBT tag type. Useful for forcing a custom type to have a field
 /// that must be a given tag. Used for the Array types.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) struct CompTag<const N: u8>;
 
 impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {
@@ -203,6 +206,16 @@ impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {
             Err(serde::de::Error::custom("unexpected array type"))
         } else {
             Ok(Self)
+        }
+    }
+}
+
+impl<const N: u8> std::fmt::Debug for CompTag<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let tag = <u8 as TryInto<Tag>>::try_into(N);
+        match tag {
+            Ok(tag) => tag.fmt(f),
+            Err(_) => write!(f, "InvalidTag({})", N),
         }
     }
 }
