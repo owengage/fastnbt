@@ -103,10 +103,7 @@ pub(crate) mod de_arrays;
 #[cfg(test)]
 mod test;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    fmt::Display,
-};
+use std::convert::{TryFrom, TryInto};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]

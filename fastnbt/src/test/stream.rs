@@ -203,10 +203,8 @@ fn end_of_reader_is_signalled() -> Result<()> {
     let mut parser = Parser::new(payload.as_slice());
 
     assert!(parser.next().is_ok());
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }
 
 #[test]
@@ -245,10 +243,8 @@ fn simple_list() -> Result<()> {
     assert_eq!(parser.next()?, Value::Byte(None, 2));
     assert_eq!(parser.next()?, Value::Byte(None, 3));
     assert_eq!(parser.next()?, Value::ListEnd);
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }
 
 #[test]
@@ -269,10 +265,8 @@ fn simple_list_of_int() -> Result<()> {
     assert_eq!(parser.next()?, Value::Int(None, 2));
     assert_eq!(parser.next()?, Value::Int(None, 3));
     assert_eq!(parser.next()?, Value::ListEnd);
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }
 
 #[test]
@@ -305,10 +299,8 @@ fn two_lists_one_after_another() -> Result<()> {
     assert_eq!(parser.next()?, Value::Byte(None, 2));
     assert_eq!(parser.next()?, Value::Byte(None, 3));
     assert_eq!(parser.next()?, Value::ListEnd);
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }
 
 #[test]
@@ -334,10 +326,8 @@ fn compound_with_list_inside() -> Result<()> {
     assert_eq!(parser.next()?, Value::Int(None, 3));
     assert_eq!(parser.next()?, Value::ListEnd);
     assert_eq!(parser.next()?, Value::CompoundEnd);
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }
 
 #[test]
@@ -364,10 +354,8 @@ fn nested_compound() -> Result<()> {
     assert_eq!(parser.next()?, Value::CompoundEnd);
     assert_eq!(parser.next()?, Value::Byte(name("extra"), 3));
     assert_eq!(parser.next()?, Value::CompoundEnd);
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }
 
 #[test]
@@ -394,8 +382,6 @@ fn list_of_compounds() -> Result<()> {
     assert_eq!(parser.next()?, Value::Compound(None));
     assert_eq!(parser.next()?, Value::CompoundEnd);
     assert_eq!(parser.next()?, Value::ListEnd);
-    match parser.next() {
-        Err(Error::EOF) => Ok(()),
-        _ => panic!("should be EOF"),
-    }
+    assert!(matches!(parser.next(), Err(e) if e.is_eof()));
+    Ok(())
 }

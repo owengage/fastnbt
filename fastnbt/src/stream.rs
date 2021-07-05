@@ -2,8 +2,7 @@
 
 use super::Tag;
 use byteorder::{BigEndian, ReadBytesExt};
-use std::{convert::TryFrom, io::Read};
-use thiserror::Error as ThisError;
+use std::{convert::TryFrom, io::Read, str};
 
 /// An optional `String`.
 pub type Name = Option<String>;
@@ -35,29 +34,43 @@ pub enum Value {
     LongArray(Name, Vec<i64>),
 }
 
-#[derive(Debug, ThisError)]
-#[non_exhaustive]
-pub enum Error {
-    /// An underlying IO error.
-    #[error("io")]
-    Io {
-        #[from]
-        source: std::io::Error,
-    },
+#[derive(Debug)]
+pub struct Error(String);
 
-    /// Tag was not a valid NBT tag.
-    #[error("invalid NBT tag: {}", .0)]
-    InvalidTag(u8),
+impl Error {
+    pub fn is_eof(&self) -> bool {
+        self.0 == "EOF" // bit hacky.
+    }
 
-    /// String or name was not valid unicode.
-    #[error("string or name was not utf-8")]
-    NonunicodeString(Vec<u8>),
+    fn bespoke(msg: impl Into<String>) -> Self {
+        Self(msg.into())
+    }
+    fn invalid_tag(t: u8) -> Self {
+        Self(format!("invalid tag: {}", t))
+    }
+    fn nonunicode(d: Vec<u8>) -> Self {
+        Self(format!(
+            "invalid string, non-unicode: {}",
+            String::from_utf8_lossy(&d),
+        ))
+    }
+    fn eof() -> Self {
+        Self::bespoke("EOF")
+    }
+}
 
-    /// Hit EOF, this may or may not be the end of the NBT data. At this level
-    /// of abstraction we cannot tell. It is the callers responsibility to
-    /// check.
-    #[error("end of file (EOF)")]
-    EOF,
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self(e.to_string())
+    }
 }
 
 /// Convenience type for Result.
@@ -193,7 +206,7 @@ impl<R: Read> Parser<R> {
         // natural end of stream.
         let tag = match self.reader.read_u8() {
             Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Err(Error::EOF)?,
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Err(Error::eof())?,
             e => e?,
         };
 
@@ -207,8 +220,8 @@ impl<R: Read> Parser<R> {
                     self.layers.pop();
                     Ok(Value::CompoundEnd)
                 }
-                Some(_) => Err(Error::InvalidTag(0)),
-                None => Err(Error::InvalidTag(0)), // special case for no root compound?
+                Some(_) => Err(Error::bespoke("expected to be in compound")),
+                None => Err(Error::bespoke("expected to be in compound")),
             };
         }
 
@@ -224,7 +237,7 @@ impl<R: Read> Parser<R> {
         self.reader.read_exact(&mut buf[..])?;
 
         Ok(std::str::from_utf8(&buf[..])
-            .map_err(|_| Error::NonunicodeString(Vec::from(&buf[..])))?
+            .map_err(|_| Error::nonunicode(Vec::from(&buf[..])))?
             .to_owned())
     }
 
@@ -336,7 +349,7 @@ fn vec_u8_into_i8(v: Vec<u8>) -> Vec<i8> {
 }
 
 fn u8_to_tag(tag: u8) -> Result<Tag> {
-    Tag::try_from(tag).or_else(|_| Err(Error::InvalidTag(tag)))
+    Tag::try_from(tag).or_else(|_| Err(Error::invalid_tag(tag)))
 }
 
 #[derive(Clone)]

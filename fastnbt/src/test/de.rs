@@ -1135,3 +1135,12 @@ fn int_array_in_fullvalue() {
         _ => panic!(),
     }
 }
+
+#[test]
+fn trailing_bytes() {
+    // Can't really see a way to assert that there are no trailing bytes. We
+    // don't return how far in to the input we got.
+    let mut input = Builder::new().start_compound("").end_compound().build();
+    input.push(1);
+    let _v: Value = from_bytes(&input).unwrap();
+}

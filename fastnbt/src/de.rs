@@ -208,7 +208,6 @@ where
 {
     let mut des = Deserializer::from_bytes(&input);
     let t = T::deserialize(&mut des)?;
-    // TODO: trailing chars?
     Ok(t)
 }
 
