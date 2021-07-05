@@ -12,7 +12,8 @@ https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
 [Latest Version]: https://img.shields.io/crates/v/fastnbt.svg
 [crates.io]: https://crates.io/crates/fastnbt
 
-NBT deserializer and in-browser Rust-to-WASM powered Minecraft map renderer.
+Serde deserializer for *Minecraft: Java Edition's* NBT format, and in-browser
+Rust-to-WASM powered Minecraft map renderer. Supports 1.17.
 
 # Demo
 Demo of Hermitcraft season 7 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft7)
@@ -21,8 +22,8 @@ Demo of Hermitcraft season 7 and more at [owengage.com/anvil](https://owengage.c
 
 This repository contains multiple related projects.
 
-* [fastnbt](fastnbt/README.md): Fast (or trying to be!) serde deserializer
-  for *Minecraft: Java Edition*'s NBT data format.
+* [fastnbt](fastnbt/README.md): Fast serde deserializer for *Minecraft: Java
+  Edition*'s NBT data format.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
 
@@ -38,12 +39,12 @@ See [fastnbt's README](fastnbt/README.md) for performance comparison.
 
 # Serde deserializer example
 
- This example demonstrates printing out a players inventory and ender chest
- contents from the [player dat
+ This example demonstrates printing out a players inventory and ender chest contents from the [player dat
  files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds. We
- leverage serde's renaming attribute to have rustfmt conformant field names, use
- lifetimes to save on some string allocations, and use the `Value` type to
- deserialize a field we don't specify the exact structure of.
+ * use serde's renaming attribute to have rustfmt conformant field names,
+ * use lifetimes to save on string allocations, and 
+ * use the `Value` type to deserialize a field we don't specify the exact
+   structure of.
 
 ```rust
 use fastnbt::error::Result;
