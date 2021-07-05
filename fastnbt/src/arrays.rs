@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct ByteArray {
     tag: CompTag<BYTE_ARRAY_TAG>,
     data: Vec<i8>,
@@ -22,7 +22,7 @@ impl Deref for ByteArray {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct IntArray {
     tag: CompTag<INT_ARRAY_TAG>,
     data: Vec<i32>,
@@ -36,7 +36,7 @@ impl Deref for IntArray {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct LongArray {
     tag: CompTag<LONG_ARRAY_TAG>,
     data: Vec<i64>,
