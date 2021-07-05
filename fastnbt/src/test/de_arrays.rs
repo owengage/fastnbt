@@ -183,3 +183,26 @@ fn array_subslice_doesnt_panic() {
     // cut off the data
     assert!(matches!(from_bytes::<V>(&payload[..20]), Err(_)));
 }
+
+#[test]
+fn nice_error_if_deserialize_array_to_seq() {
+    // Since the handling of NBT Arrays is a bit surprising, we want to make
+    // that if someone tries to deserialize an Array into a serde seq (like a
+    // Vec) rather than the dedicated types, we give a nice error message to them.
+    #[derive(Deserialize)]
+    struct V {
+        _data: Vec<i64>,
+    }
+
+    let payload = Builder::new()
+        .start_compound("")
+        .long_array("_data", &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        .end_compound()
+        .build();
+
+    let res = from_bytes::<V>(&payload);
+    match res {
+        Ok(_) => panic!("expected err"),
+        Err(e) => assert!(e.to_string().contains("Array")),
+    }
+}

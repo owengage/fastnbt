@@ -218,6 +218,7 @@ where
 pub struct Deserializer<'de> {
     pub(crate) input: InputHelper<'de>,
     layers: Vec<Layer>,
+    last_hint: Option<&'static str>,
 }
 
 impl<'de> Deserializer<'de> {
@@ -229,6 +230,7 @@ impl<'de> Deserializer<'de> {
         Self {
             input: InputHelper(input),
             layers: vec![],
+            last_hint: None,
         }
     }
 }
@@ -260,6 +262,9 @@ fn consume_value<'de, V>(de: &mut Deserializer<'de>, visitor: V, tag: Tag) -> Re
 where
     V: de::Visitor<'de>,
 {
+    let last_hint = de.last_hint;
+    de.last_hint = None;
+
     match tag {
         Tag::Byte => visitor.visit_i8(de.input.0.read_i8()?),
         Tag::Short => visitor.visit_i16(de.input.0.read_i16::<BigEndian>()?),
@@ -302,6 +307,12 @@ where
             visitor.visit_seq(ListAccess::new(de, size))
         }
         Tag::ByteArray | Tag::IntArray | Tag::LongArray => {
+            if last_hint == Some("seq") {
+                return Err(Error::bespoke(
+                    "expected NBT Array, found seq: use ByteArray, IntArray or LongArray types"
+                        .into(),
+                ));
+            }
             let size = de.input.consume_list_size()?;
             visitor.visit_map(ArrayWrapperAccess::new(de, size, tag))
         }
@@ -435,7 +446,7 @@ impl<'de> InputHelper<'de> {
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    forward_to_deserialize_any!(struct map identifier i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 str string seq tuple);
+    forward_to_deserialize_any!(struct map identifier i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 str string tuple);
 
     fn is_human_readable(&self) -> bool {
         false
@@ -725,6 +736,16 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
 
         visitor.visit_unit()
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        // We record the fact we saw seq, so that if we then try to decode an
+        // NBT array, we can provide a nice error message.
+        self.last_hint = Some("seq");
+        self.deserialize_any(visitor)
     }
 }
 
