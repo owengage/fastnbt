@@ -17,7 +17,7 @@ deserialized. The `borrow` module contains more types for avoiding allocations.
 
 ```toml
 [dependencies]
-fastnbt = "0.19"
+fastnbt = "1"
 ```
 
 # Comparison to other NBT crates
