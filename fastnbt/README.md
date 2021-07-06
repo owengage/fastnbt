@@ -20,6 +20,17 @@ deserialized. The `borrow` module contains more types for avoiding allocations.
 fastnbt = "1"
 ```
 
+`fastnbt` follows Semver, so any version 1 code you write should remain valid.
+Some things that this project does *not* count as a breaking change are:
+
+* Minimum Rust version change. Outside of corporate environments this should not
+  be too difficult, and I don't see much need for NBT in those environments.
+* Improving the deserializer such that valid NBT that did not deserialize, then
+  deserializes. Any of these cases I consider a bug.
+
+Changes that make `fastnbt` incompatible with WebAssembly *are* considered
+breaking changes.
+
 # Comparison to other NBT crates
 
 There are other crates for NBT out there, this tries to give an honest
@@ -30,7 +41,7 @@ comparison to them. The Hemtite `nbt` crate was the only other crate I found wit
 | Benchmark world render time (relative)\* | 1.00 | 1.37 | fastnbt is ~37% faster. See note. |
 | Deserialization | yes | yes | |
 | Serialization | no | yes | |
-| `Value`-like type | yes | yes | |
+| `Value`-like type | yes | yes | `fastnbt` is careful to preserve exact types. |
 | Long Array (MC 1.12+) | yes | yes | | 
 | Minecraft specialized unicode | no\*\* | yes | |
 | Deserialize from reader | no | yes | |

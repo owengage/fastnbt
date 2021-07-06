@@ -17,14 +17,44 @@
 //!
 //! # Byte, Int and Long array types
 //!
-//! To support `Value` capturing all NBT tag information, this deserializer
-//! produces the `ByteArray`, `IntArray` and `LongArray` NBT data as a map
-//! containing the original NBT tag and the data. In order to capture these
-//! types in your own structs, use the appropriate type in this crate:
-//! [`ByteArray`], [`IntArray`] and [`LongArray`]. These types have an `iter()`
-//! method similar to [`Vec`][`std::vec::Vec`].
+//! There are three array types in NBT. To capture these, use [`ByteArray`],
+//! [`IntArray`], and [`LongArray`]. These NBT types do not deserialize straight
+//! into serde sequences like `Vec` in order to preserve the information from
+//! the original NBT. Without these types, it is not possible to tell if some
+//! data came from a NBT List or an NBT Array.
 //!
-//! # Quick example
+//! Use these in your own data structures. They all implement
+//! [`Deref`][`std::ops::Deref`] for dereferencing into the underlying `Vec`.
+//!
+//! For versions that borrow their data, see
+//! `fasnbt::{`[`ByteArray`][`crate::ByteArray`],
+//! [`IntArray`][`crate::IntArray`], [`LongArray`][`crate::LongArray`]`}`.
+//!
+//! An example of deserializing a section of a chunk:
+//!
+//! ```no_run
+//! use fastnbt::LongArray;
+//! use serde::Deserialize;
+//!
+//! #[derive(Deserialize)]
+//! #[serde(rename_all = "PascalCase")]
+//! pub struct Section {
+//!     pub block_states: Option<LongArray>,
+//!     pub y: i8,
+//! }
+//!
+//! fn main(){
+//!     let buf: &[u8] = unimplemented!("get a buffer from somewhere");
+//!     let section: Section = fastnbt::de::from_bytes(buf).unwrap();
+//!     let states = section.block_states.unwrap();
+//!
+//!     for long in states.iter() {
+//!         // do something
+//!     }
+//! }
+//! ```
+//!
+//! # Example: Player inventory
 //!
 //! This example demonstrates printing out a players inventory and ender chest
 //! contents from the [player dat
@@ -37,16 +67,11 @@
 //!   structure of.
 //!
 //!```no_run
-//! use fastnbt::error::Result;
-//! use fastnbt::{de::from_bytes, Value};
-//! use flate2::read::GzDecoder;
-//! use serde::Deserialize;
-//! use std::io::Read;
+//! use fastnbt::error::Result; use fastnbt::{de::from_bytes, Value}; use
+//! flate2::read::GzDecoder; use serde::Deserialize; use std::io::Read;
 //!
-//! #[derive(Deserialize, Debug)]
-//! #[serde(rename_all = "PascalCase")]
-//! struct PlayerDat<'a> {
-//!     data_version: i32,
+//! #[derive(Deserialize, Debug)] #[serde(rename_all = "PascalCase")] struct
+//! PlayerDat<'a> {data_version: i32,
 //!
 //!     #[serde(borrow)]
 //!     inventory: Vec<InventorySlot<'a>>,
@@ -55,8 +80,11 @@
 //!
 //! #[derive(Deserialize, Debug)]
 //! struct InventorySlot<'a> {
-//!     id: &'a str,        // We avoid allocating a string here.
-//!     tag: Option<Value>, // Also get the less structured properties of the object.
+//!     // We avoid allocating a string here.
+//!     id: &'a str,
+//!
+//!     // Also get the less structured properties of the object.
+//!     tag: Option<Value>,
 //!
 //!     // We need to rename fields a lot.
 //!     #[serde(rename = "Count")]

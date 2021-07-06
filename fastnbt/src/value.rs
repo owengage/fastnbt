@@ -4,9 +4,10 @@ use serde::Deserialize;
 
 use crate::{ByteArray, IntArray, LongArray};
 
-/// Value is a complete NBT value. It owns it's data. The Byte, Short, Int and
-/// Long NBT types are all deserialized into `i64`. Compounds and Lists are
-/// resursively deserialized.
+/// Value is a complete NBT value. It owns its data. Compounds and Lists are
+/// resursively deserialized. This type takes care to preserve all the
+/// information from the original NBT, with the exception of the name of the
+/// root compound (which is usually the empty string).
 ///
 /// ```no_run
 /// # use fastnbt::Value;
