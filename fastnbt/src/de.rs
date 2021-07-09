@@ -8,7 +8,7 @@
 //! This deserializer only supports [`from_bytes`](fn.from_bytes.html). This is
 //! usually fine as most structures stored in this format are reasonably small,
 //! the largest likely being an individual Chunk which maxes out at 1 MiB
-//! compressed. This allows us to avoid excessive memory allocations.
+//! compressed. This enables zero-copy deserialization in places.
 //!
 //! # Avoiding allocations
 //!
@@ -16,12 +16,25 @@
 //! like strings and vectors, instead deserializing into a reference to the
 //! input data.
 //!
-//! This deserializer will allow you to deserialize any list of integral value
-//! to a `&[u8]` slice to avoid allocations. This includes the ByteArray,
-//! IntArray, LongArray types as well as a List that happens to be only one of
-//! these types. This does however mean some more effort on the implementors
-//! side to extract the real values. The `fastanvil` crate can potentially do
-//! some of this for you.
+//! The following table summarises what types you likely want to store NBT data
+//! in for owned or borrowed types:
+//!
+//! | NBT type | Owned type | Borrowed type |
+//! | -------- | ---------- | ------------- |
+//! | Byte | `u8` or `i8` | use owned |
+//! | Short | `u16` or `i16` | use owned |
+//! | Int | `i32` or `u32` | use owned |
+//! | Long | `i64` or `u64` | use owned |
+//! | Float | `f32` | use owned |
+//! | Double | `f64` | use owned |
+//! | String | `&str` | `String` |
+//! | List | `Vec<T>` | use owned |
+//! | Byte Array | [`ByteArray`][`crate::ByteArray`] | [`borrow::ByteArray`][`crate::borrow::ByteArray`] |
+//! | Int Array | [`IntArray`][`crate::IntArray`] | [`borrow::IntArray`][`crate::borrow::IntArray`] |
+//! | Long Array | [`LongArray`][`crate::LongArray`] | [`borrow::LongArray`][`crate::borrow::LongArray`] |
+//!
+//! Borrowing for types like `i64`, `u32`, or `f64` is generally not possible
+//! due to alignment requirements. It likely wouldn't be faster/smaller anyway.
 //!
 //! # Other quirks
 //!
@@ -30,12 +43,14 @@
 //!   value is negative to avoid unexpected behaviour with wrap-around. This
 //!   does not apply to deserializing lists of integrals to `u8` slice or
 //!   vectors.
+//! * Any integral value from NBT can be deserialized to bool. Any non-zero
+//!   value becomes `true`.
 //! * You can deserialize a field to the unit type `()`. This ignores the value
 //!   but ensures that it existed.
-//! * You cannot deserialize bytes directly into anything other than a `struct`
-//!   or similar object eg `HashMap`. This is due to a misalignment between the
-//!   NBT format and Rust's types. Attempting to will give a `NoRootCompound`
-//!   error.
+//! * You cannot deserialize into anything other than a `struct` or similar
+//!   container eg `HashMap`. This is due to a misalignment between the NBT
+//!   format and Rust's types. Attempting to will give a `NoRootCompound` error.
+//!   This means you can never do `let s: String = from_bytes(...)`.
 //!
 //! # Example Minecraft types
 //!
@@ -112,7 +127,8 @@
 //!
 //! ```rust
 //! # use serde::Deserialize;
-
+//! use fastnbt::borrow::LongArray;
+//!
 //! #[derive(Deserialize)]
 //! struct Chunk<'a> {
 //!     #[serde(rename = "Level")]
@@ -131,7 +147,7 @@
 //! #[serde(rename_all = "PascalCase")]
 //! pub struct Section<'a> {
 //!     #[serde(borrow)]
-//!     pub block_states: Option<&'a [u8]>,
+//!     pub block_states: Option<LongArray<'a>>,
 //! }
 //! ```
 //!

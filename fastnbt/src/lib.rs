@@ -26,9 +26,7 @@
 //! Use these in your own data structures. They all implement
 //! [`Deref`][`std::ops::Deref`] for dereferencing into the underlying `Vec`.
 //!
-//! For versions that borrow their data, see
-//! `fasnbt::{`[`ByteArray`][`crate::ByteArray`],
-//! [`IntArray`][`crate::IntArray`], [`LongArray`][`crate::LongArray`]`}`.
+//! For versions that borrow their data, see [`borrow`].
 //!
 //! An example of deserializing a section of a chunk:
 //!
