@@ -315,6 +315,7 @@ name = "fastnbt"
 version = "1.0.2"
 dependencies = [
  "byteorder",
+ "cesu8",
  "flate2",
  "serde",
 ]

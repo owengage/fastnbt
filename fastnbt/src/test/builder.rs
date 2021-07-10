@@ -2,6 +2,9 @@ use std::convert::TryInto;
 
 use super::super::*;
 
+/// Builder for NBT data. This is to create test data. It specifically does
+/// *not* guarantee the resulting data is valid NBT. Creating invalid NBT is
+/// useful for testing.
 pub struct Builder {
     payload: Vec<u8>,
 }
@@ -19,9 +22,10 @@ impl Builder {
     }
 
     pub fn name(mut self, name: &str) -> Self {
+        let name = cesu8::to_java_cesu8(name);
         let len_bytes = &(name.len() as u16).to_be_bytes()[..];
         self.payload.extend_from_slice(len_bytes);
-        self.payload.extend_from_slice(name.as_bytes());
+        self.payload.extend_from_slice(&name);
         self
     }
 
@@ -141,6 +145,21 @@ impl Builder {
 
     pub fn double_payload(mut self, f: f64) -> Self {
         self.payload.extend_from_slice(&f.to_be_bytes()[..]);
+        self
+    }
+
+    pub fn raw_len(mut self, len: usize) -> Self {
+        let len: u16 = len.try_into().expect("test given length beyond u16");
+        let len_bytes = &len.to_be_bytes();
+        self.payload.extend_from_slice(len_bytes);
+        self
+    }
+    /// Straight up add some bytes to the payload. For very corner-case tests
+    /// that are not worth a specific builder method.
+    pub fn raw_bytes(mut self, bs: &[u8]) -> Self {
+        for b in bs {
+            self.payload.push(*b);
+        }
         self
     }
 

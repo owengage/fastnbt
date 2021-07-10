@@ -187,6 +187,7 @@
 //! }
 //! ```
 
+use std::borrow::Cow;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
@@ -273,6 +274,16 @@ enum Layer {
 /// to borrow just the input, making us free to also borrow/mutate the layers.
 pub(crate) struct InputHelper<'de>(pub(crate) &'de [u8]);
 
+fn visit_cow_str<'de, V>(v: V, s: Cow<'de, str>) -> Result<V::Value>
+where
+    V: de::Visitor<'de>,
+{
+    match s {
+        Cow::Borrowed(s) => v.visit_borrowed_str(s),
+        Cow::Owned(s) => v.visit_string(s),
+    }
+}
+
 fn consume_value<'de, V>(de: &mut Deserializer<'de>, visitor: V, tag: Tag) -> Result<V::Value>
 where
     V: de::Visitor<'de>,
@@ -285,7 +296,7 @@ where
         Tag::Short => visitor.visit_i16(de.input.0.read_i16::<BigEndian>()?),
         Tag::Int => visitor.visit_i32(de.input.0.read_i32::<BigEndian>()?),
         Tag::Long => visitor.visit_i64(de.input.0.read_i64::<BigEndian>()?),
-        Tag::String => visitor.visit_borrowed_str(de.input.consume_size_prefixed_string()?),
+        Tag::String => visit_cow_str(visitor, de.input.consume_size_prefixed_string()?),
         Tag::Float => visitor.visit_f32(de.input.consume_float()?),
         Tag::Double => visitor.visit_f64(de.input.consume_double()?),
         Tag::Compound => {
@@ -355,16 +366,18 @@ impl<'de> InputHelper<'de> {
         Tag::try_from(tag_byte).or_else(|_| Err(Error::invalid_tag(tag_byte)))
     }
 
-    fn consume_name(&mut self) -> Result<&'de str> {
+    fn consume_name(&mut self) -> Result<Cow<'de, str>> {
         self.consume_size_prefixed_string()
     }
 
-    fn consume_size_prefixed_string(&mut self) -> Result<&'de str> {
+    fn consume_size_prefixed_string(&mut self) -> Result<Cow<'de, str>> {
         let len = self.0.read_u16::<BigEndian>()? as usize;
-        let s = std::str::from_utf8(self.subslice(0..len)?)
-            .map_err(|_| Error::nonunicode_string(&self.0[..len]));
+        let str_data = self.subslice(0..len)?;
+        let s = cesu8::from_java_cesu8(str_data)
+            .map_err(|_| Error::nonunicode_string(&self.0[..len]))?;
+
         self.0 = &self.0[len..];
-        s
+        Ok(s)
     }
 
     fn consume_bytes_unchecked(&mut self, size: i32) -> Result<&'de [u8]> {
@@ -500,11 +513,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         Stage::Tag => {
                             *current_tag = Some(self.input.consume_tag()?);
                             *stage = Stage::Value;
-                            return visitor.visit_borrowed_str(self.input.consume_name()?);
+                            return visit_cow_str(visitor, self.input.consume_name()?);
                         }
                         Stage::Name => {
                             *stage = Stage::Value;
-                            return visitor.visit_borrowed_str(self.input.consume_name()?);
+                            return visit_cow_str(visitor, self.input.consume_name()?);
                         }
                         Stage::Value => {
                             *stage = Stage::Tag;

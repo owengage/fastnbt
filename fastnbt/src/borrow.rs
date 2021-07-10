@@ -40,6 +40,8 @@
 //!     }
 //! }
 
+use std::{borrow::Cow, fmt};
+
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Deserialize;
 
@@ -121,4 +123,60 @@ impl<'a> Iterator for LongIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.data.read_i64::<BigEndian>().ok()
     }
+}
+
+struct CowStr<'a>(Cow<'a, str>);
+
+impl<'de> serde::Deserialize<'de> for CowStr<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(CowStrVisitor)
+    }
+}
+
+struct CowStrVisitor;
+
+impl<'de> serde::de::Visitor<'de> for CowStrVisitor {
+    type Value = CowStr<'de>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string")
+    }
+
+    // Borrowed directly from the input string, which has lifetime 'de
+    // The input must outlive the resulting Cow.
+    fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(CowStr(Cow::Borrowed(value)))
+    }
+
+    // A string that currently only lives in a temporary buffer -- we need a copy
+    // (Example: serde is reading from a BufRead)
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(CowStr(Cow::Owned(value.to_owned())))
+    }
+
+    // An optimisation of visit_str for situations where the deserializer has
+    // already taken ownership. For example, the string contains escaped characters.
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(CowStr(Cow::Owned(value)))
+    }
+}
+
+pub fn deserialize_cow_str<'de, D>(deserializer: D) -> Result<Cow<'de, str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let wrapper = CowStr::deserialize(deserializer)?;
+    Ok(wrapper.0)
 }

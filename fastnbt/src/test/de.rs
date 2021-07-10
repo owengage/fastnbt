@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
@@ -1143,4 +1144,97 @@ fn trailing_bytes() {
     let mut input = Builder::new().start_compound("").end_compound().build();
     input.push(1);
     let _v: Value = from_bytes(&input).unwrap();
+}
+
+#[test]
+fn cesu8_string_in_nbt() {
+    // In the builder we always convert to java cesu8 form for strings anyway,
+    // but this test is more explicit and includes some unicode that actually
+    // has a different representation in cesu8 and utf-8.
+    let modified_unicode_str = cesu8::to_java_cesu8("😈");
+
+    let input = Builder::new()
+        .start_compound("")
+        .tag(Tag::String)
+        .name("hello")
+        .raw_len(modified_unicode_str.len())
+        .raw_bytes(&modified_unicode_str)
+        .end_compound()
+        .build();
+
+    let _v: Value = from_bytes(&input).unwrap();
+}
+
+#[test]
+fn cannot_borrow_cesu8_if_diff_repr() {
+    #[derive(Deserialize, Debug)]
+    pub struct V<'a> {
+        name: &'a str,
+    }
+
+    let modified_unicode_str = cesu8::to_java_cesu8("😈");
+
+    let input = Builder::new()
+        .start_compound("")
+        .tag(Tag::String)
+        .name("name")
+        .raw_len(modified_unicode_str.len())
+        .raw_bytes(&modified_unicode_str)
+        .end_compound()
+        .build();
+
+    let v: Result<V> = from_bytes(&input);
+    assert!(v.is_err());
+}
+
+#[test]
+fn can_borrow_cesu8_if_same_repr() {
+    #[derive(Deserialize, Debug)]
+    pub struct V<'a> {
+        name: &'a str,
+    }
+
+    let modified_unicode_str = cesu8::to_java_cesu8("abc");
+
+    let input = Builder::new()
+        .start_compound("")
+        .tag(Tag::String)
+        .name("name")
+        .raw_len(modified_unicode_str.len())
+        .raw_bytes(&modified_unicode_str)
+        .end_compound()
+        .build();
+
+    let v: Result<V> = from_bytes(&input);
+    assert!(v.is_ok());
+    assert_eq!("abc", v.unwrap().name);
+}
+
+#[test]
+fn can_cow_cesu8() {
+    #[derive(Deserialize, Debug)]
+    pub struct V<'a> {
+        owned: Cow<'a, str>,
+        #[serde(borrow, deserialize_with = "crate::borrow::deserialize_cow_str")]
+        borrowed: Cow<'a, str>,
+    }
+
+    let modified_unicode_str = cesu8::to_java_cesu8("😈");
+
+    let input = Builder::new()
+        .start_compound("")
+        .tag(Tag::String)
+        .name("owned")
+        .raw_len(modified_unicode_str.len())
+        .raw_bytes(&modified_unicode_str)
+        .string("borrowed", "abc")
+        .end_compound()
+        .build();
+
+    let v: V = from_bytes(&input).unwrap();
+    assert!(matches!(v.owned, Cow::Owned(_)));
+    assert_eq!("😈", v.owned);
+
+    assert!(matches!(v.borrowed, Cow::Borrowed(_)));
+    assert_eq!("abc", v.borrowed);
 }
