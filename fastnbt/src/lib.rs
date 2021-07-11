@@ -60,16 +60,22 @@
 //!
 //! Here we
 //! * use serde's renaming attributes to have rustfmt conformant field names,
-//! * use lifetimes to save on some string allocations, and
+//! * use lifetimes to save on some string allocations (see [`de`] for more
+//!   info), and
 //! * use the `Value` type to deserialize a field we don't know the exact
 //!   structure of.
 //!
 //!```no_run
-//! use fastnbt::error::Result; use fastnbt::{de::from_bytes, Value}; use
-//! flate2::read::GzDecoder; use serde::Deserialize; use std::io::Read;
+//! use std::borrow::Cow;
+//! use fastnbt::error::Result;
+//! use fastnbt::{de::from_bytes, Value};
+//! use flate2::read::GzDecoder;
+//! use serde::Deserialize;
+//! use std::io::Read;
 //!
-//! #[derive(Deserialize, Debug)] #[serde(rename_all = "PascalCase")] struct
-//! PlayerDat<'a> {data_version: i32,
+//! #[derive(Deserialize, Debug)]
+//! #[serde(rename_all = "PascalCase")]
+//! struct PlayerDat<'a> {data_version: i32,
 //!
 //!     #[serde(borrow)]
 //!     inventory: Vec<InventorySlot<'a>>,
@@ -78,8 +84,9 @@
 //!
 //! #[derive(Deserialize, Debug)]
 //! struct InventorySlot<'a> {
-//!     // We avoid allocating a string here.
-//!     id: &'a str,
+//!     // We typically avoid allocating a string here.
+//!     // See `fastnbt::de` docs for more info.
+//!     id: Cow<'a, str>,
 //!
 //!     // Also get the less structured properties of the object.
 //!     tag: Option<Value>,

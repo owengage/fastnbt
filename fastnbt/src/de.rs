@@ -27,14 +27,32 @@
 //! | Long | `i64` or `u64` | use owned |
 //! | Float | `f32` | use owned |
 //! | Double | `f64` | use owned |
-//! | String | `&str` | `String` |
+//! | String | `String` | [`Cow<'a, str>`][`std::borrow::Cow`] (see below) |
 //! | List | `Vec<T>` | use owned |
 //! | Byte Array | [`ByteArray`][`crate::ByteArray`] | [`borrow::ByteArray`][`crate::borrow::ByteArray`] |
 //! | Int Array | [`IntArray`][`crate::IntArray`] | [`borrow::IntArray`][`crate::borrow::IntArray`] |
 //! | Long Array | [`LongArray`][`crate::LongArray`] | [`borrow::LongArray`][`crate::borrow::LongArray`] |
 //!
+//! ## Primitives
+//!
 //! Borrowing for types like `i64`, `u32`, or `f64` is generally not possible
 //! due to alignment requirements. It likely wouldn't be faster/smaller anyway.
+//!
+//! ## Strings
+//!
+//! For strings, we cannot know ahead of time whether the data can be borrowed.
+//! This is because Minecraft uses Java's encoding of Unicode, which is not
+//! UTF-8 like Rust. If the string contains Unicode characters outside of the
+//! Basic Multilingual Plane then we need to convert it to utf-8, requiring us
+//! to own the string data.
+//!
+//! This makes the [`Cow<'a, str>`][`std::borrow::Cow`] type perfect for us.
+//! When it is possible to borrow the data (unicode is all basic multilingual
+//! plane) we do, when it is not, we allocate a `String`.
+//!
+//! In future we could support a lazy string type that always borrows the
+//! underyling string and decodes when needed. Open an issue if this is
+//! important to you.
 //!
 //! # Other quirks
 //!
