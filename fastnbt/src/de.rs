@@ -35,24 +35,56 @@
 //!
 //! ## Primitives
 //!
-//! Borrowing for types like `i64`, `u32`, or `f64` is generally not possible
-//! due to alignment requirements. It likely wouldn't be faster/smaller anyway.
+//! Borrowing for primitive types like the integers and floats is generally not
+//! possible due to alignment requirements of those types. It likely wouldn't be
+//! faster/smaller anyway.
 //!
 //! ## Strings
 //!
-//! For strings, we cannot know ahead of time whether the data can be borrowed.
-//! This is because Minecraft uses Java's encoding of Unicode, which is not
-//! UTF-8 like Rust. If the string contains Unicode characters outside of the
-//! Basic Multilingual Plane then we need to convert it to utf-8, requiring us
-//! to own the string data.
+//! For strings, we cannot know ahead of time whether the data can be borrowed
+//! as `&str`. This is because Minecraft uses Java's encoding of Unicode, which
+//! is not UTF-8 like Rust. If the string contains Unicode characters outside of
+//! the Basic Multilingual Plane then we need to convert it to utf-8, requiring
+//! us to own the string data.
 //!
-//! This makes the [`Cow<'a, str>`][`std::borrow::Cow`] type perfect for us.
-//! When it is possible to borrow the data (unicode is all basic multilingual
-//! plane) we do, when it is not, we allocate a `String`.
+//! Using [`Cow<'a, str>`][`std::borrow::Cow`] lets us borrow when possible, but
+//! produce an owned value when the representation is different. This will be
+//! common for minecrafts internal strings and any world whose language falls in
+//! the basic multilingual plane.
 //!
 //! In future we could support a lazy string type that always borrows the
-//! underyling string and decodes when needed. Open an issue if this is
+//! underyling data and decodes when needed. Please open an issue if this is
 //! important to you.
+//!
+//! ## Representation of NBT arrays
+//!
+//! In order for [`Value`][`crate::Value`] to preserve all NBT information, the
+//! deserializer "[maps into serde's data
+//! model](https://serde.rs/data-model.html#mapping-into-the-data-model)". This
+//! means that the NBT arrays come out not as a simple 'seq' but instead
+//! something like
+//!
+//! ```txt
+//! map{
+//!     tag: u8,
+//!     data: seq<T>,
+//! }
+//! ```
+//!
+//! in some pseudo-language for serde's data model.
+//!
+//! These means the Int Array can be modelled something like this in Rust:
+//!
+//! ```rust
+//! pub struct IntArray {
+//!    tag: u8,
+//!    data: Vec<i32>,
+//! }
+//! ```
+//!
+//! The actual structure is slightly different in order to check the tag is
+//! correct. You can create your own types to capture these Arrays or just use
+//! the ones provided in this crate.
 //!
 //! # Other quirks
 //!

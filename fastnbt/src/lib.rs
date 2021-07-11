@@ -1,6 +1,6 @@
-//! fastnbt aims for fast parsing of NBT data from *Minecraft: Java Edition*.
-//! This format is used by the game to store various things, such as the world
-//! data and player inventories.
+//! fastnbt aims for fast deserializing of NBT data from *Minecraft: Java
+//! Edition*. This format is used by the game to store various things, such as
+//! the world data and player inventories.
 //!
 //! * For documentation and examples of serde deserialization, see [`de`].
 //! * For a `serde_json`-like `Value` type see [`Value`].
@@ -26,7 +26,8 @@
 //! Use these in your own data structures. They all implement
 //! [`Deref`][`std::ops::Deref`] for dereferencing into the underlying `Vec`.
 //!
-//! For versions that borrow their data, see [`borrow`].
+//! For versions that borrow their data, see [`borrow`]. For more information
+//! about deserialization see [`de`].
 //!
 //! An example of deserializing a section of a chunk:
 //!
@@ -75,7 +76,8 @@
 //!
 //! #[derive(Deserialize, Debug)]
 //! #[serde(rename_all = "PascalCase")]
-//! struct PlayerDat<'a> {data_version: i32,
+//! struct PlayerDat<'a> {
+//!     data_version: i32,
 //!
 //!     #[serde(borrow)]
 //!     inventory: Vec<InventorySlot<'a>>,
