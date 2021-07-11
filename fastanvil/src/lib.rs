@@ -187,7 +187,7 @@ impl<S: Seek + Read> RegionBuffer<S> {
 
         dest.resize(5 + metadata.compressed_len as usize, 0u8);
 
-        self.data.borrow_mut().read(&mut dest[5..])?;
+        self.data.borrow_mut().read_exact(&mut dest[5..])?;
         Ok(())
     }
 
