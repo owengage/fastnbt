@@ -43,7 +43,7 @@ comparison to them. The Hemtite `nbt` crate was the only other crate I found wit
 | Serialization | no | yes | |
 | `Value`-like type | yes | yes | `fastnbt` is careful to preserve exact types. |
 | Long Array (MC 1.12+) | yes | yes | | 
-| Minecraft specialized unicode | no\*\* | yes | |
+| Minecraft specialized unicode | yes | yes | |
 | Deserialize from reader | no | yes | |
 | WASM compatible | yes | unknown | | 
 
@@ -52,5 +52,3 @@ comparison to them. The Hemtite `nbt` crate was the only other crate I found wit
 figures are 1000±13 for fastnbt and 1370±7 for hematite-nbt. This used the
 `anvil tiles` executable, swapping out the deserializer only, so performance
 tweaks in rendering chunks are not counted.
-
-\*\*intended feature
