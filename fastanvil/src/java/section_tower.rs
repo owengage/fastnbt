@@ -1,5 +1,3 @@
-use std::ptr::null;
-
 use serde::Deserialize;
 
 use crate::{Section, MAX_Y, MIN_Y};
@@ -85,11 +83,11 @@ impl<'de> Deserialize<'de> for SectionTower {
         Ok(Self {
             sections,
             map: sparse_sections,
-            offset: 16 * -min,
+            offset: 16 * min,
         })
     }
 }
 
 const fn y_to_index(y: isize, offset: isize) -> u8 {
-    ((y + offset) >> 4) as u8
+    ((y - offset) >> 4) as u8
 }

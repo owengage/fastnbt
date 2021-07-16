@@ -1,5 +1,13 @@
 # Notes
 
+# Custom world heights
+
+Having to use a 'null terminated' chunk to determine world depth.
+
+Need to get rid of MIN_Y and MAX_Y.
+
+Grass seems broken too? Sometimes?
+
 ## Reversible Value type
 
 I'm not sure that making a serializable and deserializable Value type is doable.

@@ -10,7 +10,7 @@ use crate::{biome::Biome, Block, Chunk, HeightMode, JavaChunk, Palette, Rgba, To
 const CHUNK_1_17_0: &[u8] = include_bytes!("../../resources/1.17.0.chunk");
 const CHUNK_1_17_1: &[u8] = include_bytes!("../../resources/1.17.1.chunk");
 const CHUNK_CUSTOM_HEIGHTS_1_17_1: &[u8] =
-    include_bytes!("../../resources/1.17.1-custom-heights.chunk");
+    include_bytes!("../../resources/1.17.1-custom-heights2.chunk");
 
 /// A palette that colours blocks based on the hash of their full description.
 /// Will produce gibberish looking maps but is great for testing rendering isn't
@@ -572,7 +572,6 @@ fn chunk_custom_heights_1_17_1() {
     let expected = [Rgba::default(); 256];
 
     let chunk: JavaChunk = from_bytes(&CHUNK_CUSTOM_HEIGHTS_1_17_1).unwrap();
-    exercise_render(&chunk);
     assert_eq!(expected, exercise_render(&chunk));
 }
 

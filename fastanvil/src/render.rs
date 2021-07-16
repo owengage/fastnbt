@@ -60,8 +60,6 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
     /// Drill for colour. Starting at y_start, make way down the column until we
     /// have an opaque colour to return. This tackles things like transparency.
     fn drill_for_colour<C: Chunk>(&self, x: usize, y_start: isize, z: usize, chunk: &C) -> Rgba {
-        // TODO: Biome might have changed as height changes.
-
         let mut current_height = y_start; // -1 because we want the block below the air.
         let mut colour = [0, 0, 0, 0];
 
@@ -218,7 +216,7 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub fn render_region<P: Palette, C: Chunk>(
+pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
     x: RCoord,
     z: RCoord,
     dimension: Dimension<C>,
