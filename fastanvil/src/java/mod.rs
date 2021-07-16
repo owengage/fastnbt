@@ -167,7 +167,11 @@ impl JavaChunk {
                     .heightmaps
                     .as_ref()
                     .and_then(|hm| hm.motion_blocking.as_ref())
-                    .map(|hm| expand_heightmap(hm.as_slice(), self.data_version))
+                    .map(|hm| {
+                        // unwrap, if heightmaps exists, sections should... 🤞
+                        let offset = self.level.sections.as_ref().unwrap().offset();
+                        expand_heightmap(hm.as_slice(), offset, self.data_version)
+                    })
                     .map(|hm| map.copy_from_slice(hm.as_slice()))
                     .is_some();
 

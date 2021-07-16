@@ -256,6 +256,7 @@ pub fn render_region<P: Palette, C: Chunk>(
                 // Thanks to the default None value this works fine for the
                 // first row or for any missing chunks.
                 let north = cache[x.0 as usize].as_ref().map(|c| c);
+
                 let res = renderer.render(&chunk, north);
                 cache[x.0 as usize] = Some(chunk);
                 res

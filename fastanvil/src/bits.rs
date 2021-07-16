@@ -4,6 +4,10 @@ use bit_field::{BitArray, BitField};
 use fastnbt::LongArray;
 use serde::Deserialize;
 
+// Various data versions for the anvil format
+const V1_17_0: i32 = 2724;
+const V1_17_1: i32 = 2730;
+
 /// PackedBits can be used in place of blockstates in chunks to avoid
 /// allocating memory for them when they might not be needed. This object by
 /// default just retains a reference to the data in the input, and `unpack_into`
@@ -83,7 +87,7 @@ pub fn expand_blockstates(data: &[i64], palette_len: usize) -> Vec<u16> {
 }
 
 /// Expand heightmap data. This is equivalent to `expand_generic(data, 9)`.
-pub fn expand_heightmap(data: &[i64], data_version: i32) -> Vec<i16> {
+pub fn expand_heightmap(data: &[i64], offset: isize, data_version: i32) -> Vec<i16> {
     let bits_per_item = 9;
 
     let _after1_17 = data_version >= 2695;
@@ -105,24 +109,43 @@ pub fn expand_heightmap(data: &[i64], data_version: i32) -> Vec<i16> {
     // let shift = if after1_17 { -64 } else { 0 };
     // v.into_iter().map(|h| h as i16 + shift).collect()
 
-    match data.len() {
-        LEN_1_16_TO_17 => {
-            // We extract 256 9-bit **unsigned** integers from the data. This is
-            // one integer per column in the chunk. In 1.16 onwards we store 7
-            // of these per 64bit long, meaning there's padding bits, and a long
-            // at the end with extra values that are unused. We resize down to
-            // get rid of these extra values.
-            let mut v = expand_generic_1_16(data, bits_per_item);
+    match data_version {
+        V1_17_0 | V1_17_1 => {
+            let bits_per = match data.len() {
+                43 => 10,
+                37 => 9,
+                len => panic!("Len of heightmap data: {}", len),
+            };
+
+            // TODO: We need to know the minimum block in this world in order to
+            // know how to offset the heightmap.
+            let mut v = expand_generic_1_16(data, bits_per);
             v.resize(256, 0);
 
             // Reinterpret as signed.
-            v.into_iter().map(|h| h as i16).collect()
+            v.into_iter()
+                .map(|h| (h as isize + offset) as i16)
+                .collect()
         }
-        LEN_1_15 => expand_generic_1_15(data, bits_per_item)
-            .into_iter()
-            .map(|h| h as i16)
-            .collect(),
-        _ => panic!("did not understand height format, try calculated mode"),
+        _ => match data.len() {
+            LEN_1_16_TO_17 => {
+                // We extract 256 9-bit **unsigned** integers from the data. This is
+                // one integer per column in the chunk. In 1.16 onwards we store 7
+                // of these per 64bit long, meaning there's padding bits, and a long
+                // at the end with extra values that are unused. We resize down to
+                // get rid of these extra values.
+                let mut v = expand_generic_1_16(data, bits_per_item);
+                v.resize(256, 0);
+
+                // Reinterpret as signed.
+                v.into_iter().map(|h| h as i16).collect()
+            }
+            LEN_1_15 => expand_generic_1_15(data, bits_per_item)
+                .into_iter()
+                .map(|h| h as i16)
+                .collect(),
+            _ => panic!("did not understand height format, try calculated mode"),
+        },
     }
 }
 
@@ -216,7 +239,7 @@ mod tests {
             4620710844295151872,
         ];
 
-        let actual = expand_heightmap(&input[..], 0);
+        let actual = expand_heightmap(&input[..], 0, 0);
         assert_eq!(&[128; 16 * 16][..], actual.as_slice());
     }
 
@@ -261,7 +284,7 @@ mod tests {
             2526951242973911180,
         ];
 
-        let actual = expand_heightmap(&input[..], 0);
+        let actual = expand_heightmap(&input[..], 0, 0);
         assert_eq!(
             &[
                 72, 73, 72, 72, 72, 73, 72, 72, 72, 72, 72, 72, 72, 72, 72, 73, 72, 72, 72, 72, 73,
