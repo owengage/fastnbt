@@ -12,15 +12,6 @@ pub struct SectionTower {
     map: [Option<usize>; 24],
 }
 
-const MAP_SIZE: usize = (MAX_Y - MIN_Y) as usize;
-
-lazy_static! {
-    // map every possible y value to the equivalent section y. This operation
-    // is needed a lot while rendering, so we make it fast by having it be a
-    // simple look up in a static array.
-    static ref MAP: [u8; MAP_SIZE] = y_to_index_map();
-}
-
 impl SectionTower {
     pub fn get_section_for_y(&self, y: isize) -> Option<&Section> {
         if y >= MAX_Y || y < MIN_Y {
@@ -29,7 +20,8 @@ impl SectionTower {
             return None;
         }
 
-        let lookup_index = MAP[(y - MIN_Y) as usize];
+        let lookup_index = y_to_index(y);
+
         let section_index = self.map[lookup_index as usize]?;
         self.sections.get(section_index)
     }
@@ -51,14 +43,6 @@ impl<'de> Deserialize<'de> for SectionTower {
     }
 }
 
-fn y_to_index_map() -> [u8; MAP_SIZE] {
-    let mut map = [0u8; MAP_SIZE];
-
-    for y in MIN_Y..MAX_Y {
-        // Need to be careful. y = -5 should return -1. If we did normal integer
-        // division -5/16 would give us 0.
-        map[(y - MIN_Y) as usize] = (((y as f64) / 16.0).floor() as i8 + 4) as u8;
-    }
-
-    map
+const fn y_to_index(y: isize) -> u8 {
+    ((y - MIN_Y) >> 4) as u8
 }
