@@ -1,5 +1,5 @@
 use super::builder::Builder;
-use crate::stream::{Error, Name, Parser, Result, Value};
+use crate::stream::{Name, Parser, Result, Value};
 use crate::Tag;
 
 fn name(n: &str) -> Name {
