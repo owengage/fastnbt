@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "fastanvil"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "bit_field",
  "byteorder",
@@ -322,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt-tools"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "clap",
  "env_logger",
