@@ -37,12 +37,6 @@ pub use rendered_palette::*;
 #[cfg(test)]
 mod test;
 
-/// Maximum y (height) value in worlds.
-const MAX_Y: isize = 512;
-
-/// Minimum y (height) value in worlds.
-const MIN_Y: isize = -128;
-
 /// Various compression schemes that NBT data is typically compressed with.
 #[derive(Debug, TryFromPrimitive)]
 #[repr(u8)]

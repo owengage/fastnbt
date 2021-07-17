@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{Block, CCoord, Chunk, Dimension, HeightMode, RCoord, MIN_Y};
+use crate::{Block, CCoord, Chunk, Dimension, HeightMode, RCoord};
 
 use super::biome::Biome;
 
@@ -34,12 +34,14 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
             return data;
         }
 
+        let y_range = chunk.y_range();
+
         for z in 0..16 {
             for x in 0..16 {
                 let air_height = chunk.surface_height(x, z, self.height_mode);
-                let block_height = (air_height - 1).max(MIN_Y);
+                let block_height = (air_height - 1).max(y_range.start);
 
-                let colour = self.drill_for_colour(x, block_height, z, chunk);
+                let colour = self.drill_for_colour(x, block_height, z, chunk, y_range.start);
 
                 let north_air_height = match z {
                     // if top of chunk, get height from the chunk above.
@@ -59,11 +61,19 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
     /// Drill for colour. Starting at y_start, make way down the column until we
     /// have an opaque colour to return. This tackles things like transparency.
-    fn drill_for_colour<C: Chunk>(&self, x: usize, y_start: isize, z: usize, chunk: &C) -> Rgba {
+    fn drill_for_colour<C: Chunk>(
+        &self,
+        x: usize,
+        y_start: isize,
+        z: usize,
+        chunk: &C,
+        y_min: isize,
+    ) -> Rgba {
         let mut current_height = y_start; // -1 because we want the block below the air.
         let mut colour = [0, 0, 0, 0];
 
-        while colour[3] != 255 && current_height > MIN_Y {
+        // FIXME: Should this be >= y_min?
+        while colour[3] != 255 && current_height > y_min {
             let current_biome = chunk.biome(x, current_height, z);
             let current_block = chunk.block(x, current_height, z);
 
@@ -81,7 +91,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
                     | "minecraft:sea_grass"
                     | "minecraft:tall_seagrass" => {
                         let mut block_colour = self.palette.pick(current_block, current_biome);
-                        let water_depth = water_depth(x, current_height, z, chunk);
+                        let water_depth = water_depth(x, current_height, z, chunk, y_min);
                         let alpha = water_depth_to_alpha(water_depth);
 
                         block_colour[3] = alpha as u8;
@@ -122,7 +132,7 @@ fn water_depth_to_alpha(water_depth: isize) -> u8 {
     (180 + 2 * water_depth).min(250) as u8
 }
 
-fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C) -> isize {
+fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C, y_min: isize) -> isize {
     let is_water = |block_name: &str| match block_name {
         "minecraft:water"
         | "minecraft:bubble_column"
@@ -134,7 +144,7 @@ fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C) -> isize {
     };
 
     let mut depth = 1;
-    while y > MIN_Y {
+    while y > y_min {
         let block = match chunk.block(x, y, z) {
             Some(b) => b,
             None => return depth,

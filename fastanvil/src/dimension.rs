@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, error::Error, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, error::Error, fmt::Display, ops::Range, rc::Rc};
 
 use crate::{biome::Biome, Block};
 
@@ -30,6 +30,9 @@ pub trait Chunk {
     /// section of the chunk accessed is not present. For example,
     /// trying to access the block at height 1234 would return None.
     fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block>;
+
+    /// Get the range of Y values that are valid for this chunk.
+    fn y_range(&self) -> Range<isize>;
 }
 
 pub trait Region<C: Chunk> {

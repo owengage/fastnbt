@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{Section, MAX_Y, MIN_Y};
+use crate::Section;
 
 /// SectionTower represents the set of sections that make up a Minecraft chunk.
 /// It has a custom deserialization in order to more efficiently lay out the
@@ -9,25 +9,30 @@ use crate::{Section, MAX_Y, MIN_Y};
 pub struct SectionTower {
     sections: Vec<Section>,
     map: Vec<Option<usize>>,
-    offset: isize,
+    y_min: isize,
+    y_max: isize,
 }
 
 impl SectionTower {
     pub fn get_section_for_y(&self, y: isize) -> Option<&Section> {
-        if y >= MAX_Y || y < MIN_Y {
+        if y >= self.y_max || y < self.y_min {
             // TODO: This occurs a lot in hermitcraft season 7. Probably some
             // form of bug?
             return None;
         }
 
-        let lookup_index = y_to_index(y, self.offset);
+        let lookup_index = y_to_index(y, self.y_min);
 
         let section_index = *self.map.get(lookup_index as usize)?;
         self.sections.get(section_index?)
     }
 
-    pub fn offset(&self) -> isize {
-        self.offset
+    pub fn y_min(&self) -> isize {
+        self.y_min
+    }
+
+    pub fn y_max(&self) -> isize {
+        self.y_max
     }
 }
 
@@ -41,7 +46,8 @@ impl<'de> Deserialize<'de> for SectionTower {
             return Ok(Self {
                 sections,
                 map: vec![],
-                offset: 0,
+                y_min: 0,
+                y_max: 0,
             });
         }
 
@@ -83,11 +89,12 @@ impl<'de> Deserialize<'de> for SectionTower {
         Ok(Self {
             sections,
             map: sparse_sections,
-            offset: 16 * min,
+            y_min: 16 * min,
+            y_max: 16 * (max + 1),
         })
     }
 }
 
-const fn y_to_index(y: isize, offset: isize) -> u8 {
-    ((y - offset) >> 4) as u8
+const fn y_to_index(y: isize, y_min: isize) -> u8 {
+    ((y - y_min) >> 4) as u8
 }

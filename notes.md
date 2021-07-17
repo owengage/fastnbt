@@ -6,7 +6,7 @@ Having to use a 'null terminated' chunk to determine world depth.
 
 Need to get rid of MIN_Y and MAX_Y.
 
-Grass seems broken too? Sometimes?
+Grass seems broken too? Sometimes? This is beecause biomes can now be larger
 
 ## Reversible Value type
 

@@ -87,7 +87,7 @@ pub fn expand_blockstates(data: &[i64], palette_len: usize) -> Vec<u16> {
 }
 
 /// Expand heightmap data. This is equivalent to `expand_generic(data, 9)`.
-pub fn expand_heightmap(data: &[i64], offset: isize, data_version: i32) -> Vec<i16> {
+pub fn expand_heightmap(data: &[i64], y_min: isize, data_version: i32) -> Vec<i16> {
     let bits_per_item = 9;
 
     let _after1_17 = data_version >= 2695;
@@ -123,9 +123,7 @@ pub fn expand_heightmap(data: &[i64], offset: isize, data_version: i32) -> Vec<i
             v.resize(256, 0);
 
             // Reinterpret as signed.
-            v.into_iter()
-                .map(|h| (h as isize + offset) as i16)
-                .collect()
+            v.into_iter().map(|h| (h as isize + y_min) as i16).collect()
         }
         _ => match data.len() {
             LEN_1_16_TO_17 => {

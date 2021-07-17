@@ -1,11 +1,11 @@
-use std::{cell::RefCell, convert::TryFrom};
+use std::{cell::RefCell, convert::TryFrom, ops::Range};
 
 use fastnbt::{IntArray, LongArray};
 use lazy_static::lazy_static;
 
 use serde::Deserialize;
 
-use crate::{expand_heightmap, Chunk, HeightMode, MAX_Y, MIN_Y};
+use crate::{expand_heightmap, Chunk, HeightMode};
 
 use super::biome::Biome;
 
@@ -56,36 +56,28 @@ impl Chunk for JavaChunk {
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
         let biomes = self.level.biomes.as_ref()?;
 
-        // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
-        // section. 384 world height (320 + 64), so 384/16 subchunks.
-        //const V1_17: usize = 4 * 4 * 4 * 384 / 16;
-
-        // Each biome in i32, biomes split into 4-wide cubes, so 4x4x4 per
-        // section. 256 world height, so 256/16 subchunks.
-        const V1_16: usize = 4 * 4 * 4 * 256 / 16;
+        // After 1.15 Each biome in i32, biomes split into 4-wide cubes, so
+        // 4x4x4 per section.
 
         // v1.15 was only x/z, i32 per column.
         const V1_15: usize = 16 * 16;
 
         match biomes.len() {
-            V1_16 => {
-                //let after1_17 = self.data_version >= 2695;
-                //let y_shifted = if after1_17 { y + 64 } else { y } as usize;
-
-                // TODO: work out why y can be 0 or greater than max.
-                let y_shifted = y.clamp(0, 255) as usize;
-                let i = (z / 4) * 4 + (x / 4) + (y_shifted / 4) * 16;
-
-                let biome = biomes[i];
-                Biome::try_from(biome).ok()
-            }
             V1_15 => {
                 // 1x1 columns stored z then x.
                 let i = z * 16 + x;
                 let biome = biomes[i];
                 Biome::try_from(biome).ok()
             }
-            _ => None,
+            _ => {
+                // Assume latest
+                let range = self.y_range();
+                let y_shifted = (y.clamp(range.start, range.end - 1) - range.start) as usize;
+                let i = (z / 4) * 4 + (x / 4) + (y_shifted / 4) * 16;
+
+                let biome = *biomes.get(i)?;
+                Biome::try_from(biome).ok()
+            }
         }
     }
 
@@ -101,6 +93,16 @@ impl Chunk for JavaChunk {
                 let pal_index = blockstates.state(x, sec_y, z, sec.palette.len());
                 sec.palette.get(pal_index)
             }
+        }
+    }
+
+    fn y_range(&self) -> std::ops::Range<isize> {
+        match &self.level.sections {
+            Some(sections) => Range {
+                start: sections.y_min(),
+                end: sections.y_max(),
+            },
+            None => Range { start: 0, end: 0 },
         }
     }
 }
@@ -169,8 +171,8 @@ impl JavaChunk {
                     .and_then(|hm| hm.motion_blocking.as_ref())
                     .map(|hm| {
                         // unwrap, if heightmaps exists, sections should... 🤞
-                        let offset = self.level.sections.as_ref().unwrap().offset();
-                        expand_heightmap(hm.as_slice(), offset, self.data_version)
+                        let y_min = self.level.sections.as_ref().unwrap().y_min();
+                        expand_heightmap(hm.as_slice(), y_min, self.data_version)
                     })
                     .map(|hm| map.copy_from_slice(hm.as_slice()))
                     .is_some();
@@ -183,11 +185,14 @@ impl JavaChunk {
             HeightMode::Calculate => {} // fall through to calc mode
         }
 
+        let y_range = self.y_range();
+        let y_end = y_range.end;
+
         for z in 0..16 {
             for x in 0..16 {
                 // start at top until we hit a non-air block.
-                for i in MIN_Y..MAX_Y {
-                    let y = MAX_Y - i;
+                for i in y_range.clone() {
+                    let y = y_end - i;
                     let block = self.block(x, y - 1, z);
 
                     if block.is_none() {
