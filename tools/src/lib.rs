@@ -27,11 +27,11 @@ fn avg_colour(rgba_data: &[u8]) -> Rgba {
 
     for p in rgba_data.chunks(4) {
         // alpha is reasonable.
-        avg[0] = avg[0] + ((p[0] as u64) * (p[0] as u64)) as f64;
-        avg[1] = avg[1] + ((p[1] as u64) * (p[1] as u64)) as f64;
-        avg[2] = avg[2] + ((p[2] as u64) * (p[2] as u64)) as f64;
-        avg[3] = avg[3] + ((p[3] as u64) * (p[3] as u64)) as f64;
-        count = count + 1;
+        avg[0] += ((p[0] as u64) * (p[0] as u64)) as f64;
+        avg[1] += ((p[1] as u64) * (p[1] as u64)) as f64;
+        avg[2] += ((p[2] as u64) * (p[2] as u64)) as f64;
+        avg[3] += ((p[3] as u64) * (p[3] as u64)) as f64;
+        count += 1;
     }
 
     [
@@ -167,7 +167,7 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
     let blockstates = load_blockstates(&assets.join("blockstates"))?;
     let models = load_models(&assets.join("models").join("block"))?;
 
-    let mut renderer = Renderer::new(blockstates.clone(), models.clone(), textures.clone());
+    let mut renderer = Renderer::new(blockstates.clone(), models, textures.clone());
     let mut failed = 0;
     let mut mapped = 0;
     let mut success = 0;
@@ -310,14 +310,11 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
             let texture = textures.get(&tex);
             println!("map: {:?} to {}, {:?}", mapping, blockstate, tex);
 
-            match texture {
-                Some(texture) => {
-                    println!("mapped {} to {}", blockstate, tex);
-                    mapped += 1;
-                    let col = avg_colour(texture.as_slice());
-                    return Some(col);
-                }
-                None => {}
+            if let Some(texture) = texture {
+                println!("mapped {} to {}", blockstate, tex);
+                mapped += 1;
+                let col = avg_colour(texture.as_slice());
+                return Some(col);
             }
         }
 
@@ -343,7 +340,7 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
 
         match bs {
             Blockstate::Variants(vars) => {
-                for (props, _) in vars {
+                for props in vars.keys() {
                     let res = renderer.get_top(name, props);
                     match res {
                         Ok(texture) => {
@@ -352,24 +349,24 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
                             // We want to add the pipe if the props are anything
                             // but empty.
                             let description =
-                                (*name).clone() + if *props == "" { "" } else { "|" } + props;
+                                (*name).clone() + if props.is_empty() { "" } else { "|" } + props;
 
                             palette.insert(description, col);
                             success += 1;
                         }
                         Err(_) => {
-                            try_mappings((*name).clone()).map(|c| {
+                            if let Some(c) = try_mappings((*name).clone()) {
                                 palette.insert((*name).clone(), c);
                                 eprintln!("mapped {}", *name);
-                            });
+                            }
                         }
                     };
                 }
             }
             Blockstate::Multipart(_) => {
-                try_mappings((*name).clone()).map(|c| {
+                if let Some(c) = try_mappings((*name).clone()) {
                     palette.insert((*name).clone(), c);
-                });
+                }
             }
         }
     }

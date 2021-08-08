@@ -7,7 +7,6 @@ use fastanvil::{Dimension, RenderedPalette};
 
 use fastanvil::RegionFileLoader;
 use flate2::read::GzDecoder;
-use image;
 use log::{error, info};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
@@ -15,14 +14,14 @@ use std::path::{Path, PathBuf};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn parse_coord(coord: &str) -> Option<(isize, isize)> {
-    let mut s = coord.split(",");
+    let mut s = coord.split(',');
     let x: isize = s.next()?.parse().ok()?;
     let z: isize = s.next()?.parse().ok()?;
     Some((x, z))
 }
 
 fn auto_size(coords: &[(RCoord, RCoord)]) -> Option<Rectangle> {
-    if coords.len() == 0 {
+    if coords.is_empty() {
         return None;
     }
 
@@ -45,9 +44,9 @@ fn auto_size(coords: &[(RCoord, RCoord)]) -> Option<Rectangle> {
 
 fn make_bounds(size: (isize, isize), off: (isize, isize)) -> Rectangle {
     Rectangle {
-        xmin: RCoord(off.0 - (size.0 + 0) / 2), // size + 1 makes sure that a size of 1,1
+        xmin: RCoord(off.0 - size.0 / 2), // size + 1 makes sure that a size of 1,1
         xmax: RCoord(off.0 + (size.0 + 1) / 2), // produces bounds of size 1,1 rather than
-        zmin: RCoord(off.1 - (size.1 + 0) / 2), // the 0,0 you would get without it.
+        zmin: RCoord(off.1 - size.1 / 2), // the 0,0 you would get without it.
         zmax: RCoord(off.1 + (size.1 + 1) / 2),
     }
 }
@@ -277,8 +276,6 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 
             img.save(format!("{}/{}.{}.png", out, region.x.0, region.z.0))
                 .unwrap();
-
-            ()
         })
         .count();
 
