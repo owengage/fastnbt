@@ -69,10 +69,12 @@ pub trait RegionLoader<C: Chunk> {
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
 }
 
+type DimensionHashMap<C> = HashMap<(RCoord, RCoord), Rc<dyn Region<C>>>;
+
 /// Dimension provides a cache on top of a RegionLoader.
 pub struct Dimension<C: Chunk> {
     loader: Box<dyn RegionLoader<C>>,
-    regions: RefCell<HashMap<(RCoord, RCoord), Rc<dyn Region<C>>>>,
+    regions: RefCell<DimensionHashMap<C>>,
 }
 
 impl<C: Chunk> Dimension<C> {

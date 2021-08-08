@@ -68,54 +68,51 @@ impl Palette for RenderedPalette {
         //
         // This means we have to do a bunch of complex conditional logic in one
         // of the most called functions. Yuck.
-        match block.name().strip_prefix("minecraft:") {
-            Some(id) => {
-                match id {
-                    "grass" | "tall_grass" | "vine" | "fern" | "large_fern" => {
-                        return self.pick_grass(biome);
-                    }
-                    "grass_block" => {
-                        let snowy = block.snowy();
-
-                        if snowy {
-                            return self.pick(&SNOW_BLOCK, biome);
-                        } else {
-                            return self.pick_grass(biome);
-                        };
-                    }
-                    "water" | "bubble_column" => return self.pick_water(biome),
-                    "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves" => {
-                        return self.pick_foliage(biome)
-                    }
-                    "birch_leaves" => {
-                        return [0x80, 0xa7, 0x55, 255]; // game hardcodes this
-                    }
-                    "spruce_leaves" => {
-                        return [0x61, 0x99, 0x61, 255]; // game hardcodes this
-                    }
-                    // Kelp and seagrass don't look like much from the top as
-                    // they're flat. Maybe in future hard code a green tint to make
-                    // it show up?
-                    "kelp" | "kelp_plant" | "seagrass" | "tall_seagrass" => {
-                        return self.pick_water(biome);
-                    }
-                    "snow" => {
-                        return self.pick(&SNOW_BLOCK, biome);
-                    }
-                    // Occurs a lot for the end, as layer 0 will be air in the void.
-                    // Rendering it black makes sense in the end, but might look
-                    // weird if it ends up elsewhere.
-                    "air" => {
-                        return [0, 0, 0, 255];
-                    }
-                    "cave_air" => {
-                        return [255, 0, 0, 255]; // when does this happen??
-                    }
-                    // Otherwise fall through to the general mechanism.
-                    _ => {}
+        if let Some(id) = block.name().strip_prefix("minecraft:") {
+            match id {
+                "grass" | "tall_grass" | "vine" | "fern" | "large_fern" => {
+                    return self.pick_grass(biome);
                 }
+                "grass_block" => {
+                    let snowy = block.snowy();
+
+                    if snowy {
+                        return self.pick(&SNOW_BLOCK, biome);
+                    } else {
+                        return self.pick_grass(biome);
+                    };
+                }
+                "water" | "bubble_column" => return self.pick_water(biome),
+                "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves" => {
+                    return self.pick_foliage(biome)
+                }
+                "birch_leaves" => {
+                    return [0x80, 0xa7, 0x55, 255]; // game hardcodes this
+                }
+                "spruce_leaves" => {
+                    return [0x61, 0x99, 0x61, 255]; // game hardcodes this
+                }
+                // Kelp and seagrass don't look like much from the top as
+                // they're flat. Maybe in future hard code a green tint to make
+                // it show up?
+                "kelp" | "kelp_plant" | "seagrass" | "tall_seagrass" => {
+                    return self.pick_water(biome);
+                }
+                "snow" => {
+                    return self.pick(&SNOW_BLOCK, biome);
+                }
+                // Occurs a lot for the end, as layer 0 will be air in the void.
+                // Rendering it black makes sense in the end, but might look
+                // weird if it ends up elsewhere.
+                "air" => {
+                    return [0, 0, 0, 255];
+                }
+                "cave_air" => {
+                    return [255, 0, 0, 255]; // when does this happen??
+                }
+                // Otherwise fall through to the general mechanism.
+                _ => {}
             }
-            None => {}
         }
 
         let col = self

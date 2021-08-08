@@ -58,10 +58,10 @@ impl PackedBits {
             v.push(*datum as u64);
         }
 
-        for i in 0..buf.len() {
+        for (i, val) in buf.iter_mut().enumerate() {
             let begin = i * bits_per_item;
             let end = begin + bits_per_item;
-            buf[i] = v.get_bits(begin..end) as u16;
+            *val = v.get_bits(begin..end) as u16;
         }
     }
 }
@@ -171,10 +171,10 @@ pub fn expand_generic_1_15(data: &[i64], bits: usize) -> Vec<u16> {
     // At some point we will change the parser to let us take the data as u64 rather than i64.
     let copy: Vec<_> = data.iter().map(|i| *i as u64).collect();
 
-    for i in 0..result.len() {
+    for (i, val) in result.iter_mut().enumerate() {
         let begin = i * bits;
         let end = begin + bits;
-        result[i] = copy.get_bits(begin..end) as u16;
+        *val = copy.get_bits(begin..end) as u16;
     }
 
     result

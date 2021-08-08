@@ -80,7 +80,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
             if let Some(current_block) = current_block.as_ref() {
                 match current_block.name() {
                     "minecraft:air" | "minecraft:cave_air" => {
-                        current_height = current_height - 1;
+                        current_height -= 1;
                     }
                     // TODO: Can potentially optimize this for ocean floor using
                     // heightmaps.
@@ -97,12 +97,12 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
                         block_colour[3] = alpha as u8;
 
                         colour = a_over_b_colour(colour, block_colour);
-                        current_height = current_height - water_depth;
+                        current_height -= water_depth;
                     }
                     _ => {
                         let block_colour = self.palette.pick(current_block, current_biome);
                         colour = a_over_b_colour(colour, block_colour);
-                        current_height = current_height - 1;
+                        current_height -= 1;
                     }
                 }
             } else {
@@ -133,14 +133,16 @@ fn water_depth_to_alpha(water_depth: isize) -> u8 {
 }
 
 fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C, y_min: isize) -> isize {
-    let is_water = |block_name: &str| match block_name {
-        "minecraft:water"
-        | "minecraft:bubble_column"
-        | "minecraft:kelp"
-        | "minecraft:kelp_plant"
-        | "minecraft:sea_grass"
-        | "minecraft:tall_seagrass" => true,
-        _ => false,
+    let is_water = |block_name: &str| {
+        matches!(
+            block_name,
+            "minecraft:water"
+                | "minecraft:bubble_column"
+                | "minecraft:kelp"
+                | "minecraft:kelp_plant"
+                | "minecraft:sea_grass"
+                | "minecraft:tall_seagrass"
+        )
     };
 
     let mut depth = 1;
@@ -151,11 +153,11 @@ fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C, y_min: isi
         };
 
         if is_water(block.name()) {
-            depth = depth + 1;
+            depth += 1;
         } else {
             return depth;
         }
-        y = y - 1;
+        y -= 1;
     }
     depth
 }
@@ -243,11 +245,11 @@ pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
 
     // Cache the last row of chunks from the above region to allow top-shading
     // on region boundaries.
-    dimension.region(x, RCoord(z.0 - 1)).map(|r| {
-        for x in 0..32 {
-            cache[x] = r.chunk(CCoord(x as isize), CCoord(31));
+    if let Some(r) = dimension.region(x, RCoord(z.0 - 1)) {
+        for (x, entry) in cache.iter_mut().enumerate() {
+            *entry = r.chunk(CCoord(x as isize), CCoord(31));
         }
-    });
+    }
 
     for z in 0isize..32 {
         for x in 0isize..32 {
@@ -263,16 +265,16 @@ pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
                 //
                 // Thanks to the default None value this works fine for the
                 // first row or for any missing chunks.
-                let north = cache[x.0 as usize].as_ref().map(|c| c);
+                let north = cache[x.0 as usize].as_ref();
 
                 let res = renderer.render(&chunk, north);
                 cache[x.0 as usize] = Some(chunk);
                 res
             });
 
-            chunk_data.map(|d| {
+            if let Some(d) = chunk_data {
                 data[..].clone_from_slice(&d);
-            });
+            }
         }
     }
 

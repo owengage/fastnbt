@@ -298,7 +298,7 @@ fn chunk_1_17_0() {
         [172, 23, 75, 255],
         [120, 69, 32, 255],
     ];
-    let chunk: JavaChunk = from_bytes(&CHUNK_1_17_0).unwrap();
+    let chunk: JavaChunk = from_bytes(CHUNK_1_17_0).unwrap();
     assert_eq!(expected, exercise_render(&chunk));
 }
 
@@ -562,7 +562,7 @@ fn chunk_1_17_1() {
         [106, 59, 65, 255],
         [106, 59, 65, 255],
     ];
-    let chunk: JavaChunk = from_bytes(&CHUNK_1_17_1).unwrap();
+    let chunk: JavaChunk = from_bytes(CHUNK_1_17_1).unwrap();
     exercise_render(&chunk);
     assert_eq!(expected, exercise_render(&chunk));
 }
@@ -828,7 +828,7 @@ fn chunk_custom_heights_1_17_1() {
         [85, 144, 66, 255],
     ];
 
-    let chunk: JavaChunk = from_bytes(&CHUNK_CUSTOM_HEIGHTS_1_17_1).unwrap();
+    let chunk: JavaChunk = from_bytes(CHUNK_CUSTOM_HEIGHTS_1_17_1).unwrap();
     assert_eq!(expected, exercise_render(&chunk));
 }
 

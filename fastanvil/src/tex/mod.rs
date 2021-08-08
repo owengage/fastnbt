@@ -81,41 +81,37 @@ fn merge_models(child: &Model, mut parent: Model) -> Result<Model> {
         parent.textures = Some(HashMap::new());
     }
 
-    match parent.textures {
-        Some(ref mut parent_textures) => {
-            let child_textures = child.textures.as_ref().ok_or(Error::MissingModelTextures)?;
+    if let Some(ref mut parent_textures) = parent.textures {
+        let child_textures = child.textures.as_ref().ok_or(Error::MissingModelTextures)?;
 
-            // Insert all the childs textures into the parent.
-            // Textures can be referenced in a parent model that are only
-            // defined in child models so we need to copy them down.
-            for (k, v) in child_textures.iter() {
-                parent_textures.insert(k.clone(), v.clone());
-            }
+        // Insert all the childs textures into the parent.
+        // Textures can be referenced in a parent model that are only
+        // defined in child models so we need to copy them down.
+        for (k, v) in child_textures.iter() {
+            parent_textures.insert(k.clone(), v.clone());
+        }
 
-            // We need to record the textures we do have, as they will probably
-            // be variables for textures in the parent model.
-            for (_, tvalue) in parent_textures.iter_mut() {
-                // If the value is a variable (ie begins with "#"), we need to
-                // look it up in the current texture map. Given that we process
-                // the models from child to parent, they should always be
-                // present.
-                match tvalue.strip_prefix("#") {
-                    Some(rest) => {
-                        *tvalue = child_textures
-                            .get(rest) // we just checked with 'starts_with'.
-                            .ok_or(Error::MissingTextureVariable(
-                                "?".to_owned(),
-                                "?".to_owned(),
-                                "?".to_owned(),
-                                (*tvalue).clone(),
-                            ))?
-                            .clone()
-                    }
-                    None => {}
-                }
+        // We need to record the textures we do have, as they will probably
+        // be variables for textures in the parent model.
+        for (_, tvalue) in parent_textures.iter_mut() {
+            // If the value is a variable (ie begins with "#"), we need to
+            // look it up in the current texture map. Given that we process
+            // the models from child to parent, they should always be
+            // present.
+            if let Some(rest) = tvalue.strip_prefix('#') {
+                *tvalue = child_textures
+                    .get(rest) // we just checked with 'starts_with'.
+                    .ok_or_else(|| {
+                        Error::MissingTextureVariable(
+                            "?".to_owned(),
+                            "?".to_owned(),
+                            "?".to_owned(),
+                            (*tvalue).clone(),
+                        )
+                    })?
+                    .clone()
             }
         }
-        None => {}
     }
 
     // Copy any geometry elements from child to parent.
@@ -159,38 +155,46 @@ impl Renderer {
         let model = self.flatten_model(model_name)?;
         // Look at elements. Try just looking in the first one for 'up'.
 
-        let els = &model.elements.ok_or(Error::MissingElements(
-            id.to_owned(),
-            encoded_props.to_owned(),
-            model_name.to_owned(),
-        ))?;
+        let els = &model.elements.ok_or_else(|| {
+            Error::MissingElements(
+                id.to_owned(),
+                encoded_props.to_owned(),
+                model_name.to_owned(),
+            )
+        })?;
 
-        let el = els.get(0).ok_or(Error::MissingElements(
-            id.to_owned(),
-            encoded_props.to_owned(),
-            model_name.to_owned(),
-        ))?;
+        let el = els.get(0).ok_or_else(|| {
+            Error::MissingElements(
+                id.to_owned(),
+                encoded_props.to_owned(),
+                model_name.to_owned(),
+            )
+        })?;
 
-        let face = el.faces.get("up").ok_or(Error::MissingElements(
-            id.to_owned(),
-            encoded_props.to_owned(),
-            model_name.to_owned(),
-        ))?;
+        let face = el.faces.get("up").ok_or_else(|| {
+            Error::MissingElements(
+                id.to_owned(),
+                encoded_props.to_owned(),
+                model_name.to_owned(),
+            )
+        })?;
 
         let tex = &face.texture;
 
-        let tex = match tex.strip_prefix("#") {
+        let tex = match tex.strip_prefix('#') {
             Some(rest) => {
                 model
                     .textures
                     .ok_or(Error::MissingModelTextures)?
                     .get(rest) // we just checked with 'starts_with'.
-                    .ok_or(Error::MissingTextureVariable(
-                        id.to_owned(),
-                        encoded_props.to_owned(),
-                        model_name.to_owned(),
-                        (*tex).clone(),
-                    ))?
+                    .ok_or_else(|| {
+                        Error::MissingTextureVariable(
+                            id.to_owned(),
+                            encoded_props.to_owned(),
+                            model_name.to_owned(),
+                            (*tex).clone(),
+                        )
+                    })?
                     .clone()
             }
             None => (*tex).clone(),
@@ -203,7 +207,7 @@ impl Renderer {
         self.models
             .get(model)
             .or_else(|| self.models.get(&("minecraft:".to_string() + model)))
-            .ok_or(Error::MissingModel(model.to_string()))
+            .ok_or_else(|| Error::MissingModel(model.to_string()))
     }
 
     pub fn flatten_model(&self, model: &str) -> Result<Model> {
@@ -240,16 +244,15 @@ impl Render for Renderer {
         let bs = self
             .blockstates
             .get(id)
-            .ok_or(Error::MissingBlockstate(id.to_string()))?;
+            .ok_or_else(|| Error::MissingBlockstate(id.to_string()))?;
 
         match bs {
             // Block is made up variants based on its properties.
             Blockstate::Variants(variants) => {
                 // Get the variant or variants that correspond to this exact block.
-                let v = variants.get(encoded_props).ok_or(Error::MissingVariant(
-                    id.to_string(),
-                    encoded_props.to_string(),
-                ))?;
+                let v = variants.get(encoded_props).ok_or_else(|| {
+                    Error::MissingVariant(id.to_string(), encoded_props.to_string())
+                })?;
 
                 match v {
                     Variants::Single(variant) => {

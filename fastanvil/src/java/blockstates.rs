@@ -18,9 +18,9 @@ impl Blockstates {
         if !self.done.get() {
             let bits_per_item = bits_per_block(pal_len);
             let mut buf = self.unpacked.borrow_mut();
-            let buf = buf.as_mut();
+            let mut buf = buf.as_mut();
 
-            self.packed.unpack_blockstates(bits_per_item, &mut buf[..]);
+            self.packed.unpack_blockstates(bits_per_item, &mut buf);
             self.done.replace(true);
         }
 

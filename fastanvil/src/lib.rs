@@ -57,7 +57,7 @@ impl<S: Seek + Read, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> 
 
         let data = self.load_chunk(loc.x, loc.z).ok()?;
 
-        Some(from_bytes::<C>(&data).ok()?)
+        from_bytes::<C>(&data).ok()
     }
 }
 
@@ -83,7 +83,7 @@ impl ChunkMeta {
             return Err(Error::InsufficientData);
         }
 
-        let mut buf = (&data[..5]).clone();
+        let mut buf = &data[..5];
         let len = buf.read_u32::<BigEndian>()?;
         let scheme = buf.read_u8()?;
         let scheme = CompressionScheme::try_from(scheme).map_err(|_| Error::InvalidChunkMeta)?;
@@ -117,9 +117,9 @@ impl<S: Seek + Read> RegionBuffer<S> {
         self.data.borrow_mut().read_exact(&mut buf[..])?;
 
         let mut off = 0usize;
-        off = off | ((buf[0] as usize) << 16);
-        off = off | ((buf[1] as usize) << 8);
-        off = off | ((buf[2] as usize) << 0);
+        off |= (buf[0] as usize) << 16;
+        off |= (buf[1] as usize) << 8;
+        off |= buf[2] as usize;
         let count = buf[3] as usize;
         Ok(ChunkLocation {
             begin_sector: off,
@@ -201,9 +201,9 @@ impl<S: Seek + Read> RegionBuffer<S> {
 }
 
 // Read Information Bytes of Minecraft Chunk and decompress it
-fn decompress_chunk(data: &Vec<u8>) -> Result<Vec<u8>> {
+fn decompress_chunk(data: &[u8]) -> Result<Vec<u8>> {
     // Metadata encodes the length in bytes and the compression type
-    let meta = ChunkMeta::new(data.as_slice()).unwrap();
+    let meta = ChunkMeta::new(data).unwrap();
 
     // compressed data starts at byte 5
     let inbuf = &mut &data[5..];
@@ -257,6 +257,13 @@ use std::io::Cursor;
 #[cfg(test)]
 pub struct Builder {
     inner: Vec<u8>,
+}
+
+#[cfg(test)]
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
