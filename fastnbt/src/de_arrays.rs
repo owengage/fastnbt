@@ -100,7 +100,7 @@ impl<'a, 'de> de::SeqAccess<'de> for ArrayAccess<'a, 'de> {
         T: serde::de::DeserializeSeed<'de>,
     {
         if self.remaining > 0 {
-            self.remaining = self.remaining - 1;
+            self.remaining -= 1;
             let val = seed.deserialize(ArrayElementDeserializer {
                 de: self.de,
                 tag: self.tag,

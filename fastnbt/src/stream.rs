@@ -168,6 +168,7 @@ impl<R: Read> Parser<R> {
     }
 
     /// Parse the next value from the input.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Value> {
         self.next_inner()
     }
@@ -197,7 +198,7 @@ impl<R: Read> Parser<R> {
         let last_layer = self.layers.last().map(|l| (*l).clone());
         if let Some(layer) = last_layer {
             match layer {
-                Layer::List(tag, _) => return self.read_payload(tag.clone(), None),
+                Layer::List(tag, _) => return self.read_payload(tag, None),
                 Layer::Compound => {}
             };
         }
@@ -206,7 +207,7 @@ impl<R: Read> Parser<R> {
         // natural end of stream.
         let tag = match self.reader.read_u8() {
             Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Err(Error::eof())?,
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Err(Error::eof()),
             e => e?,
         };
 
@@ -258,7 +259,7 @@ impl<R: Read> Parser<R> {
                 let element_tag = self.reader.read_u8()?;
                 let element_tag = u8_to_tag(element_tag)?;
                 let size = self.reader.read_i32::<BigEndian>()?;
-                self.layers.push(Layer::List(element_tag.clone(), size));
+                self.layers.push(Layer::List(element_tag, size));
                 Ok(Value::List(name, element_tag, size))
             }
             Tag::String => Ok(Value::String(name, self.read_size_prefixed_string()?)),
@@ -349,7 +350,7 @@ fn vec_u8_into_i8(v: Vec<u8>) -> Vec<i8> {
 }
 
 fn u8_to_tag(tag: u8) -> Result<Tag> {
-    Tag::try_from(tag).or_else(|_| Err(Error::invalid_tag(tag)))
+    Tag::try_from(tag).map_err(|_| Error::invalid_tag(tag))
 }
 
 #[derive(Clone)]

@@ -61,6 +61,7 @@ fn simple_floats() -> Result<()> {
 
     assert_eq!(v.f, 1.23);
     assert_eq!(v.d, 2.34);
+
     Ok(())
 }
 
@@ -1072,8 +1073,8 @@ fn floating_in_fullvalue() {
         .end_compound()
         .build();
 
-    let v: Value = from_bytes(payload.as_slice()).unwrap();
-    match v {
+    let val: Value = from_bytes(payload.as_slice()).unwrap();
+    match val {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {

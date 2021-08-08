@@ -42,7 +42,7 @@
 //!     pub y: i8,
 //! }
 //!
-//! fn main(){
+//!# fn main(){
 //!     let buf: &[u8] = unimplemented!("get a buffer from somewhere");
 //!     let section: Section = fastnbt::de::from_bytes(buf).unwrap();
 //!     let states = section.block_states.unwrap();
@@ -50,7 +50,7 @@
 //!     for long in states.iter() {
 //!         // do something
 //!     }
-//! }
+//! # }
 //! ```
 //!
 //! # Example: Player inventory
@@ -98,7 +98,7 @@
 //!     count: i8,
 //! }
 //!
-//! fn main() {
+//!# fn main() {
 //!     let args: Vec<_> = std::env::args().skip(1).collect();
 //!     let file = std::fs::File::open(args[0].clone()).unwrap();
 //!
@@ -110,7 +110,7 @@
 //!     let player: Result<PlayerDat> = from_bytes(data.as_slice());
 //!
 //!     println!("{:#?}", player);
-//! }
+//!# }
 //! ```
 //!
 //! # `Read` based parser

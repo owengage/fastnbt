@@ -2,13 +2,17 @@ use std::convert::{TryFrom, TryInto};
 
 use crate::Tag;
 
-mod builder;
+#[allow(clippy::float_cmp)]
 mod de;
+
+#[allow(clippy::float_cmp)]
+mod value;
+
+mod builder;
+mod de_arrays;
 mod fuzz;
 mod minecraft_chunk;
 mod stream;
-mod de_arrays;
-mod value;
 
 fn assert_try_into(tag: Tag) {
     assert_eq!(tag, (tag as u8).try_into().unwrap());

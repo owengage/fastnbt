@@ -38,7 +38,7 @@ impl Error {
     }
 
     pub(crate) fn no_root_compound() -> Error {
-        Error(format!("invalid nbt: no root compound"))
+        Error("invalid nbt: no root compound".to_owned())
     }
 
     pub(crate) fn nonunicode_string(data: &[u8]) -> Error {
@@ -49,7 +49,7 @@ impl Error {
     }
 
     pub(crate) fn unexpected_eof() -> Error {
-        Error(format!("eof: unexpectedly ran out of input"))
+        Error("eof: unexpectedly ran out of input".to_owned())
     }
 
     pub(crate) fn bespoke(msg: String) -> Error {

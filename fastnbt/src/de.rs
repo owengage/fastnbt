@@ -273,7 +273,7 @@ pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
 where
     T: de::Deserialize<'a>,
 {
-    let mut des = Deserializer::from_bytes(&input);
+    let mut des = Deserializer::from_bytes(input);
     let t = T::deserialize(&mut des)?;
     Ok(t)
 }
@@ -413,7 +413,7 @@ impl<'de> InputHelper<'de> {
 
     fn consume_tag(&mut self) -> Result<Tag> {
         let tag_byte = self.0.read_u8()?;
-        Tag::try_from(tag_byte).or_else(|_| Err(Error::invalid_tag(tag_byte)))
+        Tag::try_from(tag_byte).map_err(|_| Error::invalid_tag(tag_byte))
     }
 
     fn consume_name(&mut self) -> Result<Cow<'de, str>> {
@@ -626,9 +626,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        let layer = self.layers.last().ok_or(Error::bespoke(format!(
-            "expected bytes, but not in a compound or list",
-        )))?;
+        let layer = self.layers.last().ok_or_else(|| {
+            Error::bespoke("expected bytes, but not in a compound or list".to_owned())
+        })?;
 
         match layer {
             Layer::List {
@@ -786,13 +786,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         // The last layer should tell us what value we're expecting.
         // We have already read the tag and name. This is the payload.
 
-        let layer = self
-            .layers
-            .last()
-            .ok_or(Error::bespoke(format!(
-                "expected unwanted payload, but not in a compound or list",
-            )))?
-            .clone();
+        let layer = self.layers.last().ok_or_else(|| {
+            Error::bespoke("expected unwanted payload, but not in a compound or list".to_owned())
+        })?;
 
         match layer {
             Layer::Compound {
@@ -901,7 +897,7 @@ impl<'a, 'de> de::SeqAccess<'de> for ListAccess<'a, 'de> {
             .de
             .layers
             .last_mut()
-            .ok_or(Error::bespoke("expected to be in list".to_owned()))?;
+            .ok_or_else(|| Error::bespoke("expected to be in list".to_owned()))?;
 
         match layer {
             Layer::List {
@@ -909,7 +905,7 @@ impl<'a, 'de> de::SeqAccess<'de> for ListAccess<'a, 'de> {
                 element_tag: _,
             } => {
                 if *remaining_elements > 0 {
-                    *remaining_elements = *remaining_elements - 1;
+                    *remaining_elements -= 1;
                     let val = seed.deserialize(&mut *self.de)?;
                     Ok(Some(val))
                 } else {
