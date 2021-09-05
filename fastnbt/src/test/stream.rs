@@ -120,6 +120,30 @@ fn simple_string() -> Result<()> {
 }
 
 #[test]
+fn cesu8_string_in_nbt() -> Result<()> {
+    // In the builder we always convert to java cesu8 form for strings anyway,
+    // but this test is more explicit and includes some unicode that actually
+    // has a different representation in cesu8 and utf-8.
+    let modified_unicode_str = cesu8::to_java_cesu8("😈");
+
+    let payload = Builder::new()
+        .tag(Tag::String)
+        .name("cesu8")
+        .raw_len(modified_unicode_str.len())
+        .raw_bytes(&modified_unicode_str)
+        .build();
+
+    let mut parser = Parser::new(payload.as_slice());
+
+    assert_eq!(
+        parser.next()?,
+        Value::String(name("cesu8"), "😈".to_owned())
+    );
+
+    Ok(())
+}
+
+#[test]
 fn simple_byte_array() -> Result<()> {
     let payload = Builder::new()
         .tag(Tag::ByteArray)

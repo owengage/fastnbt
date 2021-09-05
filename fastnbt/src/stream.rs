@@ -237,9 +237,9 @@ impl<R: Read> Parser<R> {
         let mut buf = vec![0; name_len];
         self.reader.read_exact(&mut buf[..])?;
 
-        Ok(std::str::from_utf8(&buf[..])
+        Ok(cesu8::from_java_cesu8(&buf[..])
             .map_err(|_| Error::nonunicode(Vec::from(&buf[..])))?
-            .to_owned())
+            .into_owned())
     }
 
     fn read_payload(&mut self, tag: Tag, name: Name) -> Result<Value> {
