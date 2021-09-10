@@ -1,5 +1,5 @@
 use super::builder::Builder;
-use crate::stream::{Name, Parser, Result, Value};
+use crate::stream::{ErrorKind, Name, Parser, Result, Value};
 use crate::Tag;
 
 fn name(n: &str) -> Name {
@@ -138,6 +138,34 @@ fn cesu8_string_in_nbt() -> Result<()> {
     assert_eq!(
         parser.next()?,
         Value::String(name("cesu8"), "😈".to_owned())
+    );
+
+    Ok(())
+}
+
+#[test]
+fn invalid_unicode_can_carry_on() -> Result<()> {
+    let bs = [255, 255, 255];
+
+    let payload = Builder::new()
+        .tag(Tag::String)
+        .name("invalid")
+        .raw_len(bs.len())
+        .raw_bytes(&bs)
+        .string("available", "yes")
+        .build();
+
+    let mut parser = Parser::new(payload.as_slice());
+
+    assert!(matches!(
+        parser.next().unwrap_err().kind(),
+        ErrorKind::Nonunicode(_)
+    ));
+
+    let s = parser.next()?;
+    assert_eq!(
+        s,
+        Value::String(Some("available".to_owned()), "yes".to_string())
     );
 
     Ok(())

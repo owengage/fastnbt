@@ -34,28 +34,73 @@ pub enum Value {
     LongArray(Name, Vec<i64>),
 }
 
-#[derive(Debug)]
-pub struct Error(String);
+#[derive(Debug, Clone)]
+pub struct Error {
+    msg: String,
+    kind: ErrorKind,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum ErrorKind {
+    /// Any other errors. Users should not match on this variant and should
+    /// instead use a wildcard `_`. Errors in this category may be moved to new variants.
+    Other,
+
+    /// End of file. This occurs when EOF happens at the end of a tag and value,
+    /// so it may not be an error, it could be the natural end of the NBT. The
+    /// parser does not have enough context to tell the difference as it does
+    /// not track the overall structure of the NBT.
+    Eof,
+
+    /// EOF that occurred part way through some NBT value.
+    UnexpectedEof,
+    InvalidTag,
+
+    /// Expected unicode data but was not valid. Parser remains valid if just
+    /// this value was not unicode. Contained bytes are the invalid unicode data.
+    Nonunicode(Vec<u8>),
+}
 
 impl Error {
+    /// Get the kind of error.
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
+
     pub fn is_eof(&self) -> bool {
-        self.0 == "EOF" // bit hacky.
+        matches!(self.kind, ErrorKind::Eof)
     }
 
     fn bespoke(msg: impl Into<String>) -> Self {
-        Self(msg.into())
+        Self {
+            msg: msg.into(),
+            kind: ErrorKind::Other,
+        }
     }
+
     fn invalid_tag(t: u8) -> Self {
-        Self(format!("invalid tag: {}", t))
+        Self {
+            msg: format!("invalid tag: {}", t),
+            kind: ErrorKind::InvalidTag,
+        }
     }
+
     fn nonunicode(d: Vec<u8>) -> Self {
-        Self(format!(
-            "invalid string, non-unicode: {}",
-            String::from_utf8_lossy(&d),
-        ))
+        Self {
+            msg: format!(
+                "invalid string, non-unicode: {}",
+                String::from_utf8_lossy(&d),
+            ),
+            kind: ErrorKind::Nonunicode(d),
+        }
     }
+
     fn eof() -> Self {
-        Self::bespoke("EOF")
+        Self {
+            msg: "EOF".into(),
+            kind: ErrorKind::Eof,
+        }
     }
 }
 
@@ -63,13 +108,23 @@ impl std::error::Error for Error {}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.msg)
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Self(e.to_string())
+        match e.kind() {
+            std::io::ErrorKind::UnexpectedEof => Self {
+                msg: e.to_string(),
+                kind: ErrorKind::UnexpectedEof,
+            },
+            // Probably want to include the IO error in future.
+            _ => Self {
+                msg: e.to_string(),
+                kind: ErrorKind::Other,
+            },
+        }
     }
 }
 
