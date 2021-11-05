@@ -5,13 +5,13 @@ use serde::Deserialize;
 use crate::{bits_per_block, PackedBits};
 
 #[derive(Debug)]
-pub struct Blockstates {
+pub struct Pre18Blockstates {
     done: Cell<bool>,
     unpacked: RefCell<[u16; 16 * 16 * 16]>,
     packed: PackedBits,
 }
 
-impl Blockstates {
+impl Pre18Blockstates {
     #[inline(always)]
     pub fn state(&self, x: usize, sec_y: usize, z: usize, pal_len: usize) -> usize {
         // 🤮 This is a very hot function, so the ugly is worth the speed.
@@ -31,7 +31,7 @@ impl Blockstates {
     }
 }
 
-impl<'de> Deserialize<'de> for Blockstates {
+impl<'de> Deserialize<'de> for Pre18Blockstates {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

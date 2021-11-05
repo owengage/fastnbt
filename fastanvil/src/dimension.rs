@@ -15,6 +15,9 @@ pub enum HeightMode {
 }
 
 pub trait Chunk {
+    // Status of the chunk. Typically anything except 'full' means the chunk
+    // hasn't been fully generated yet. We use this to skip chunks on map edges
+    // that haven't been fully generated yet.
     fn status(&self) -> String;
 
     /// Get the height of the first air-like block above something not air-like.

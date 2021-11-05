@@ -7,6 +7,7 @@ use serde::Deserialize;
 // Various data versions for the anvil format
 const V1_17_0: i32 = 2724;
 const V1_17_1: i32 = 2730;
+const SNAPSHOT_21W44A: i32 = 2845;
 
 /// PackedBits can be used in place of blockstates in chunks to avoid
 /// allocating memory for them when they might not be needed. This object by
@@ -110,7 +111,7 @@ pub fn expand_heightmap(data: &[i64], y_min: isize, data_version: i32) -> Vec<i1
     // v.into_iter().map(|h| h as i16 + shift).collect()
 
     match data_version {
-        V1_17_0 | V1_17_1 => {
+        V1_17_0 | V1_17_1 | SNAPSHOT_21W44A.. => {
             let bits_per = match data.len() {
                 43 => 10,
                 37 => 9,

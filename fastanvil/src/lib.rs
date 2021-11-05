@@ -57,7 +57,14 @@ impl<S: Seek + Read, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> 
 
         let data = self.load_chunk(loc.x, loc.z).ok()?;
 
-        from_bytes::<C>(&data).ok()
+        let res = from_bytes::<C>(&data);
+
+        match &res {
+            Ok(_) => {}
+            Err(e) => println!("{}", e),
+        }
+
+        res.ok()
     }
 }
 
