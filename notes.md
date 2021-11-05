@@ -1,5 +1,181 @@
 # Notes
 
+# 1.18 chunk format change details
+
+Both biomes and block data is now stored in a `block_states` structure with a
+`data` and `palette` field. `data` is like the old `BlockStates` field, and
+`palette` is like the old field of the same name.
+
+The `data` is the same, except the lower limit of 4 bits per block does not
+apply for the biomes, often the `data` can be 1 bit per block in the case of
+only 2 biomes in the section.
+
+`data` may be missing entirely if the `palette` is only 1 item. This seems to
+just imply the entire section is that block/biome.
+
+# 1.18 changes
+
+This update brings in some significant changes to the chunk format, ones
+relevant to fastanvil are:
+
+* `Level` is gone, with all it's fields moved up into the main chunk compound.
+* Names of fields has moved to `snake_case`.
+* `BlockStates` and `Palette` have moved into a dedicated container structure.
+* `Biomes` is moved to a similar palette/container structure as `BlockStates`.
+
+Conversion to 1.18 chunks is done on a per-chunk basis. So a region file can
+contain mixed chunk versions. This means we need to handle the type of chunk at
+the chunk level. We cannot 'flip' our processing based on the region file itself.
+This awkwardly means we might need an extra 'if' for every function call into a
+chunk, or some `dyn` action to virtually dispatch based on the real chunk
+version. Neither solution seems particularly pretty to me.
+
+A new 'section' looks like this:
+
+```
+"sections": List(
+  [
+      Compound(
+          {
+              "biomes": Compound(
+                  {
+                      "palette": List(
+                          [
+                              String(
+                                  "minecraft:forest",
+                              ),
+                          ],
+                      ),
+                  },
+              ),
+              "Y": Byte(
+                  -4,
+              ),
+              "block_states": Compound(
+                  {
+                      "data": LongArray(
+                          LongArray {
+                              tag: LongArray,
+                              data: [],
+                          },
+                      ),
+                      "palette": List(
+                          [
+                              Compound(
+                                  {
+                                      "Name": String(
+                                          "minecraft:stone",
+                                      ),
+                                  },
+                              ),
+                          ],
+                      ),
+                  },
+              ),
+          },
+      ),
+    ),
+  ]
+)
+```
+
+The `biomes` here doesn't contain any data. The palette is only one item
+however, so it's clear that the entire section must be the same biome. Here's
+another that looks unusual:
+
+```
+"biomes": Compound(
+    {
+        "palette": List(
+            [
+                String(
+                    "minecraft:dark_forest",
+                ),
+                String(
+                    "minecraft:lush_caves",
+                ),
+            ],
+        ),
+        "data": LongArray(
+            LongArray {
+                tag: LongArray,
+                data: [
+                    4222128945627136,
+                ],
+            },
+        ),
+    },
+),
+```
+
+In binary, that data is `1111000000000000000100000000000000000000000000000000`.
+If we assume biomes are still encoded in 4x4x4 cubes, then each 'layer' of a
+biome will be 4x4=16. It looks like each bit here might be representing a 4x4x4
+cube.
+
+In the blockstates packed data the number of bits per 'block' was a minimum of
+four. It looks like this might not be the case for biomes. It's probably worth
+checking if it has also changed for the normal blockstates.
+
+Example from a 1.16 world blockstate number is 37336289389873219, in binary this
+looks like `10000100101001010010100001001010010100001000100001000011` and is
+parsed from least significant bit. The palette with this was length 20, so
+requires 5 bits per block. So we break it up:
+
+```
+1 00001 00101 00101 00101 00001 00101 00101 00001 00010 00010 00011
+```
+
+The presence of a few 00001's helps convince us that this is correct. Let's look
+at some blockstate data from a new world.
+
+```
+Block state:
+palette len 8, so 3 bits would be sufficient, but min 4?
+1229782938247303441
+0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001
+
+palette 7, 3 bits, but still looks like 4.
+2459565876494606882
+0010 0010 0010 0010 0010 0010 0010 0010 0010 0010 0010 0010 0010 0010 0010 0010
+```
+
+Looks like blockstates are still a minimum of 4 bits per block. Amazing. Maybe
+it's special cased for biomes, or maybe it's special cased for a palette size of
+2? Hard to tell. Maybe generating a flatworld would help.
+
+
+```
+Block state, super flat world with just a layer of bedrock
+Palette len 2
+1229782938247303441
+0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001 0001
+```
+
+So looks like it is indeed special cased purely for biomes. Amazing. What
+happens if there are more than 2 biomes in a section? Searching through the data
+for a biome palette with more than 2 items I get some examples: 
+
+```
+{"palette": 
+    List([
+        String("minecraft:river"), 
+        String("minecraft:lush_caves"), 
+        String("minecraft:dark_forest")
+    ]), 
+    "data": LongArray(LongArray { tag: LongArray, data: [
+        549755813952, 
+        549755814016] })
+}
+```
+
+Given that we need to encode 64 biomes (4x4x4 cubes), and there's only 2 64-bit
+integers here, it seems that the biomes are being encoded 2 bits per biome.
+
+It really seems that for the biome construct it will go down to a single bit per
+block, but on blockstates it's a minimum of 4. Maybe this is a historical thing,
+maybe it will change, maybe it's intentional based on performance measurements.
+
 # Custom world heights
 
 Having to use a 'null terminated' chunk to determine world depth.
