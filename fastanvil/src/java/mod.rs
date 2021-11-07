@@ -123,10 +123,7 @@ impl Chunk for Post18JavaChunk {
         let sec = sections.get_section_for_y(y)?;
         let sec_y = (y - sec.y as isize * 16) as usize;
 
-        match &sec.block_states {
-            Some(bs) => bs.at(x, sec_y, z),
-            None => Some(&AIR),
-        }
+        Some(sec.block_states.at(x, sec_y, z).unwrap_or(&AIR))
     }
 
     fn y_range(&self) -> Range<isize> {
