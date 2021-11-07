@@ -16,12 +16,6 @@ pub struct BiomeData<T: Debug> {
     inner: DataInner<T>,
 }
 
-#[derive(Deserialize, Debug)]
-struct DataInner<T: Debug> {
-    data: Option<LongArray>,
-    palette: Vec<T>,
-}
-
 impl<T: Debug> BlockData<T> {
     pub fn at(&self, x: usize, sec_y: usize, z: usize) -> Option<&T> {
         let state_index = (sec_y * 16 * 16) + z * 16 + x;
@@ -40,6 +34,12 @@ impl<T: Debug> BiomeData<T> {
         let state_index = (y * 4 * 4) + z * 4 + x;
         self.inner.at(state_index, 1)
     }
+}
+
+#[derive(Deserialize, Debug)]
+struct DataInner<T: Debug> {
+    data: Option<LongArray>,
+    palette: Vec<T>,
 }
 
 impl<T: Debug> DataInner<T> {
