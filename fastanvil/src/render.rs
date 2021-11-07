@@ -69,11 +69,10 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         chunk: &C,
         y_min: isize,
     ) -> Rgba {
-        let mut current_height = y_start; // -1 because we want the block below the air.
+        let mut current_height = y_start;
         let mut colour = [0, 0, 0, 0];
 
-        // FIXME: Should this be >= y_min?
-        while colour[3] != 255 && current_height > y_min {
+        while colour[3] != 255 && current_height >= y_min {
             let current_biome = chunk.biome(x, current_height, z);
             let current_block = chunk.block(x, current_height, z);
 
