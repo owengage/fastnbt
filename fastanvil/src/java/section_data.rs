@@ -62,7 +62,11 @@ impl<T: Debug> DataInner<T> {
         let inter_index = index % values_per_64bits;
         let range = inter_index * bits..(inter_index + 1) * bits;
 
-        let long = data[long_index] as usize;
+        // Super important line: treat the i64 as an u64.
+        // Bug 1: Kept i64 and the get_bits interprets as signed.
+        // Bug 2: Went to usize, worked on 64bit platforms broke on 32 bit like WASM.
+        let long = data[long_index] as u64;
+
         let palette_index = long.get_bits(range);
 
         self.palette.get(palette_index as usize)
