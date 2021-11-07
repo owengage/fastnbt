@@ -1,7 +1,8 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
 use fastanvil::{
-    render_region, CCoord, HeightMode, JavaChunk, RCoord, RegionLoader, Rgba, TopShadeRenderer,
+    render_region, CCoord, HeightMode, JavaChunk, Post18JavaChunk, RCoord, RegionLoader, Rgba,
+    TopShadeRenderer,
 };
 use fastanvil::{Dimension, RenderedPalette};
 

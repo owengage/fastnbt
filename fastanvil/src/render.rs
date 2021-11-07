@@ -252,6 +252,9 @@ pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
 
     for z in 0isize..32 {
         for x in 0isize..32 {
+            // if !(x == 15 && z == 6) {
+            //     continue;
+            // }
             let (x, z) = (CCoord(x), CCoord(z));
             let data = map.chunk_mut(x, z);
 

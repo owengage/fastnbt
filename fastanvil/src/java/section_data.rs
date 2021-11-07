@@ -44,6 +44,12 @@ impl<T: Debug> BiomeData<T> {
 
 impl<T: Debug> DataInner<T> {
     pub fn at(&self, index: usize, min_bits_per_item: usize) -> Option<&T> {
+        if self.data.is_none() && self.palette.len() == 1 {
+            return self.palette.get(0);
+        }
+
+        let data = self.data.as_ref()?;
+
         // TODO: Can potentially calculate this at deserialize time.
         let bits = std::cmp::max(
             (self.palette.len() as f64).log2().ceil() as usize,
@@ -56,10 +62,38 @@ impl<T: Debug> DataInner<T> {
         let inter_index = index % values_per_64bits;
         let range = inter_index * bits..(inter_index + 1) * bits;
 
-        let data = self.data.as_ref()?;
-        let long = data[long_index];
+        let long = data[long_index] as usize;
         let palette_index = long.get_bits(range);
 
         self.palette.get(palette_index as usize)
+    }
+}
+
+// Block states at the least can be missing from the world data. This typically
+// just means that it's a big block of air. We default the DataInner and let the
+// fact data is None to also return none. Rather than have BlockData be optional
+// in the chunk struct.
+impl<T: Debug> Default for DataInner<T> {
+    fn default() -> Self {
+        Self {
+            data: Default::default(),
+            palette: Default::default(),
+        }
+    }
+}
+
+impl<T: Debug> Default for BlockData<T> {
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+        }
+    }
+}
+
+impl<T: Debug> Default for BiomeData<T> {
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+        }
     }
 }

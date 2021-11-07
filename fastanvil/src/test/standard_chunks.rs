@@ -9,6 +9,7 @@ use crate::{biome::Biome, Block, Chunk, HeightMode, JavaChunk, Palette, Rgba, To
 
 const CHUNK_1_17_0: &[u8] = include_bytes!("../../resources/1.17.0.chunk");
 const CHUNK_1_17_1: &[u8] = include_bytes!("../../resources/1.17.1.chunk");
+const CHUNK_21W44A_1: &[u8] = include_bytes!("../../resources/21w44a-test1.nbt");
 const CHUNK_CUSTOM_HEIGHTS_1_17_1: &[u8] =
     include_bytes!("../../resources/1.17.1-custom-heights.chunk");
 
@@ -36,6 +37,13 @@ fn exercise_render(chunk: &impl Chunk) -> [[u8; 4]; 256] {
 
     let renderer = TopShadeRenderer::new(&palette, HeightMode::Calculate);
     renderer.render(chunk, None)
+}
+
+#[test]
+fn chunk_21w44a() {
+    let expected = [[0; 4]; 256];
+    let chunk: JavaChunk = from_bytes(CHUNK_1_17_0).unwrap();
+    assert_eq!(expected, exercise_render(&chunk));
 }
 
 #[test]

@@ -51,8 +51,6 @@ impl PackedBits {
     }
 
     fn unpack_1_15(&self, bits_per_item: usize, buf: &mut [u16]) {
-        // if 1.15 style packing
-        //println!("1.15 packing {}", data.len());
         // TODO: Get around having to allocate here.
         let mut v: Vec<u64> = vec![];
         for datum in &*self.0 {

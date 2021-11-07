@@ -13,7 +13,10 @@ pub struct Section {
     #[serde(rename = "Y")]
     pub y: i8,
 
-    pub block_states: BlockData<Block>,
+    // TODO: Default instead
+    pub block_states: Option<BlockData<Block>>,
+
+    #[serde(default)]
     pub biomes: BiomeData<String>, // TODO: Biome type?
 }
 

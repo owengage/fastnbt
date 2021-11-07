@@ -1,5 +1,14 @@
 # Notes
 
+# 1.18 hole problem
+
+If I put calculate heights on, it somewhat fixes the issues, except that water
+will be missing from some of the erroring chunks. I'd guess that these are solid
+blocks of water that have empty data with a palette of 1 or something?
+
+Calculate heights is also not working properly. Gives the height without water
+it seems?
+
 # 1.18 chunk format change details
 
 Both biomes and block data is now stored in a `block_states` structure with a
