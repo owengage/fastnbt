@@ -29,11 +29,7 @@ impl Chunk for CurrentJavaChunk {
         let sec = sections.get_section_for_y(y)?;
         let sec_y = (y - sec.y as isize * 16) as usize;
 
-        // TODO: Turn biome string into actual biome? Or move to strings? Do it
-        // at deserialization?
-        let _ = sec.biomes.at(x, sec_y, z);
-
-        Some(Biome::Plains)
+        sec.biomes.at(x, sec_y, z).cloned()
     }
 
     fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {

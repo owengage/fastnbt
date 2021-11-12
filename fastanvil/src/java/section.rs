@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{BiomeData, Block, BlockData};
+use crate::{biome::Biome, BiomeData, Block, BlockData};
 
 pub trait SectionLike {
     fn is_terminator(&self) -> bool;
@@ -17,7 +17,7 @@ pub struct Section {
     pub block_states: BlockData<Block>,
 
     #[serde(default)]
-    pub biomes: BiomeData<String>, // TODO: Biome type?
+    pub biomes: BiomeData<Biome>,
 }
 
 impl SectionLike for Section {
