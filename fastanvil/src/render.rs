@@ -69,39 +69,34 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         chunk: &C,
         y_min: isize,
     ) -> Rgba {
-        let mut current_height = y_start;
+        let mut y = y_start;
         let mut colour = [0, 0, 0, 0];
 
-        while colour[3] != 255 && current_height >= y_min {
-            let current_biome = chunk.biome(x, current_height, z);
-            let current_block = chunk.block(x, current_height, z);
+        while colour[3] != 255 && y >= y_min {
+            let current_biome = chunk.biome(x, y, z);
+            let current_block = chunk.block(x, y, z);
 
-            if let Some(current_block) = current_block.as_ref() {
-                match current_block.name() {
-                    "minecraft:air" | "minecraft:cave_air" => {
-                        current_height -= 1;
+            if let Some(current_block) = current_block {
+                match current_block {
+                    block if is_airy(block) => {
+                        y -= 1;
                     }
                     // TODO: Can potentially optimize this for ocean floor using
                     // heightmaps.
-                    "minecraft:water"
-                    | "minecraft:bubble_column"
-                    | "minecraft:kelp"
-                    | "minecraft:kelp_plant"
-                    | "minecraft:sea_grass"
-                    | "minecraft:tall_seagrass" => {
+                    block if is_watery(block) => {
                         let mut block_colour = self.palette.pick(current_block, current_biome);
-                        let water_depth = water_depth(x, current_height, z, chunk, y_min);
+                        let water_depth = water_depth(x, y, z, chunk, y_min);
                         let alpha = water_depth_to_alpha(water_depth);
 
                         block_colour[3] = alpha as u8;
 
                         colour = a_over_b_colour(colour, block_colour);
-                        current_height -= water_depth;
+                        y -= water_depth;
                     }
                     _ => {
                         let block_colour = self.palette.pick(current_block, current_biome);
                         colour = a_over_b_colour(colour, block_colour);
-                        current_height -= 1;
+                        y -= 1;
                     }
                 }
             } else {
@@ -113,6 +108,25 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
     }
 }
 
+/// Blocks that are considered as if they are water when determining colour.
+fn is_watery(block: &Block) -> bool {
+    matches!(
+        block.name(),
+        "minecraft:water"
+            | "minecraft:bubble_column"
+            | "minecraft:kelp"
+            | "minecraft:kelp_plant"
+            | "minecraft:sea_grass"
+            | "minecraft:tall_seagrass"
+    )
+}
+
+/// Blocks that are considered as if they are air when determining colour.
+fn is_airy(block: &Block) -> bool {
+    matches!(block.name(), "minecraft:air" | "minecraft:cave_air")
+}
+
+/// Convert `water_depth` meters of water to an approximate opacity
 fn water_depth_to_alpha(water_depth: isize) -> u8 {
     // Water will absorb a fraction of the light per unit depth. So if we say
     // that every metre of water absorbs half the light going through it, then 2
@@ -132,18 +146,6 @@ fn water_depth_to_alpha(water_depth: isize) -> u8 {
 }
 
 fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C, y_min: isize) -> isize {
-    let is_water = |block_name: &str| {
-        matches!(
-            block_name,
-            "minecraft:water"
-                | "minecraft:bubble_column"
-                | "minecraft:kelp"
-                | "minecraft:kelp_plant"
-                | "minecraft:sea_grass"
-                | "minecraft:tall_seagrass"
-        )
-    };
-
     let mut depth = 1;
     while y > y_min {
         let block = match chunk.block(x, y, z) {
@@ -151,7 +153,7 @@ fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C, y_min: isi
             None => return depth,
         };
 
-        if is_water(block.name()) {
+        if is_watery(block) {
             depth += 1;
         } else {
             return depth;
@@ -252,9 +254,6 @@ pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
 
     for z in 0isize..32 {
         for x in 0isize..32 {
-            // if !(x == 15 && z == 6) {
-            //     continue;
-            // }
             let (x, z) = (CCoord(x), CCoord(z));
             let data = map.chunk_mut(x, z);
 

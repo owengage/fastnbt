@@ -1,9 +1,6 @@
 use log::debug;
 
-use crate::{
-    biome::{self, Biome},
-    Block, Palette, Rgba, SNOW_BLOCK,
-};
+use crate::{biome::Biome, Block, Palette, Rgba, SNOW_BLOCK};
 
 pub struct RenderedPalette {
     pub blockstates: std::collections::HashMap<String, Rgba>,
@@ -14,7 +11,7 @@ pub struct RenderedPalette {
 impl RenderedPalette {
     fn pick_grass(&self, b: Option<Biome>) -> Rgba {
         b.map(|b| {
-            let climate = biome::climate(b);
+            let climate = b.climate();
             let t = climate.temperature.min(1.).max(0.);
             let r = climate.rainfall.min(1.).max(0.) * t;
 
@@ -28,7 +25,7 @@ impl RenderedPalette {
 
     fn pick_foliage(&self, b: Option<Biome>) -> Rgba {
         b.map(|b| {
-            let climate = biome::climate(b);
+            let climate = b.climate();
             let t = climate.temperature.min(1.).max(0.);
             let r = climate.rainfall.min(1.).max(0.) * t;
 
@@ -74,9 +71,7 @@ impl Palette for RenderedPalette {
                     return self.pick_grass(biome);
                 }
                 "grass_block" => {
-                    let snowy = block.snowy();
-
-                    if snowy {
+                    if block.snowy() {
                         return self.pick(&SNOW_BLOCK, biome);
                     } else {
                         return self.pick_grass(biome);
