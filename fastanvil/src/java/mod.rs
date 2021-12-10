@@ -2,10 +2,11 @@ use std::ops::Range;
 
 use lazy_static::lazy_static;
 
+pub mod pre18;
+
 mod block;
 mod chunk;
 mod heightmaps;
-mod pre18;
 mod section;
 mod section_data;
 mod section_tower;

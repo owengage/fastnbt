@@ -120,7 +120,7 @@
 //! deserializing to Rust objects directly.
 //!
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub mod borrow;
 pub mod de;
@@ -225,7 +225,7 @@ impl From<Tag> for u8 {
 
 /// Compile time NBT tag type. Useful for forcing a custom type to have a field
 /// that must be a given tag. Used for the Array types.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Serialize, Clone, Copy, PartialEq)]
 pub(crate) struct CompTag<const N: u8>;
 
 impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {

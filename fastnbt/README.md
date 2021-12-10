@@ -27,6 +27,9 @@ Some things that this project does *not* count as a breaking change are:
   be too difficult, and I don't see much need for NBT in those environments.
 * Improving the deserializer such that valid NBT that did not deserialize, then
   deserializes. Any of these cases I consider a bug.
+* Data format when serializing types from fastnbt. Types in fastnbt implement
+  `serde::Serialise` to enable spitting out to other data formats, but may
+  change structure in future.
 
 Changes that make `fastnbt` incompatible with WebAssembly *are* considered
 breaking changes.

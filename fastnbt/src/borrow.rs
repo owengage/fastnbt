@@ -43,14 +43,14 @@
 use std::{borrow::Cow, fmt};
 
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
 
 /// ByteArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. The carving masks
 /// in a chunk use this type, for example.
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ByteArray<'a> {
     tag: CompTag<BYTE_ARRAY_TAG>,
     data: &'a [u8],
@@ -76,7 +76,7 @@ impl<'a> Iterator for ByteIter<'a> {
 /// IntArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Biomes in the chunk
 /// format are an example of this data type.
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct IntArray<'a> {
     tag: CompTag<INT_ARRAY_TAG>,
     data: &'a [u8],
@@ -102,7 +102,7 @@ impl<'a> Iterator for IntIter<'a> {
 /// LongArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Block states
 /// (storage of all the blocks in a chunk) are an exmple of when this is used.
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct LongArray<'a> {
     tag: CompTag<LONG_ARRAY_TAG>,
     data: &'a [u8],

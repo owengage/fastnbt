@@ -1,7 +1,8 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
 use fastanvil::{
-    render_region, CCoord, HeightMode, JavaChunk, RCoord, RegionLoader, Rgba, TopShadeRenderer,
+    pre18, render_region, CCoord, HeightMode, JavaChunk, RCoord, RegionLoader, Rgba,
+    TopShadeRenderer,
 };
 use fastanvil::{Dimension, RenderedPalette};
 
@@ -148,7 +149,7 @@ fn render(args: &ArgMatches) -> Result<()> {
     let region_maps: Vec<_> = coords
         .into_par_iter()
         .filter_map(|coord| {
-            let loader = RegionFileLoader::<JavaChunk>::new(world.join(subpath));
+            let loader = RegionFileLoader::<pre18::JavaChunk>::new(world.join(subpath));
             let dimension = Dimension::new(Box::new(loader));
 
             let (x, z) = coord;

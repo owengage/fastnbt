@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{ByteArray, IntArray, LongArray};
 
@@ -25,7 +25,7 @@ use crate::{ByteArray, IntArray, LongArray};
 /// #   Ok(())
 /// # }
 /// ```
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum Value {
     #[serde(deserialize_with = "strict_i8")]
