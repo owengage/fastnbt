@@ -129,6 +129,7 @@ pub mod stream;
 
 mod arrays;
 mod value;
+pub mod ser;
 
 pub use arrays::*;
 pub use value::*;
