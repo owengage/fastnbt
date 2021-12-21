@@ -68,19 +68,31 @@ impl<'ser, 'a, W: Write> serde::Serializer for &'a mut Serializer<'ser, W> {
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok> {
-        todo!()
+        self.writer.write_tag(Tag::Byte)?;
+        self.writer.write_size_prefixed_str(self.field_name)?;
+        self.writer.inner.write_i8(v)?;
+        Ok(())
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok> {
-        todo!()
+        self.writer.write_tag(Tag::Short)?;
+        self.writer.write_size_prefixed_str(self.field_name)?;
+        self.writer.inner.write_i16::<BigEndian>(v)?;
+        Ok(())
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok> {
-        todo!()
+        self.writer.write_tag(Tag::Int)?;
+        self.writer.write_size_prefixed_str(self.field_name)?;
+        self.writer.inner.write_i32::<BigEndian>(v)?;
+        Ok(())
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok> {
-        todo!()
+        self.writer.write_tag(Tag::Long)?;
+        self.writer.write_size_prefixed_str(self.field_name)?;
+        self.writer.inner.write_i64::<BigEndian>(v)?;
+        Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
@@ -98,11 +110,17 @@ impl<'ser, 'a, W: Write> serde::Serializer for &'a mut Serializer<'ser, W> {
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok> {
-        todo!()
+        self.writer.write_tag(Tag::Int)?;
+        self.writer.write_size_prefixed_str(self.field_name)?;
+        self.writer.inner.write_u32::<BigEndian>(v)?;
+        Ok(())
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok> {
-        todo!()
+        self.writer.write_tag(Tag::Long)?;
+        self.writer.write_size_prefixed_str(self.field_name)?;
+        self.writer.inner.write_u64::<BigEndian>(v)?;
+        Ok(())
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok> {
