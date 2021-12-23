@@ -15,6 +15,14 @@ fn error_impls_sync_send() {
 }
 
 #[test]
+fn descriptive_error_on_gzip_magic() {
+    let r = from_bytes::<()>(&[0x1f, 0x8b]);
+    assert!(matches!(r, Result::Err(_)));
+    let e = r.unwrap_err();
+    assert!(e.to_string().to_lowercase().contains("gzip"));
+}
+
+#[test]
 fn simple_byte() -> Result<()> {
     #[derive(Deserialize)]
     struct V {

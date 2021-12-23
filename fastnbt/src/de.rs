@@ -273,6 +273,16 @@ pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
 where
     T: de::Deserialize<'a>,
 {
+    const GZIP_MAGIC_BYTES: [u8; 2] = [0x1f, 0x8b];
+
+    // Provide freindly error for the common case of passing GZip data to
+    // `from_bytes`. This would be invalid starting data for NBT anyway.
+    if input.starts_with(&GZIP_MAGIC_BYTES) {
+        return Err(Error::bespoke(
+            "from_bytes expects raw NBT, but input appears to be gzipped".to_string(),
+        ));
+    }
+
     let mut des = Deserializer::from_bytes(input);
     let t = T::deserialize(&mut des)?;
     Ok(t)
