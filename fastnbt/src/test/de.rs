@@ -922,12 +922,12 @@ fn fixed_array() -> Result<()> {
 fn type_mismatch_string() -> Result<()> {
     #[derive(Deserialize, Debug)]
     pub struct V {
-        a: String,
+        _a: String,
     }
 
     let payload = Builder::new()
         .start_compound("object")
-        .int("a", 123)
+        .int("_a", 123)
         .end_compound() // end of outer compound
         .build();
 
@@ -943,6 +943,7 @@ fn basic_palette_item() -> Result<()> {
     #[serde(rename_all = "PascalCase")]
     pub struct PaletteItem {
         name: String,
+        #[allow(dead_code)]
         properties: HashMap<String, String>,
     }
 
@@ -1170,7 +1171,7 @@ fn cesu8_string_in_nbt() {
 fn cannot_borrow_cesu8_if_diff_repr() {
     #[derive(Deserialize, Debug)]
     pub struct V<'a> {
-        name: &'a str,
+        _name: &'a str,
     }
 
     let modified_unicode_str = cesu8::to_java_cesu8("😈");
@@ -1178,7 +1179,7 @@ fn cannot_borrow_cesu8_if_diff_repr() {
     let input = Builder::new()
         .start_compound("")
         .tag(Tag::String)
-        .name("name")
+        .name("_name")
         .raw_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .end_compound()

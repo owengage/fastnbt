@@ -76,12 +76,16 @@ fn tile_entities() {
     enum KnownEntity {
         #[serde(rename = "minecraft:bat")]
         Bat {
+            #[allow(dead_code)]
             #[serde(rename = "BatFlags")]
             bat_flags: i8,
         },
 
         #[serde(rename = "minecraft:creeper")]
-        Creeper { ignited: i8 },
+        Creeper {
+            #[allow(dead_code)]
+            ignited: i8,
+        },
     }
 
     let chunk: Chunk = from_bytes(CHUNK_RAW_WITH_ENTITIES).unwrap();
