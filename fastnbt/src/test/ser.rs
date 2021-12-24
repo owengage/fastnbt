@@ -133,4 +133,28 @@ fn list_of_short() {
     assert_eq!(expected, bs);
 }
 
+#[test]
+fn list_of_compounds() {
+    #[derive(Serialize)]
+    struct V {
+        list: [Single<i32>; 3],
+    }
+    let v = V {
+        list: [Single { val: 1 }, Single { val: 2 }, Single { val: 3 }],
+    };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("list", Tag::Compound, 3)
+        .int("val", 1)
+        .end_compound()
+        .int("val", 2)
+        .end_compound()
+        .int("val", 3)
+        .end_compound()
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
 // TODO: Test raw values fail serialization.

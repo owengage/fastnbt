@@ -18,12 +18,12 @@ use super::{
     AnonSerializer,
 };
 
-pub struct Serializer<'a, W: 'a + Write> {
+pub struct Serializer<W: Write> {
     pub(crate) writer: W,
-    pub(crate) field: &'a str,
+    pub(crate) field: String,
 }
 
-impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<'a, W> {
+impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = Impossible<(), Error>;
@@ -36,91 +36,91 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<'a, W> {
 
     fn serialize_bool(self, v: bool) -> Result<()> {
         self.writer.write_tag(Tag::Byte)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_u8(v as u8)?;
         Ok(())
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {
         self.writer.write_tag(Tag::Byte)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_i8(v)?;
         Ok(())
     }
 
     fn serialize_i16(self, v: i16) -> Result<()> {
         self.writer.write_tag(Tag::Short)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_i16::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_i32(self, v: i32) -> Result<()> {
         self.writer.write_tag(Tag::Int)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_i32::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
         self.writer.write_tag(Tag::Long)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_i64::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
         self.writer.write_tag(Tag::Byte)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_u8(v)?;
         Ok(())
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
         self.writer.write_tag(Tag::Short)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_u16::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
         self.writer.write_tag(Tag::Int)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_u32::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
         self.writer.write_tag(Tag::Long)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_u64::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_f32(self, v: f32) -> Result<()> {
         self.writer.write_tag(Tag::Float)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_f32::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
         self.writer.write_tag(Tag::Double)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_f64::<BigEndian>(v)?;
         Ok(())
     }
 
     fn serialize_char(self, v: char) -> Result<()> {
         self.writer.write_tag(Tag::Int)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_u32::<BigEndian>(v as u32)?;
         Ok(())
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
         self.writer.write_tag(Tag::String)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         self.writer.write_size_prefixed_str(v)?;
         Ok(())
     }
@@ -183,7 +183,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<'a, W> {
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.writer.write_tag(Tag::List)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
         // self.writer.write_tag(Tag::Int)?; // FIXME: How do we know the tag
         // self.writer.write_i32::<BigEndian>(
         //     len.try_into()
@@ -215,15 +215,8 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<'a, W> {
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
         self.writer.write_tag(Tag::Compound)?;
-        self.writer.write_size_prefixed_str(self.field)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
 
-        // ???
-        // We need something to return here, but whatever we return is going to
-        // expect to go through the entire map... But we need to write the field
-        // name here before we can forward on to the next deserializer.
-        //
-        // Maybe this needs to be passed the field name and become the
-        // TagFieldSerializer instead. It can then just create the serializer...
         Ok(self)
     }
 
@@ -242,7 +235,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<'a, W> {
     }
 }
 
-impl<'ser, 'a, W: Write> serde::ser::SerializeMap for &'a mut Serializer<'a, W> {
+impl<'ser, 'a, W: Write> serde::ser::SerializeMap for &'a mut Serializer<W> {
     type Ok = ();
 
     type Error = Error;
@@ -275,13 +268,13 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for &'a mut Serializer<'a, W> 
         key.serialize(&mut NameSerializer { name: &mut name })?;
 
         value.serialize(&mut Serializer {
-            field: &String::from_utf8(name).unwrap(), // FIXME nonunicode
+            field: String::from_utf8(name).unwrap(), // FIXME nonunicode
             writer: &mut (*self).writer,
         })
     }
 }
 
-impl<'a, W: Write> serde::ser::SerializeStruct for &'a mut Serializer<'a, W> {
+impl<'a, W: Write> serde::ser::SerializeStruct for &'a mut Serializer<W> {
     type Ok = ();
 
     type Error = Error;
@@ -300,7 +293,7 @@ impl<'a, W: Write> serde::ser::SerializeStruct for &'a mut Serializer<'a, W> {
 }
 
 pub struct SerializerTuple<'a, W: Write> {
-    ser: &'a mut Serializer<'a, W>,
+    ser: &'a mut Serializer<W>,
     state: SeqState,
 }
 
@@ -313,14 +306,8 @@ impl<'a, W: 'a + Write> serde::ser::SerializeTuple for SerializerTuple<'a, W> {
     where
         T: Serialize,
     {
-        // We need to write the Element tag AND the overall tuple length on the
-        // first element.
-        println!("serialize_element {:?}", self.state);
-
-        // This doesn't work: Each element we write the len, we need to not
-        // create a new serializer for each call to serialize_element.
-        value.serialize(&mut SeqSerializer {
-            writer: &mut self.ser.writer,
+        value.serialize(SeqSerializer {
+            ser: self.ser,
             state: &mut self.state,
         })
     }

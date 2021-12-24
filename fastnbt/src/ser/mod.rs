@@ -23,7 +23,7 @@ pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     let mut result = vec![];
     let mut serializer = Serializer {
         writer: &mut result,
-        field: "",
+        field: String::new(),
     };
     v.serialize(&mut serializer)?;
     Ok(result)
