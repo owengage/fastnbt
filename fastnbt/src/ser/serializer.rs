@@ -12,6 +12,7 @@ use crate::{
 };
 
 use super::{
+    array_serializer::ArraySerializer,
     name_serializer::NameSerializer,
     seq_serializer::{SeqSerializer, SeqState},
     write_nbt::WriteNbt,
@@ -26,7 +27,7 @@ pub struct Serializer<W: Write> {
 impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = Impossible<(), Error>;
+    type SerializeSeq = SerializerTuple<'a, W>;
     type SerializeTuple = SerializerTuple<'a, W>;
     type SerializeTupleStruct = Impossible<(), Error>;
     type SerializeTupleVariant = Impossible<(), Error>;
@@ -130,14 +131,15 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_none(self) -> Result<()> {
-        todo!()
+        // don't write field at all.
+        Ok(())
     }
 
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<()>
     where
         T: Serialize,
     {
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_unit(self) -> Result<()> {
@@ -145,6 +147,13 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<()> {
+        // We get here if we are trying to serialize a byte/int/long array
+        // because the tag type in it is a unit struct.
+        // Even better, the `name` above is 'CompTag'. We can give the *type* a
+        // unique name in order to detect this case.
+
+        // Annoyingly I think we'll have entered a map by this point and already
+        // written the compound tag.
         todo!()
     }
 
@@ -161,7 +170,7 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     where
         T: Serialize,
     {
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
@@ -174,24 +183,68 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     where
         T: Serialize,
     {
-        todo!()
+        // We implement Serialize for NBT array types, creating a hidden inner
+        // type that specifically causes us to end up in this serialize
+        // function.
+        //
+        // Why a newtype variant? It's the only method that gives us access to a
+        // name field we can control AND access to the actual data. This means
+        // we can detect we're serializing an NBT Array and serialize it on one
+        // go.
+
+        // NOTES: This SeqSerializer still ends up writing the header...
+        // somehow?? Can we use whatever type causes the byte buffer stuff to be
+        // used in order to divert what gets called?
+
+        match name {
+            "__fastnbt_byte_array" => {
+                self.writer.write_tag(Tag::ByteArray)?;
+                self.writer.write_size_prefixed_str(&self.field)?;
+                value.serialize(ArraySerializer {
+                    ser: self,
+                    tag: Tag::ByteArray,
+                })
+            }
+            "__fastnbt_int_array" => {
+                self.writer.write_tag(Tag::IntArray)?;
+                self.writer.write_size_prefixed_str(&self.field)?;
+                value.serialize(ArraySerializer {
+                    ser: self,
+                    tag: Tag::IntArray,
+                })
+            }
+            "__fastnbt_long_array" => {
+                self.writer.write_tag(Tag::LongArray)?;
+                self.writer.write_size_prefixed_str(&self.field)?;
+                value.serialize(ArraySerializer {
+                    ser: self,
+                    tag: Tag::LongArray,
+                })
+            }
+            _ => todo!(),
+        }
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        todo!()
+        self.writer.write_tag(Tag::List)?;
+        self.writer.write_size_prefixed_str(&self.field)?;
+
+        let len =
+            len.ok_or_else(|| Error::bespoke("sequences must have a known length".to_string()))?;
+
+        Ok(SerializerTuple {
+            ser: self,
+            state: SeqState::ListStart(len),
+        })
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.writer.write_tag(Tag::List)?;
         self.writer.write_size_prefixed_str(&self.field)?;
-        // self.writer.write_tag(Tag::Int)?; // FIXME: How do we know the tag
-        // self.writer.write_i32::<BigEndian>(
-        //     len.try_into()
-        //         .map_err(|_| Error::bespoke("tuple len greater than i32::MAX".into()))?,
-        // )?;
+
         Ok(SerializerTuple {
             ser: self,
-            state: SeqState::First(len),
+            state: SeqState::ListStart(len),
         })
     }
 
@@ -293,8 +346,23 @@ impl<'a, W: Write> serde::ser::SerializeStruct for &'a mut Serializer<W> {
 }
 
 pub struct SerializerTuple<'a, W: Write> {
-    ser: &'a mut Serializer<W>,
-    state: SeqState,
+    pub(crate) ser: &'a mut Serializer<W>,
+    pub(crate) state: SeqState,
+}
+impl<'a, W: 'a + Write> serde::ser::SerializeSeq for SerializerTuple<'a, W> {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        <Self as serde::ser::SerializeTuple>::serialize_element(self, value)
+    }
+
+    fn end(self) -> Result<()> {
+        <Self as serde::ser::SerializeTuple>::end(self)
+    }
 }
 
 impl<'a, W: 'a + Write> serde::ser::SerializeTuple for SerializerTuple<'a, W> {

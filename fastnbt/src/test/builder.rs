@@ -37,11 +37,19 @@ impl Builder {
         self.tag(Tag::End)
     }
 
+    pub fn end_anon_compound(self) -> Self {
+        self.tag(Tag::End)
+    }
+
     pub fn start_list(self, name: &str, element_tag: Tag, size: i32) -> Self {
         self.tag(Tag::List)
             .name(name)
             .tag(element_tag)
             .int_payload(size)
+    }
+
+    pub fn start_anon_list(self, element_tag: Tag, size: i32) -> Self {
+        self.tag(element_tag).int_payload(size)
     }
 
     pub fn byte(self, name: &str, b: i8) -> Self {
@@ -160,6 +168,12 @@ impl Builder {
         for b in bs {
             self.payload.push(*b);
         }
+        self
+    }
+
+    /// This is a no-op, but can make code clearer by showing the points where a
+    /// compound in a list has logically started.
+    pub fn start_anon_compound(self) -> Self {
         self
     }
 

@@ -1,10 +1,12 @@
 mod anon_serializer;
+mod array_serializer;
 mod name_serializer;
 mod seq_serializer;
 mod serializer;
 mod write_nbt;
 
 use anon_serializer::*;
+use array_serializer::*;
 use name_serializer::*;
 use seq_serializer::*;
 use serializer::*;

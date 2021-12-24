@@ -20,7 +20,7 @@ use super::{
 
 #[derive(Debug)]
 pub(crate) enum SeqState {
-    First(usize), // len
+    ListStart(usize), // len
     Rest,
 }
 
@@ -31,7 +31,7 @@ pub struct SeqSerializer<'a, W: Write> {
 
 impl<'a, W: Write> SeqSerializer<'a, W> {
     fn try_write_list_header(&mut self, tag: Tag) -> Result<()> {
-        if let SeqState::First(len) = self.state {
+        if let SeqState::ListStart(len) = self.state {
             self.ser.writer.write_tag(tag)?;
             self.ser.writer.write_u32::<BigEndian>(
                 (*len)
@@ -39,7 +39,6 @@ impl<'a, W: Write> SeqSerializer<'a, W> {
                     .map_err(|e| Error::bespoke("len too large".to_owned()))?,
             )?;
             *self.state = SeqState::Rest;
-            println!("Wrote len...");
         }
         Ok(())
     }
@@ -48,7 +47,7 @@ impl<'a, W: Write> SeqSerializer<'a, W> {
 impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = Impossible<(), Error>;
+    type SerializeSeq = SerializerTuple<'a, W>;
     type SerializeTuple = SerializerTuple<'a, W>;
     type SerializeTupleStruct = Impossible<(), Error>;
     type SerializeTupleVariant = Impossible<(), Error>;
@@ -139,14 +138,16 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     }
 
     fn serialize_none(mut self) -> Result<()> {
-        todo!()
+        // what does it mean to have an optional thing in a list?
+        unimplemented!()
     }
 
     fn serialize_some<T: ?Sized>(mut self, value: &T) -> Result<()>
     where
         T: Serialize,
     {
-        todo!()
+        // what does it mean to have an optional thing in a list?
+        unimplemented!()
     }
 
     fn serialize_unit(mut self) -> Result<()> {
@@ -170,7 +171,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     where
         T: Serialize,
     {
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
@@ -187,19 +188,24 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     }
 
     fn serialize_seq(mut self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        todo!()
+        self.try_write_list_header(Tag::List)?;
+
+        let len =
+            len.ok_or_else(|| Error::bespoke("sequences must have a known length".to_string()))?;
+
+        Ok(SerializerTuple {
+            ser: self.ser,
+            state: SeqState::ListStart(len),
+        })
     }
 
     fn serialize_tuple(mut self, len: usize) -> Result<Self::SerializeTuple> {
-        self.ser.writer.write_tag(Tag::List)?;
-        self.try_write_list_header(Tag::Byte)?;
-        // self.ser.writer.write_tag(Tag::Int)?; // FIXME: How do we know the tag
-        // self.ser.writer.write_i32::<BigEndian>(
-        //     len.try_into()
-        //         .map_err(|_| Error::bespoke("tuple len greater than i32::MAX".into()))?,
-        // )?;
+        self.try_write_list_header(Tag::List)?;
 
-        todo!()
+        Ok(SerializerTuple {
+            ser: self.ser,
+            state: SeqState::ListStart(len),
+        })
     }
 
     fn serialize_tuple_struct(

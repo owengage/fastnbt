@@ -1,4 +1,6 @@
-use crate::{ser::to_bytes, Tag};
+use std::{collections::HashMap, iter::FromIterator};
+
+use crate::{ser::to_bytes, ByteArray, IntArray, LongArray, Tag};
 use serde::Serialize;
 
 use super::builder::Builder;
@@ -7,6 +9,9 @@ use super::builder::Builder;
 struct Single<T: Serialize> {
     val: T,
 }
+
+#[derive(Serialize)]
+struct Wrap<T: Serialize>(T);
 
 #[test]
 fn simple_byte() {
@@ -157,4 +162,231 @@ fn list_of_compounds() {
     assert_eq!(expected, to_bytes(&v).unwrap());
 }
 
-// TODO: Test raw values fail serialization.
+#[test]
+fn list_of_list() {
+    #[derive(Serialize)]
+    struct V {
+        list: [[Single<i32>; 1]; 3],
+    }
+    let v = V {
+        list: [
+            [Single { val: 1 }],
+            [Single { val: 2 }],
+            [Single { val: 3 }],
+        ],
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("list", Tag::List, 3)
+        // First list
+        .start_anon_list(Tag::Compound, 1)
+        .start_anon_compound()
+        .int("val", 1)
+        .end_anon_compound()
+        // second
+        .start_anon_list(Tag::Compound, 1)
+        .start_anon_compound()
+        .int("val", 2)
+        .end_anon_compound()
+        // third
+        .start_anon_list(Tag::Compound, 1)
+        .start_anon_compound()
+        .int("val", 3)
+        .end_anon_compound()
+        // end outer compound
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn multiple_fields() {
+    #[derive(Serialize)]
+    struct V {
+        a: u8,
+        b: u16,
+    }
+    let v = V { a: 123, b: 1024 };
+    let payload = Builder::new()
+        .tag(Tag::Compound)
+        .name("")
+        .tag(Tag::Byte)
+        .name("a")
+        .byte_payload(123)
+        .tag(Tag::Short)
+        .name("b")
+        .short_payload(1024)
+        .tag(Tag::End)
+        .build();
+
+    let expected = to_bytes(&v).unwrap();
+
+    assert_eq!(expected, payload);
+}
+
+#[test]
+fn serialize_str() {
+    let v = Single { val: "hello" };
+    let expected = Builder::new()
+        .start_compound("")
+        .string("val", "hello")
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn hashmap() {
+    let v = HashMap::<_, _>::from_iter([("a", 123), ("b", 234)]);
+    let expected = Builder::new()
+        .start_compound("")
+        .int("a", 123)
+        .int("b", 234)
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn vec() {
+    let v = Single {
+        val: vec![1, 2, 3, 4, 5],
+    };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Int, 5)
+        .int_payload(1)
+        .int_payload(2)
+        .int_payload(3)
+        .int_payload(4)
+        .int_payload(5)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn vec_in_vec() {
+    let v = Single {
+        val: vec![vec![Single { val: 123 }]],
+    };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::List, 1)
+        .start_anon_list(Tag::Compound, 1)
+        .int("val", 123)
+        .end_anon_compound()
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn optional() {
+    #[derive(Serialize)]
+    struct V<'a> {
+        opt1: Option<&'a str>,
+        opt2: Option<&'a str>,
+    }
+
+    let v = V {
+        opt1: Some("hello"),
+        opt2: None,
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .string("opt1", "hello")
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+
+    let v = Single { val: [v] };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Compound, 1)
+        .start_anon_compound()
+        .string("opt1", "hello")
+        .end_anon_compound()
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn newtype_struct() {
+    let v = Single { val: Wrap(123) };
+    let expected = Builder::new()
+        .start_compound("")
+        .int("val", 123)
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn newtype_struct_list() {
+    let v = Single {
+        val: [Wrap(1), Wrap(2)],
+    };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Int, 2)
+        .int_payload(1)
+        .int_payload(2)
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn nbt_byte_array() {
+    let v = Single {
+        val: ByteArray::new(vec![1, 2, 3]),
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .byte_array("val", &[1, 2, 3])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn nbt_int_array() {
+    let v = Single {
+        val: IntArray::new(vec![1, 2, 3]),
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .int_array("val", &[1, 2, 3])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn nbt_long_array() {
+    let v = Single {
+        val: LongArray::new(vec![1, 2, 3]),
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .long_array("val", &[1, 2, 3])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+// TODO: Test values without a root compound fail serialization.
+// TODO: Borrowed arrays
+// TODO: Arrays within lists
