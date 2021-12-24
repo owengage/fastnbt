@@ -16,7 +16,6 @@ use super::{
     name_serializer::NameSerializer,
     seq_serializer::{SeqSerializer, SeqState},
     write_nbt::WriteNbt,
-    AnonSerializer,
 };
 
 pub struct Serializer<W: Write> {

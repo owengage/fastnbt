@@ -128,8 +128,8 @@ pub mod error;
 pub mod stream;
 
 mod arrays;
-mod value;
 pub mod ser;
+mod value;
 
 pub use arrays::*;
 pub use value::*;

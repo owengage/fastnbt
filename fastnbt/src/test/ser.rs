@@ -1,7 +1,7 @@
 use std::{collections::HashMap, iter::FromIterator};
 
 use crate::{ser::to_bytes, ByteArray, IntArray, LongArray, Tag};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::builder::Builder;
 
@@ -384,6 +384,24 @@ fn nbt_long_array() {
         .long_array("val", &[1, 2, 3])
         .end_compound()
         .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn hashmap_in_untagged_enum_causing_recurse_limit() {
+    #[derive(Serialize)]
+    #[serde(untagged)]
+    pub enum Value {
+        Compound(HashMap<String, Value>),
+    }
+    let v = Value::Compound(HashMap::new());
+
+    let expected = Builder::new()
+        .start_compound("")
+        .byte("val", 123)
+        .end_compound()
+        .build();
+
     assert_eq!(expected, to_bytes(&v).unwrap());
 }
 
