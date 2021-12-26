@@ -12,6 +12,7 @@ use crate::{
 };
 
 use super::{
+    array_serializer::ArraySerializer,
     name_serializer::NameSerializer,
     serializer::{Serializer, SerializerTuple},
     write_nbt::WriteNbt,
@@ -175,7 +176,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
-        self,
+        mut self,
         name: &'static str,
         variant_index: u32,
         variant: &'static str,
@@ -184,7 +185,30 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     where
         T: Serialize,
     {
-        todo!()
+        match name {
+            "__fastnbt_byte_array" => {
+                self.try_write_list_header(Tag::ByteArray)?;
+                value.serialize(ArraySerializer {
+                    ser: self.ser,
+                    tag: Tag::ByteArray,
+                })
+            }
+            "__fastnbt_int_array" => {
+                self.try_write_list_header(Tag::IntArray)?;
+                value.serialize(ArraySerializer {
+                    ser: self.ser,
+                    tag: Tag::IntArray,
+                })
+            }
+            "__fastnbt_long_array" => {
+                self.try_write_list_header(Tag::LongArray)?;
+                value.serialize(ArraySerializer {
+                    ser: self.ser,
+                    tag: Tag::LongArray,
+                })
+            }
+            _ => todo!(),
+        }
     }
 
     fn serialize_seq(mut self, len: Option<usize>) -> Result<Self::SerializeSeq> {

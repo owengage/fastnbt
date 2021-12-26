@@ -76,6 +76,7 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        // TODO: len should use try_into()
         match self.tag {
             Tag::ByteArray => {
                 self.ser.writer.write_u32::<BigEndian>(v.len() as u32)?;

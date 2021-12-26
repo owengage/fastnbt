@@ -240,13 +240,19 @@ fn serialize_str() {
 #[test]
 fn hashmap() {
     let v = HashMap::<_, _>::from_iter([("a", 123), ("b", 234)]);
-    let expected = Builder::new()
+    let expected1 = Builder::new()
         .start_compound("")
         .int("a", 123)
         .int("b", 234)
         .end_compound()
         .build();
-    assert_eq!(expected, to_bytes(&v).unwrap());
+    let expected2 = Builder::new()
+        .start_compound("")
+        .int("b", 234)
+        .int("a", 123)
+        .end_compound()
+        .build();
+    assert!(expected1 == to_bytes(&v).unwrap() || expected2 == to_bytes(&v).unwrap());
 }
 
 #[test]
@@ -412,6 +418,85 @@ fn value_hashmap() {
     assert!(expected1 == to_bytes(&v).unwrap() || expected2 == to_bytes(&v).unwrap());
 }
 
+#[test]
+fn nbt_long_array_in_list() {
+    let v = Single {
+        val: [LongArray::new(vec![1, 2, 3]), LongArray::new(vec![4, 5, 6])],
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::LongArray, 2)
+        .int_payload(3)
+        .long_array_payload(&[1, 2, 3])
+        .int_payload(3)
+        .long_array_payload(&[4, 5, 6])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn unit_enum() {
+    #[derive(Serialize)]
+    #[allow(unused)]
+    enum Letter {
+        A,
+        B,
+        C,
+    }
+    let v = Single { val: Letter::A };
+    let expected = Builder::new()
+        .start_compound("")
+        .string("val", "A")
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn tuple_struct() {
+    #[derive(Serialize)]
+    struct Rgb(u8, u8, u8);
+    let v = Single { val: Rgb(1, 2, 3) };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Byte, 3)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte_payload(3)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn enum_tuple_variant() {
+    #[derive(Serialize)]
+    enum Colour {
+        Rgb(u8, u8, u8),
+    }
+    let v = Single {
+        val: Colour::Rgb(1, 2, 3),
+    };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Byte, 3)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte_payload(3)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
 // TODO: Test values without a root compound fail serialization.
 // TODO: Borrowed arrays
 // TODO: Arrays within lists
+// TODO: Everything in a list...
+
+// TODO: Serialize_bytes
+// TODO: serialize_newtype_variant but for NOT NBT arrays

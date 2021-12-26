@@ -2,7 +2,7 @@ use std::{convert::TryInto, io::Write};
 
 use byteorder::{BigEndian, WriteBytesExt};
 use serde::{
-    ser::{self, Impossible},
+    ser::{self, Impossible, SerializeTuple},
     Serialize,
 };
 
@@ -28,8 +28,8 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     type Error = Error;
     type SerializeSeq = SerializerTuple<'a, W>;
     type SerializeTuple = SerializerTuple<'a, W>;
-    type SerializeTupleStruct = Impossible<(), Error>;
-    type SerializeTupleVariant = Impossible<(), Error>;
+    type SerializeTupleStruct = SerializerTuple<'a, W>;
+    type SerializeTupleVariant = SerializerTuple<'a, W>;
     type SerializeMap = Self;
     type SerializeStruct = Self;
     type SerializeStructVariant = Impossible<(), Error>;
@@ -142,30 +142,25 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_unit(self) -> Result<()> {
-        todo!()
+        Err(Error::bespoke(
+            "serializing unit '()' not supported".to_string(),
+        ))
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<()> {
-        // We get here if we are trying to serialize a byte/int/long array
-        // because the tag type in it is a unit struct.
-        // Even better, the `name` above is 'CompTag'. We can give the *type* a
-        // unique name in order to detect this case.
-
-        // Annoyingly I think we'll have entered a map by this point and already
-        // written the compound tag.
-        todo!()
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
+        self.serialize_unit()
     }
 
     fn serialize_unit_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
     ) -> Result<()> {
-        todo!()
+        self.serialize_str(variant)
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(self, name: &'static str, value: &T) -> Result<()>
+    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<()>
     where
         T: Serialize,
     {
@@ -175,8 +170,8 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     fn serialize_newtype_variant<T: ?Sized>(
         self,
         name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
         value: &T,
     ) -> Result<()>
     where
@@ -190,10 +185,6 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
         // name field we can control AND access to the actual data. This means
         // we can detect we're serializing an NBT Array and serialize it on one
         // go.
-
-        // NOTES: This SeqSerializer still ends up writing the header...
-        // somehow?? Can we use whatever type causes the byte buffer stuff to be
-        // used in order to divert what gets called?
 
         match name {
             "__fastnbt_byte_array" => {
@@ -249,10 +240,10 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
 
     fn serialize_tuple_struct(
         self,
-        name: &'static str,
+        _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        todo!()
+        self.serialize_tuple(len)
     }
 
     fn serialize_tuple_variant(
@@ -262,7 +253,7 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
         variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        todo!()
+        self.serialize_tuple(len)
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -346,6 +337,7 @@ pub struct SerializerTuple<'a, W: Write> {
     pub(crate) ser: &'a mut Serializer<W>,
     pub(crate) state: SeqState,
 }
+
 impl<'a, W: 'a + Write> serde::ser::SerializeSeq for SerializerTuple<'a, W> {
     type Ok = ();
     type Error = Error;
@@ -379,5 +371,39 @@ impl<'a, W: 'a + Write> serde::ser::SerializeTuple for SerializerTuple<'a, W> {
 
     fn end(self) -> Result<()> {
         Ok(())
+    }
+}
+
+impl<'a, W: 'a + Write> serde::ser::SerializeTupleStruct for SerializerTuple<'a, W> {
+    type Ok = ();
+
+    type Error = Error;
+
+    fn end(self) -> Result<()> {
+        Ok(())
+    }
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        self.serialize_element(value)
+    }
+}
+
+impl<'a, W: 'a + Write> serde::ser::SerializeTupleVariant for SerializerTuple<'a, W> {
+    type Ok = ();
+
+    type Error = Error;
+
+    fn end(self) -> Result<()> {
+        Ok(())
+    }
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        self.serialize_element(value)
     }
 }
