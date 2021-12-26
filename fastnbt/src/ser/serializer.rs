@@ -319,10 +319,8 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for &'a mut Serializer<W> {
         let mut name = Vec::new();
         key.serialize(&mut NameSerializer { name: &mut name })?;
 
-        value.serialize(&mut Serializer {
-            field: String::from_utf8(name).unwrap(), // FIXME nonunicode
-            writer: &mut (*self).writer,
-        })
+        self.field = String::from_utf8(name).unwrap();
+        value.serialize(&mut **self)
     }
 }
 

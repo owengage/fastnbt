@@ -1,6 +1,6 @@
 use std::{collections::HashMap, iter::FromIterator};
 
-use crate::{ser::to_bytes, ByteArray, IntArray, LongArray, Tag};
+use crate::{ser::to_bytes, ByteArray, IntArray, LongArray, Tag, Value};
 use serde::{Deserialize, Serialize};
 
 use super::builder::Builder;
@@ -388,21 +388,28 @@ fn nbt_long_array() {
 }
 
 #[test]
-fn hashmap_in_untagged_enum_causing_recurse_limit() {
-    #[derive(Serialize)]
-    #[serde(untagged)]
-    pub enum Value {
-        Compound(HashMap<String, Value>),
-    }
-    let v = Value::Compound(HashMap::new());
+fn value_hashmap() {
+    // let v = Value::Unit;
+    let v = Value::Compound(HashMap::from_iter([
+        ("a".to_string(), Value::Int(123)),
+        ("b".to_string(), Value::Byte(123)),
+    ]));
 
-    let expected = Builder::new()
+    let expected1 = Builder::new()
         .start_compound("")
-        .byte("val", 123)
+        .byte("b", 123)
+        .int("a", 123)
+        .end_compound()
+        .build();
+    let expected2 = Builder::new()
+        .start_compound("")
+        .int("a", 123)
+        .byte("b", 123)
         .end_compound()
         .build();
 
-    assert_eq!(expected, to_bytes(&v).unwrap());
+    // hashmap order not predictable.
+    assert!(expected1 == to_bytes(&v).unwrap() || expected2 == to_bytes(&v).unwrap());
 }
 
 // TODO: Test values without a root compound fail serialization.
