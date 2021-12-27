@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     serde_json::ser::to_writer(out, &chunk).unwrap();
                 }
                 "json-pretty" => {
-                    serde_json::ser::to_writer(out, &chunk).unwrap();
+                    serde_json::ser::to_writer_pretty(out, &chunk).unwrap();
                 }
                 _ => panic!("unknown output format '{}'", output_format),
             }
