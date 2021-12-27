@@ -16,7 +16,6 @@ use super::{
     name_serializer::NameSerializer,
     serializer::{Serializer, SerializerTuple},
     write_nbt::WriteNbt,
-    AnonSerializer,
 };
 
 #[derive(Debug)]
