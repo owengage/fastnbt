@@ -13,9 +13,11 @@ https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
 [crates.io]: https://crates.io/crates/fastnbt
 
 Serde deserializer for *Minecraft: Java Edition's* NBT format, and in-browser
-Rust-to-WASM powered Minecraft map renderer. Supports 1.18.
+Rust-to-WASM powered Minecraft map renderer. Supports 1.18 down to 1.15
+inclusive. Eventually want to support at least down to 1.12.
 
 # Demo
+
 Demo of Hermitcraft season 7 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft7)
 
 ![alt rendered map](demo.png)  
@@ -27,8 +29,7 @@ This repository contains multiple related projects.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
 
-Aim to support only the latest version of Minecraft. Works with most versions, 
-including 1.18 worlds. Endevour to support old chunks in worlds, but not
+Tries to support old chunks in worlds, but not
 extracting textures from older versions due to the added
 complexity it would require.
 
