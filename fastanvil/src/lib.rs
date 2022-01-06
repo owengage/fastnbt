@@ -8,7 +8,7 @@ use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
 use serde::de::DeserializeOwned;
 use std::io::{Read, Seek, SeekFrom};
-use std::{cell::RefCell, convert::TryFrom};
+use std::{convert::TryFrom, sync::Mutex};
 
 /// the size in bytes of a 'sector' in a region file. Sectors are Minecraft's size unit
 /// for chunks. For example, a chunk might be `3 * SECTOR_SIZE` bytes.
@@ -48,10 +48,10 @@ pub enum CompressionScheme {
 
 /// A Minecraft Region. Allows access to chunk data, handling decompression.
 pub struct RegionBuffer<S: Seek + Read> {
-    data: RefCell<S>,
+    data: Mutex<S>,
 }
 
-impl<S: Seek + Read, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> {
+impl<S: Seek + Read + Send + Sync, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> {
     fn chunk(&self, x: CCoord, z: CCoord) -> Option<C> {
         let loc = self.chunk_location(x.0 as usize, z.0 as usize).ok()?;
 
@@ -105,7 +105,7 @@ impl ChunkMeta {
 impl<S: Seek + Read> RegionBuffer<S> {
     pub fn new(data: S) -> Self {
         Self {
-            data: RefCell::new(data),
+            data: Mutex::new(data),
         }
     }
 
@@ -117,11 +117,13 @@ impl<S: Seek + Read> RegionBuffer<S> {
 
         let pos = 4 * ((x % 32) + (z % 32) * 32);
 
-        self.data.borrow_mut().seek(SeekFrom::Start(pos as u64))?;
+        let mut lock = self.data.lock().unwrap();
+        lock.seek(SeekFrom::Start(pos as u64))?;
 
         let mut buf = [0u8; 4];
+        lock.read_exact(&mut buf[..])?;
 
-        self.data.borrow_mut().read_exact(&mut buf[..])?;
+        drop(lock);
 
         let mut off = 0usize;
         off |= (buf[0] as usize) << 16;
@@ -178,17 +180,18 @@ impl<S: Seek + Read> RegionBuffer<S> {
 
     /// Return the raw, compressed data for a chunk at ChunkLocation
     fn load_raw_chunk(&self, offset: &ChunkLocation, dest: &mut Vec<u8>) -> Result<()> {
-        self.data.borrow_mut().seek(SeekFrom::Start(
+        let mut lock = self.data.lock().unwrap();
+        lock.seek(SeekFrom::Start(
             offset.begin_sector as u64 * SECTOR_SIZE as u64,
         ))?;
 
         dest.resize(5, 0);
-        self.data.borrow_mut().read_exact(&mut dest[0..5])?;
+        lock.read_exact(&mut dest[0..5])?;
         let metadata = ChunkMeta::new(&dest[..5])?;
 
         dest.resize(5 + metadata.compressed_len as usize, 0u8);
 
-        self.data.borrow_mut().read_exact(&mut dest[5..])?;
+        lock.read_exact(&mut dest[5..])?;
         Ok(())
     }
 

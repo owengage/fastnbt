@@ -1,4 +1,5 @@
-use std::{cell::RefCell, collections::HashMap, error::Error, fmt::Display, ops::Range, rc::Rc};
+use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
+use std::sync::{Arc, Mutex};
 
 use crate::{biome::Biome, Block};
 
@@ -14,7 +15,7 @@ pub enum HeightMode {
     Calculate, // calculate height maps manually, much slower.
 }
 
-pub trait Chunk {
+pub trait Chunk: Send + Sync {
     // Status of the chunk. Typically anything except 'full' means the chunk
     // hasn't been fully generated yet. We use this to skip chunks on map edges
     // that haven't been fully generated yet.
@@ -38,7 +39,7 @@ pub trait Chunk {
     fn y_range(&self) -> Range<isize>;
 }
 
-pub trait Region<C: Chunk> {
+pub trait Region<C: Chunk>: Send + Sync {
     /// Load the chunk at the given chunk coordinates, ie 0..32 for x and z.
     /// Implmentations do not need to be concerned with caching chunks they have
     /// loaded, this will be handled by the types using the region.
@@ -63,7 +64,7 @@ impl Display for LoaderError {
 ///
 /// An example implementation could be loading a region file from a local disk,
 /// or perhaps a WASM version loading from a file buffer in the browser.
-pub trait RegionLoader<C: Chunk> {
+pub trait RegionLoader<C: Chunk>: Send + Sync {
     /// Get a particular region. Returns None if region does not exist.
     fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region<C>>>;
 
@@ -72,12 +73,12 @@ pub trait RegionLoader<C: Chunk> {
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
 }
 
-type DimensionHashMap<C> = HashMap<(RCoord, RCoord), Rc<dyn Region<C>>>;
+type DimensionHashMap<C> = HashMap<(RCoord, RCoord), Arc<dyn Region<C>>>;
 
 /// Dimension provides a cache on top of a RegionLoader.
 pub struct Dimension<C: Chunk> {
     loader: Box<dyn RegionLoader<C>>,
-    regions: RefCell<DimensionHashMap<C>>,
+    regions: Mutex<DimensionHashMap<C>>,
 }
 
 impl<C: Chunk> Dimension<C> {
@@ -89,12 +90,12 @@ impl<C: Chunk> Dimension<C> {
     }
 
     /// Get a region, maybe from Dimension's internal cache.
-    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Rc<dyn Region<C>>> {
-        let mut cache = self.regions.borrow_mut();
+    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<dyn Region<C>>> {
+        let mut cache = self.regions.lock().unwrap();
 
-        cache.get(&(x, z)).map(|r| Rc::clone(r)).or_else(|| {
-            let r = Rc::from(self.loader.region(x, z)?);
-            cache.insert((x, z), Rc::clone(&r));
+        cache.get(&(x, z)).map(|r| Arc::clone(r)).or_else(|| {
+            let r = Arc::from(self.loader.region(x, z)?);
+            cache.insert((x, z), Arc::clone(&r));
             Some(r)
         })
     }
