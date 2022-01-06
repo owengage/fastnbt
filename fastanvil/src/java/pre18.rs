@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::ops::Range;
+use std::sync::RwLock;
 
 use fastnbt::IntArray;
 use once_cell::sync::OnceCell;
@@ -24,11 +24,13 @@ impl Chunk for JavaChunk {
     }
 
     fn surface_height(&self, x: usize, z: usize, mode: HeightMode) -> isize {
-        if self.level.lazy_heightmap.borrow().is_none() {
+        let mut heightmap = self.level.lazy_heightmap.read().unwrap();
+        if heightmap.is_none() {
+            drop(heightmap);
             self.recalculate_heightmap(mode);
+            heightmap = self.level.lazy_heightmap.read().unwrap();
         }
-
-        self.level.lazy_heightmap.borrow().unwrap()[z * 16 + x] as isize
+        heightmap.unwrap()[z * 16 + x] as isize
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
@@ -108,7 +110,7 @@ pub struct Level {
     pub status: String,
 
     #[serde(skip)]
-    lazy_heightmap: RefCell<Option<[i16; 256]>>,
+    lazy_heightmap: RwLock<Option<[i16; 256]>>,
 }
 
 impl JavaChunk {
@@ -134,7 +136,7 @@ impl JavaChunk {
                     .is_some();
 
                 if updated {
-                    self.level.lazy_heightmap.replace(Some(map));
+                    *self.level.lazy_heightmap.write().unwrap() = Some(map);
                     return;
                 }
             }
@@ -166,7 +168,7 @@ impl JavaChunk {
             }
         }
 
-        self.level.lazy_heightmap.replace(Some(map));
+        *self.level.lazy_heightmap.write().unwrap() = Some(map);
     }
 }
 

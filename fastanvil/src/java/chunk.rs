@@ -1,5 +1,5 @@
-use std::cell::RefCell;
 use std::ops::Range;
+use std::sync::RwLock;
 
 use serde::Deserialize;
 
@@ -14,11 +14,13 @@ impl Chunk for CurrentJavaChunk {
     }
 
     fn surface_height(&self, x: usize, z: usize, mode: HeightMode) -> isize {
-        if self.lazy_heightmap.borrow().is_none() {
+        let mut heightmap = self.lazy_heightmap.read().unwrap();
+        if heightmap.is_none() {
+            drop(heightmap);
             self.recalculate_heightmap(mode);
+            heightmap = self.lazy_heightmap.read().unwrap();
         }
-
-        self.lazy_heightmap.borrow().unwrap()[z * 16 + x] as isize
+        heightmap.unwrap()[z * 16 + x] as isize
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
@@ -67,7 +69,7 @@ pub struct CurrentJavaChunk {
     pub status: String,
 
     #[serde(skip)]
-    lazy_heightmap: RefCell<Option<[i16; 256]>>,
+    lazy_heightmap: RwLock<Option<[i16; 256]>>,
 }
 
 impl CurrentJavaChunk {
@@ -91,7 +93,7 @@ impl CurrentJavaChunk {
                     .is_some();
 
                 if updated {
-                    self.lazy_heightmap.replace(Some(map));
+                    *self.lazy_heightmap.write().unwrap() = Some(map);
                     return;
                 }
             }
@@ -123,6 +125,6 @@ impl CurrentJavaChunk {
             }
         }
 
-        self.lazy_heightmap.replace(Some(map));
+        *self.lazy_heightmap.write().unwrap() = Some(map);
     }
 }
