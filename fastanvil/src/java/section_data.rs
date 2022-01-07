@@ -17,6 +17,8 @@ pub struct BiomeData<T: Debug> {
 }
 
 impl<T: Debug> BlockData<T> {
+    /// Get the block data for the block at x,y,z, where x,y,z are relative to
+    /// the section ie 0..16.
     pub fn at(&self, x: usize, sec_y: usize, z: usize) -> Option<&T> {
         let state_index = (sec_y * 16 * 16) + z * 16 + x;
         self.inner.at(
@@ -25,6 +27,24 @@ impl<T: Debug> BlockData<T> {
         )
     }
 
+    /// Get iterator for the state indicies. This will increase in x, then z,
+    /// then y. These indicies are used with the relevant palette to get the
+    /// data for that block.
+    ///
+    /// This returns None if no block states were present. This typically means
+    /// the section was empty (ie filled with air).
+    ///
+    /// You can recover the coordinate be enumerating the iterator:
+    ///
+    /// ```no_run
+    /// # use fastanvil::BlockData;
+    /// # let states: BlockData<usize> = todo!();
+    /// for (i, block_index) in states.try_iter_indices().unwrap().enumerate() {
+    ///     let x = i & 0x000F;
+    ///     let y = (i & 0x0F00) >> 8;
+    ///     let z = (i & 0x00F0) >> 4;
+    /// }
+    /// ```
     pub fn try_iter_indices(&self) -> Option<StatesIter> {
         if let Some(data) = &self.inner.data {
             let bits = blockstates_bits_per_block(self.inner.palette.len());
@@ -34,6 +54,8 @@ impl<T: Debug> BlockData<T> {
         }
     }
 
+    /// Get the palette for this block data. Indicies into this palette can be
+    /// obtained via [`try_iter_indices`][`BlockData::try_iter_indices`].
     pub fn palette(&self) -> &[T] {
         self.inner.palette.as_slice()
     }
@@ -136,6 +158,7 @@ fn biomes_bits_per_block(palette_len: usize) -> usize {
     std::cmp::max((palette_len as f64).log2().ceil() as usize, 1)
 }
 
+/// Iterator over block state data. Each value is the index into the relevant palette.
 pub struct StatesIter<'a> {
     inner: &'a [i64], // remaining data to iterate.
     stride: usize,    // stride in bits we're iterating.
