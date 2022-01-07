@@ -1,7 +1,5 @@
 use std::ops::Range;
 
-use lazy_static::lazy_static;
-
 pub mod pre18;
 
 mod block;
@@ -17,24 +15,24 @@ pub use heightmaps::*;
 pub use section::*;
 pub use section_data::*;
 pub use section_tower::*;
+
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 
 use crate::{biome::Biome, Chunk, HeightMode};
 
-lazy_static! {
-    pub static ref AIR: Block = Block {
-        name: "minecraft:air".to_owned(),
-        encoded: "minecraft:air|".to_owned(),
-        snowy: false,
-        properties: Default::default(),
-    };
-    pub static ref SNOW_BLOCK: Block = Block {
-        name: "minecraft:snow_block".to_owned(),
-        encoded: "minecraft:snow_block|".to_owned(),
-        snowy: true,
-        properties: Default::default(),
-    };
-}
+pub static AIR: Lazy<Block> = Lazy::new(|| Block {
+    name: "minecraft:air".to_owned(),
+    encoded: "minecraft:air|".to_owned(),
+    snowy: false,
+    properties: Default::default(),
+});
+pub static SNOW_BLOCK: Lazy<Block> = Lazy::new(|| Block {
+    name: "minecraft:snow_block".to_owned(),
+    encoded: "minecraft:snow_block|".to_owned(),
+    snowy: true,
+    properties: Default::default(),
+});
 
 /// A Minecraft chunk.
 #[derive(Deserialize, Debug)]

@@ -1,8 +1,9 @@
-use std::cell::{Cell, RefCell};
 use std::convert::TryFrom;
 use std::ops::Range;
+use std::sync::RwLock;
 
 use fastnbt::IntArray;
+use once_cell::sync::OnceCell;
 use serde::Deserialize;
 
 use crate::java::AIR;
@@ -23,11 +24,13 @@ impl Chunk for JavaChunk {
     }
 
     fn surface_height(&self, x: usize, z: usize, mode: HeightMode) -> isize {
-        if self.level.lazy_heightmap.borrow().is_none() {
+        let mut heightmap = self.level.lazy_heightmap.read().unwrap();
+        if heightmap.is_none() {
+            drop(heightmap);
             self.recalculate_heightmap(mode);
+            heightmap = self.level.lazy_heightmap.read().unwrap();
         }
-
-        self.level.lazy_heightmap.borrow().unwrap()[z * 16 + x] as isize
+        heightmap.unwrap()[z * 16 + x] as isize
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
@@ -107,7 +110,7 @@ pub struct Level {
     pub status: String,
 
     #[serde(skip)]
-    lazy_heightmap: RefCell<Option<[i16; 256]>>,
+    lazy_heightmap: RwLock<Option<[i16; 256]>>,
 }
 
 impl JavaChunk {
@@ -133,7 +136,7 @@ impl JavaChunk {
                     .is_some();
 
                 if updated {
-                    self.level.lazy_heightmap.replace(Some(map));
+                    *self.level.lazy_heightmap.write().unwrap() = Some(map);
                     return;
                 }
             }
@@ -165,7 +168,7 @@ impl JavaChunk {
             }
         }
 
-        self.level.lazy_heightmap.replace(Some(map));
+        *self.level.lazy_heightmap.write().unwrap() = Some(map);
     }
 }
 
@@ -193,28 +196,55 @@ impl SectionLike for Pre18Section {
 
 #[derive(Debug)]
 pub struct Pre18Blockstates {
-    done: Cell<bool>,
-    unpacked: RefCell<[u16; 16 * 16 * 16]>,
+    unpacked: OnceCell<[u16; 16 * 16 * 16]>,
     packed: PackedBits,
 }
 
 impl Pre18Blockstates {
+    /// Get the state for the given block at x,y,z, where x, y, and z are
+    /// relative to the section ie 0..16
     #[inline(always)]
     pub fn state(&self, x: usize, sec_y: usize, z: usize, pal_len: usize) -> usize {
-        // 🤮 This is a very hot function, so the ugly is worth the speed.
-        if !self.done.get() {
+        let unpacked = self.unpacked.get_or_init(|| {
             let bits_per_item = bits_per_block(pal_len);
-            let mut buf = self.unpacked.borrow_mut();
-            let mut buf = buf.as_mut();
-
+            let mut buf = [0u16; 16 * 16 * 16];
             self.packed.unpack_blockstates(bits_per_item, &mut buf);
-            self.done.replace(true);
-        }
+            buf
+        });
 
         let state_index = (sec_y * 16 * 16) + z * 16 + x;
+        unpacked[state_index] as usize
+    }
 
-        // We *know* unpacked is filled in because we just made it above.
-        self.unpacked.borrow().as_ref()[state_index] as usize
+    /// Get iterator for the state indicies. This will increase in x, then z,
+    /// then y. These indicies are used with the relevant palette to get the
+    /// data for that block.
+    ///
+    /// The pal_len must be the length of the palette corresponding to these
+    /// blockstates.
+    ///
+    /// You can recover the coordinate be enumerating the iterator:
+    ///
+    /// ```no_run
+    /// # use fastanvil::pre18::Pre18Blockstates;
+    /// # fn main() {
+    /// # let states: Pre18Blockstates = todo!();
+    /// for (i, block_index) in states.iter_indices(10).enumerate() {
+    ///     let x = i & 0x000F;
+    ///     let y = (i & 0x0F00) >> 8;
+    ///     let z = (i & 0x00F0) >> 4;
+    /// }
+    /// # }
+    /// ```
+    pub fn iter_indices(&self, pal_len: usize) -> impl Iterator<Item = usize> + '_ {
+        let unpacked = self.unpacked.get_or_init(|| {
+            let bits_per_item = bits_per_block(pal_len);
+            let mut buf = [0u16; 16 * 16 * 16];
+            self.packed.unpack_blockstates(bits_per_item, &mut buf);
+            buf
+        });
+
+        unpacked.iter().map(|&i| i as usize)
     }
 }
 
@@ -225,9 +255,8 @@ impl<'de> Deserialize<'de> for Pre18Blockstates {
     {
         let packed: PackedBits = Deserialize::deserialize(d)?;
         Ok(Self {
-            done: Cell::new(false),
             packed,
-            unpacked: RefCell::new([0; 16 * 16 * 16]),
+            unpacked: OnceCell::new(),
         })
     }
 }

@@ -14,6 +14,10 @@ pub struct SectionTower<S> {
 }
 
 impl<S> SectionTower<S> {
+    pub fn sections(&self) -> &[S] {
+        &self.sections
+    }
+
     pub fn get_section_for_y(&self, y: isize) -> Option<&S> {
         if y >= self.y_max || y < self.y_min {
             // TODO: This occurs a lot in hermitcraft season 7. Probably some
