@@ -1,7 +1,10 @@
 use std::{collections::HashMap, iter::FromIterator};
 
-use crate::{ser::to_bytes, ByteArray, IntArray, LongArray, Tag, Value};
-use serde::{Deserialize, Serialize};
+use crate::{
+    de::from_bytes, ser::to_bytes, test::resources::CHUNK_RAW_WITH_ENTITIES, ByteArray, IntArray,
+    LongArray, Tag, Value,
+};
+use serde::Serialize;
 
 use super::builder::Builder;
 
@@ -493,7 +496,57 @@ fn enum_tuple_variant() {
     assert_eq!(expected, to_bytes(&v).unwrap());
 }
 
-// TODO: Test values without a root compound fail serialization.
+#[test]
+fn empty_list() {
+    // Empty list ends up as a list of End tags, since there's no way to tell
+    // what the type of the elements are, since serializing an element doesn't
+    // happen for an empty list.
+
+    let v = Single::<Vec<i32>> { val: vec![] };
+    let actual = to_bytes(&v).unwrap();
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::End, 0)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+#[ignore = "doesn't work yet"]
+fn must_have_root() {
+    // TODO: also do for other tag types.
+    assert!(matches!(to_bytes(&123), Err(_)));
+}
+
+#[test]
+fn list_of_empty_lists() {
+    // Similar to the PostProcessing part of a chunk (at least in older
+    // versions)
+    let v = Single::<[[u32; 0]; 2]> { val: [[], []] };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::List, 2)
+        .start_anon_list(Tag::End, 0)
+        .start_anon_list(Tag::End, 0)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn round_trip() {
+    // Deserialize, serialize, and deserialize again. The two Values should be
+    // the same.
+    let chunk: Value = from_bytes(CHUNK_RAW_WITH_ENTITIES).unwrap();
+    let bytes = to_bytes(&chunk).unwrap();
+    let roundtrip_chunk: Value = from_bytes(&bytes).unwrap();
+    assert_eq!(roundtrip_chunk, chunk);
+}
+
 // TODO: Borrowed arrays
 // TODO: Arrays within lists
 // TODO: Everything in a list...

@@ -1,5 +1,5 @@
-use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
 use std::sync::{Arc, Mutex};
+use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
 
 use crate::{biome::Biome, Block};
 
@@ -93,7 +93,7 @@ impl<C: Chunk> Dimension<C> {
     pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<dyn Region<C>>> {
         let mut cache = self.regions.lock().unwrap();
 
-        cache.get(&(x, z)).map(|r| Arc::clone(r)).or_else(|| {
+        cache.get(&(x, z)).map(Arc::clone).or_else(|| {
             let r = Arc::from(self.loader.region(x, z)?);
             cache.insert((x, z), Arc::clone(&r));
             Some(r)

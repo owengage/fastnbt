@@ -216,21 +216,29 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.writer.write_tag(Tag::List)?;
-        self.writer.write_size_prefixed_str(&self.field)?;
-
         let len =
             len.ok_or_else(|| Error::bespoke("sequences must have a known length".to_string()))?;
 
-        Ok(SerializerTuple {
-            ser: self,
-            state: SeqState::ListStart(len),
-        })
+        self.serialize_tuple(len)
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
         self.writer.write_tag(Tag::List)?;
         self.writer.write_size_prefixed_str(&self.field)?;
+
+        if len == 0 {
+            // Weird case, serialize_element will never be called so we won't
+            // get chance to write the tag type of the list. Worse still we have
+            // no idea what the element type of this list will be because the
+            // relevant serialize call never happens.
+
+            // This is talked about a bit here:
+            // https://minecraft.fandom.com/wiki/NBT_format
+            // A list of end tags seems to be the way to go.
+
+            self.writer.write_tag(Tag::End)?;
+            self.writer.write_u32::<BigEndian>(0)?; // ie len
+        }
 
         Ok(SerializerTuple {
             ser: self,
@@ -248,15 +256,15 @@ impl<'a, W: Write> serde::ser::Serializer for &'a mut Serializer<W> {
 
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
-        variant: &'static str,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
         self.serialize_tuple(len)
     }
 
-    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         self.writer.write_tag(Tag::Compound)?;
         self.writer.write_size_prefixed_str(&self.field)?;
 

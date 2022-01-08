@@ -211,19 +211,28 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for SeqSerializer<'a, W> {
     }
 
     fn serialize_seq(mut self, len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.try_write_list_header(Tag::List)?;
-
         let len =
             len.ok_or_else(|| Error::bespoke("sequences must have a known length".to_string()))?;
 
-        Ok(SerializerTuple {
-            ser: self.ser,
-            state: SeqState::ListStart(len),
-        })
+        self.serialize_tuple(len)
     }
 
     fn serialize_tuple(mut self, len: usize) -> Result<Self::SerializeTuple> {
         self.try_write_list_header(Tag::List)?;
+
+        if len == 0 {
+            // Weird case, serialize_element will never be called so we won't
+            // get chance to write the tag type of the list. Worse still we have
+            // no idea what the element type of this list will be because the
+            // relevant serialize call never happens.
+
+            // This is talked about a bit here:
+            // https://minecraft.fandom.com/wiki/NBT_format
+            // A list of end tags seems to be the way to go.
+
+            self.ser.writer.write_tag(Tag::End)?;
+            self.ser.writer.write_u32::<BigEndian>(0)?; // ie len
+        }
 
         Ok(SerializerTuple {
             ser: self.ser,

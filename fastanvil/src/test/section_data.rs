@@ -1,6 +1,4 @@
-use fastnbt::de::from_bytes;
-
-use crate::{CurrentJavaChunk, StatesIter};
+use crate::StatesIter;
 
 #[test]
 fn iter_zeroes() {
