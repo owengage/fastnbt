@@ -12,31 +12,29 @@ https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
 [Latest Version]: https://img.shields.io/crates/v/fastnbt.svg
 [crates.io]: https://crates.io/crates/fastnbt
 
-Serde deserializer for *Minecraft: Java Edition's* NBT format, and in-browser
-Rust-to-WASM powered Minecraft map renderer. Supports 1.18 down to 1.15
-inclusive. Eventually want to support at least down to 1.12.
+`fastnbt` is a serde serializer and deserializer for *Minecraft: Java Edition's*
+NBT format.
+
+This repository also contains fastanvil for rendering maps of Minecraft worlds.
+An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
+Supports 1.18 down to 1.15 inclusive. Eventually want to support at least down
+to 1.12.
 
 # Demo
 
-Demo of Hermitcraft season 7 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft7)
+Demo of Hermitcraft season 8 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft8)
 
 ![alt rendered map](demo.png)  
 
 This repository contains multiple related projects.
 
-* [fastnbt](fastnbt/README.md): Fast serde deserializer for *Minecraft: Java
+* [fastnbt](fastnbt/README.md): Fast serde serializer/deserializer for *Minecraft: Java
   Edition*'s NBT data format.
 * fastanvil: For rendering Minecraft worlds to maps.
 * fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
 
-Tries to support old chunks in worlds, but not
-extracting textures from older versions due to the added
-complexity it would require.
-
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
-your CPU.
-
-See [fastnbt's README](fastnbt/README.md) for performance comparison.
+your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.
 
 # Serde deserializer example
 
@@ -88,15 +86,6 @@ fn main() {
     println!("{:#?}", player);
 }
 ```
-
-# Development priorities
-
-These are the proirities for the project when it comes to development. Ideally
-we never sacrifice an earlier priority for the sake of a later one.
-
-1. Correctness. Worlds are rendered as accurately as possible.
-2. Speed. Worlds are rendered as fast as possible.
-3. Memory. Worlds are rendered without sucking up RAM.
 
 ## Usage
 
