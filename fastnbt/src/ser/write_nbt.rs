@@ -1,8 +1,9 @@
+use std::convert::TryInto;
 use std::io::Write;
 
 use byteorder::{BigEndian, WriteBytesExt};
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::Tag;
 
 pub(crate) trait WriteNbt: Write {
@@ -16,6 +17,15 @@ pub(crate) trait WriteNbt: Write {
         let len_bytes = key.len() as u16;
         self.write_u16::<BigEndian>(len_bytes)?;
         self.write_all(&key)?;
+        Ok(())
+    }
+
+    fn write_len(&mut self, len: usize) -> Result<()> {
+        self.write_u32::<BigEndian>(
+            len.try_into()
+                .map_err(|_| Error::bespoke("len too large".to_owned()))?,
+        )?;
+
         Ok(())
     }
 }

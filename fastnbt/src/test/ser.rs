@@ -1,8 +1,8 @@
 use std::{collections::HashMap, iter::FromIterator};
 
 use crate::{
-    de::from_bytes, ser::to_bytes, test::resources::CHUNK_RAW_WITH_ENTITIES, ByteArray, IntArray,
-    LongArray, Tag, Value,
+    borrow, de::from_bytes, ser::to_bytes, test::resources::CHUNK_RAW_WITH_ENTITIES, ByteArray,
+    IntArray, LongArray, Tag, Value,
 };
 use serde::Serialize;
 
@@ -440,6 +440,69 @@ fn nbt_long_array_in_list() {
 }
 
 #[test]
+fn borrowed_nbt_byte_array_in_list() {
+    let v = Single {
+        val: [
+            borrow::ByteArray::new(&[1, 2, 3]),
+            borrow::ByteArray::new(&[4, 5, 6]),
+        ],
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::ByteArray, 2)
+        .int_payload(3)
+        .byte_array_payload(&[1, 2, 3])
+        .int_payload(3)
+        .byte_array_payload(&[4, 5, 6])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn borrowed_nbt_int_array_in_list() {
+    let v = Single {
+        val: [
+            borrow::IntArray::new(&[1, 2, 3]),
+            borrow::IntArray::new(&[4, 5, 6]),
+        ],
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::IntArray, 2)
+        .int_payload(3)
+        .int_array_payload(&[1, 2, 3])
+        .int_payload(3)
+        .int_array_payload(&[4, 5, 6])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn borrowed_nbt_long_array_in_list() {
+    let v = Single {
+        val: [
+            borrow::LongArray::new(&[1, 2, 3]),
+            borrow::LongArray::new(&[4, 5, 6]),
+        ],
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::LongArray, 2)
+        .int_payload(3)
+        .long_array_payload(&[1, 2, 3])
+        .int_payload(3)
+        .long_array_payload(&[4, 5, 6])
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
 fn unit_enum() {
     #[derive(Serialize)]
     #[allow(unused)]
@@ -547,9 +610,27 @@ fn round_trip() {
     assert_eq!(roundtrip_chunk, chunk);
 }
 
-// TODO: Borrowed arrays
+#[test]
+fn serialize_bytes() {
+    // Even serde_bytes gets serialized to just a list of bytes. Only the
+    // dedicated fastnbt array types get serialized to NBT arrays.
+    let v = Single {
+        val: serde_bytes::Bytes::new(&[1, 2, 3]),
+    };
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Byte, 3)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte_payload(3)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
 // TODO: Arrays within lists
 // TODO: Everything in a list...
-
-// TODO: Serialize_bytes
 // TODO: serialize_newtype_variant but for NOT NBT arrays
+// TODO: Fields with cesu8 encoding
+// TODO: Fields from slice, array, and vecs (HashMap<Vec, _>)

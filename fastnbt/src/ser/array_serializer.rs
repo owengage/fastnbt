@@ -5,8 +5,10 @@ use serde::ser::Impossible;
 
 use crate::{error::Error, Tag};
 
-use super::serializer::Serializer;
+use super::{serializer::Serializer, write_nbt::WriteNbt};
 
+/// ArraySerializer is for serializing the NBT Arrays ie ByteArray, IntArray and
+/// LongArray.
 pub(crate) struct ArraySerializer<'a, W: Write> {
     pub(crate) ser: &'a mut Serializer<W>,
     pub(crate) tag: Tag,
@@ -76,16 +78,15 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        // TODO: len should use try_into()
         match self.tag {
             Tag::ByteArray => {
-                self.ser.writer.write_u32::<BigEndian>(v.len() as u32)?;
+                self.ser.writer.write_len(v.len())?;
                 self.ser.writer.write_all(v)?;
             }
             Tag::IntArray => {
                 let stride = 4;
                 let len = v.len() / stride;
-                self.ser.writer.write_u32::<BigEndian>(len as u32)?;
+                self.ser.writer.write_len(len)?;
 
                 for chunk in v.chunks(stride) {
                     let el = NativeEndian::read_i32(chunk);
@@ -95,7 +96,7 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
             Tag::LongArray => {
                 let stride = 8;
                 let len = v.len() / stride;
-                self.ser.writer.write_u32::<BigEndian>(len as u32)?;
+                self.ser.writer.write_len(len)?;
 
                 for chunk in v.chunks(stride) {
                     let el = NativeEndian::read_i64(chunk);

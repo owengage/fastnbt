@@ -44,14 +44,16 @@ use std::{borrow::Cow, fmt};
 
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
+use serde_bytes::Bytes;
 
 use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
 
 /// ByteArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. The carving masks
 /// in a chunk use this type, for example.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 pub struct ByteArray<'a> {
+    #[allow(dead_code)]
     tag: CompTag<BYTE_ARRAY_TAG>,
     data: &'a [u8],
 }
@@ -60,6 +62,11 @@ impl<'a> ByteArray<'a> {
     /// Create an iterator over the bytes.
     pub fn iter(&self) -> ByteIter<'a> {
         ByteIter(*self)
+    }
+
+    pub fn new(data: &'a [i8]) -> Self {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        Self { tag: CompTag, data }
     }
 }
 
@@ -73,11 +80,35 @@ impl<'a> Iterator for ByteIter<'a> {
     }
 }
 
+impl<'a> Serialize for ByteArray<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // We can't know anything about NBT here, since we might be serializing
+        // to a different format. But we can create a hidden inner type to
+        // signal the serializer.
+        #[derive(Serialize)]
+        #[allow(non_camel_case_types)]
+        enum __fastnbt_byte_array<'a> {
+            Data(&'a Bytes),
+        }
+
+        // Alignment of i64 is >= alignment of bytes so this should always work.
+        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+
+        let array = __fastnbt_byte_array::Data(Bytes::new(data));
+
+        array.serialize(serializer)
+    }
+}
+
 /// IntArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Biomes in the chunk
 /// format are an example of this data type.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 pub struct IntArray<'a> {
+    #[allow(dead_code)]
     tag: CompTag<INT_ARRAY_TAG>,
     data: &'a [u8],
 }
@@ -86,6 +117,11 @@ impl<'a> IntArray<'a> {
     /// Create an iterator over the i32s
     pub fn iter(&self) -> IntIter<'a> {
         IntIter(*self)
+    }
+
+    pub fn new(data: &'a [i32]) -> Self {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        Self { tag: CompTag, data }
     }
 }
 
@@ -99,11 +135,35 @@ impl<'a> Iterator for IntIter<'a> {
     }
 }
 
+impl<'a> Serialize for IntArray<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // We can't know anything about NBT here, since we might be serializing
+        // to a different format. But we can create a hidden inner type to
+        // signal the serializer.
+        #[derive(Serialize)]
+        #[allow(non_camel_case_types)]
+        enum __fastnbt_int_array<'a> {
+            Data(&'a Bytes),
+        }
+
+        // Alignment of i64 is >= alignment of bytes so this should always work.
+        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+
+        let array = __fastnbt_int_array::Data(Bytes::new(data));
+
+        array.serialize(serializer)
+    }
+}
+
 /// LongArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Block states
 /// (storage of all the blocks in a chunk) are an exmple of when this is used.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 pub struct LongArray<'a> {
+    #[allow(dead_code)]
     tag: CompTag<LONG_ARRAY_TAG>,
     data: &'a [u8],
 }
@@ -112,6 +172,11 @@ impl<'a> LongArray<'a> {
     /// Create an iterator over the i64s
     pub fn iter(&self) -> LongIter<'a> {
         LongIter(*self)
+    }
+
+    pub fn new(data: &'a [i64]) -> Self {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        Self { tag: CompTag, data }
     }
 }
 
@@ -122,6 +187,29 @@ impl<'a> Iterator for LongIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.data.read_i64::<BigEndian>().ok()
+    }
+}
+
+impl<'a> Serialize for LongArray<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // We can't know anything about NBT here, since we might be serializing
+        // to a different format. But we can create a hidden inner type to
+        // signal the serializer.
+        #[derive(Serialize)]
+        #[allow(non_camel_case_types)]
+        enum __fastnbt_long_array<'a> {
+            Data(&'a Bytes),
+        }
+
+        // Alignment of i64 is >= alignment of bytes so this should always work.
+        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+
+        let array = __fastnbt_long_array::Data(Bytes::new(data));
+
+        array.serialize(serializer)
     }
 }
 
