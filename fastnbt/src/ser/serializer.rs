@@ -44,7 +44,7 @@ impl<'a, W: Write> Serializer<W> {
             }
             State::ListRest => {}
             State::Compound { current_field } => {
-                self.writer.write_tag(tag)?; // TODO: can I remove this enum variant?
+                self.writer.write_tag(tag)?;
                 self.writer.write_size_prefixed_str(current_field)?;
             }
         }
@@ -327,7 +327,9 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
         key.serialize(&mut NameSerializer { name: &mut name })?;
 
         self.ser.state = State::Compound {
-            current_field: String::from_utf8(name).unwrap(),
+            current_field: cesu8::from_java_cesu8(&name)
+                .map_err(|_| Error::bespoke("field name was invalid cesu8".to_string()))?
+                .to_string(),
         };
         value.serialize(&mut *self.ser)
     }

@@ -79,8 +79,7 @@ impl<W: Write> Serializer for &mut NameSerializer<W> {
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        // TODO: cesu8 format.
-        self.name.write_all(v.as_bytes())?;
+        self.name.write_all(&cesu8::to_java_cesu8(v))?;
         Ok(())
     }
 

@@ -629,8 +629,36 @@ fn serialize_bytes() {
     assert_eq!(expected, to_bytes(&v).unwrap());
 }
 
+#[test]
+fn cesu_bytes() {
+    // This unicode character is an example character that is different when
+    // encoded with cesu8 and utf8.
+    let symbol = "\u{10401}";
+    let modified_unicode_str = cesu8::to_java_cesu8(symbol);
+
+    #[derive(Serialize)]
+    struct V {
+        #[serde(rename = "\u{10401}")]
+        val: String,
+    }
+
+    let v = V {
+        val: symbol.to_string(),
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .tag(Tag::String)
+        .name(symbol)
+        .raw_len(modified_unicode_str.len())
+        .raw_bytes(&modified_unicode_str)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
 // TODO: Arrays within lists
 // TODO: Everything in a list...
 // TODO: serialize_newtype_variant but for NOT NBT arrays
-// TODO: Fields with cesu8 encoding
 // TODO: Fields from slice, array, and vecs (HashMap<Vec, _>)
