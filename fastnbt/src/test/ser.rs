@@ -5,6 +5,7 @@ use crate::{
     IntArray, LongArray, Tag, Value,
 };
 use serde::Serialize;
+use serde_bytes::Bytes;
 
 use super::builder::Builder;
 
@@ -658,7 +659,21 @@ fn cesu_bytes() {
     assert_eq!(expected, to_bytes(&v).unwrap());
 }
 
+#[test]
+fn bytes_as_fields() {
+    let mut map = HashMap::new();
+    map.insert(Bytes::new(b"hello"), "world");
+
+    let expected = Builder::new()
+        .start_compound("")
+        .string("hello", "world")
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&map).unwrap());
+}
+
 // TODO: Arrays within lists
-// TODO: Everything in a list...
 // TODO: serialize_newtype_variant but for NOT NBT arrays
 // TODO: Fields from slice, array, and vecs (HashMap<Vec, _>)
+// TODO: deep nesting (doubts about how I'm managing state)
