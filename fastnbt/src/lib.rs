@@ -125,24 +125,20 @@ use serde::Deserialize;
 pub mod borrow;
 pub mod de;
 pub mod error;
+pub mod ser;
 pub mod stream;
 
 mod arrays;
-pub mod ser;
+mod de_arrays;
 mod value;
 
 pub use arrays::*;
 pub use value::*;
 
-pub(crate) mod de_arrays;
-
 #[cfg(test)]
 mod test;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    fmt::Display,
-};
+use std::{convert::TryFrom, fmt::Display};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -176,12 +172,8 @@ pub enum Tag {
     LongArray = 12,
 }
 
-pub(crate) const BYTE_ARRAY_TAG: u8 = 7;
-pub(crate) const INT_ARRAY_TAG: u8 = 11;
-pub(crate) const LONG_ARRAY_TAG: u8 = 12;
-
 // Crates exist to generate this code for us, but would add to our compile
-// times, so we instead right it out manually, the tags will very rarely change
+// times, so we instead write it out manually, the tags will very rarely change
 // so isn't a massive burden, but saves a significant amount of compile time.
 impl TryFrom<u8> for Tag {
     type Error = ();
@@ -245,43 +237,5 @@ impl Display for Tag {
             Tag::LongArray => "long-array",
         };
         f.write_str(s)
-    }
-}
-
-/// Compile time NBT tag type. Useful for forcing a custom type to have a field
-/// that must be a given tag. Used for the Array types.
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) struct CompTag<const N: u8>;
-
-impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let tag: u8 = Deserialize::deserialize(deserializer)?;
-        if tag != N {
-            let actual = Tag::try_from(tag)
-                .map(|t| t.to_string())
-                .unwrap_or_else(|_| tag.to_string());
-            let expected = Tag::try_from(N)
-                .map(|t| t.to_string())
-                .unwrap_or_else(|_| tag.to_string());
-
-            Err(serde::de::Error::custom(format!(
-                "exected {expected}, got {actual}"
-            )))
-        } else {
-            Ok(Self)
-        }
-    }
-}
-
-impl<const N: u8> std::fmt::Debug for CompTag<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tag = <u8 as TryInto<Tag>>::try_into(N);
-        match tag {
-            Ok(tag) => <Tag as std::fmt::Debug>::fmt(&tag, f),
-            Err(_) => write!(f, "InvalidTag({})", N),
-        }
     }
 }

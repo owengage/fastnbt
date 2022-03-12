@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use fastnbt::de::from_bytes;
 use fastnbt::error::Result;
 use flate2::read::GzDecoder;

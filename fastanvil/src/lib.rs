@@ -51,13 +51,13 @@ pub struct RegionBuffer<S: Seek + Read> {
     data: Mutex<S>,
 }
 
-impl<S: Seek + Read + Send + Sync, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> {
-    fn chunk(&self, x: CCoord, z: CCoord) -> Option<C> {
+impl<S: Seek + Read + Send + Sync> Region for RegionBuffer<S> {
+    fn chunk(&self, x: CCoord, z: CCoord) -> Option<JavaChunk> {
         let loc = self.chunk_location(x.0 as usize, z.0 as usize).ok()?;
 
         let data = self.load_chunk(loc.x, loc.z).ok()?;
 
-        let res = from_bytes::<C>(&data);
+        let res = JavaChunk::from_bytes(&data);
 
         match &res {
             Ok(_) => {}

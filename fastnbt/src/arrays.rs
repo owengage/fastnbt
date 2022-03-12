@@ -1,14 +1,50 @@
 use std::ops::Deref;
 
-use serde::{Deserialize, Serialize};
+use byteorder::{BigEndian, ReadBytesExt};
+use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes::Bytes;
 
-use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
+pub(crate) const BYTE_ARRAY_TOKEN: &str = "$fastnbt__byte_array";
+pub(crate) const INT_ARRAY_TOKEN: &str = "$fastnbt__int_array";
+pub(crate) const LONG_ARRAY_TOKEN: &str = "$fastnbt__long_array";
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct ByteArray {
-    tag: CompTag<BYTE_ARRAY_TAG>,
     data: Vec<i8>,
+}
+
+impl<'de> Deserialize<'de> for ByteArray {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor;
+        impl<'de> Visitor<'de> for InnerVisitor {
+            type Value = ByteArray;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("byte array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT byte array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == BYTE_ARRAY_TOKEN {
+                    Ok(ByteArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT byte array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(BYTE_ARRAY_TOKEN, InnerVisitor)
+    }
 }
 
 impl Serialize for ByteArray {
@@ -35,10 +71,19 @@ impl Serialize for ByteArray {
 
 impl ByteArray {
     pub fn new(data: Vec<i8>) -> Self {
-        Self { tag: CompTag, data }
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &[u8]) -> Self {
+        // Safe to treat [u8] as [i8].
+        let data = unsafe { &*(data as *const [u8] as *const [i8]) };
+        ByteArray {
+            data: data.to_owned(),
+        }
     }
 }
 
+// TODO: Remove
 impl Deref for ByteArray {
     type Target = Vec<i8>;
 
@@ -47,15 +92,58 @@ impl Deref for ByteArray {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct IntArray {
-    tag: CompTag<INT_ARRAY_TAG>,
     data: Vec<i32>,
 }
 
 impl IntArray {
     pub fn new(data: Vec<i32>) -> Self {
-        Self { tag: CompTag, data }
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
+        let data = data
+            .chunks_exact(4)
+            .map(|mut bs| bs.read_i32::<BigEndian>())
+            .collect::<std::io::Result<Vec<i32>>>()?;
+
+        Ok(IntArray { data })
+    }
+}
+
+impl<'de> Deserialize<'de> for IntArray {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor;
+        impl<'de> Visitor<'de> for InnerVisitor {
+            type Value = IntArray;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("int array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT int array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == INT_ARRAY_TOKEN {
+                    IntArray::from_bytes(data)
+                        .map_err(|_| serde::de::Error::custom("could not read i32 for int array"))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT int array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(INT_ARRAY_TOKEN, InnerVisitor)
     }
 }
 
@@ -90,18 +178,58 @@ impl Deref for IntArray {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct LongArray {
-    tag: CompTag<LONG_ARRAY_TAG>,
     data: Vec<i64>,
 }
 
 impl LongArray {
     pub fn new(data: Vec<i64>) -> Self {
-        Self {
-            tag: CompTag::<LONG_ARRAY_TAG>,
-            data,
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
+        let data = data
+            .chunks_exact(8)
+            .map(|mut bs| bs.read_i64::<BigEndian>())
+            .collect::<std::io::Result<Vec<i64>>>()?;
+
+        Ok(LongArray { data })
+    }
+}
+
+impl<'de> Deserialize<'de> for LongArray {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor;
+        impl<'de> Visitor<'de> for InnerVisitor {
+            type Value = LongArray;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("long array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT long array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == LONG_ARRAY_TOKEN {
+                    LongArray::from_bytes(data)
+                        .map_err(|_| serde::de::Error::custom("could not read i64 for long array"))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT long array token"))
+                }
+            }
         }
+        deserializer.deserialize_newtype_struct(LONG_ARRAY_TOKEN, InnerVisitor)
     }
 }
 

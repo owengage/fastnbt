@@ -1,9 +1,6 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
-use fastanvil::{
-    pre18, render_region, CCoord, HeightMode, JavaChunk, RCoord, RegionLoader, Rgba,
-    TopShadeRenderer,
-};
+use fastanvil::{render_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, TopShadeRenderer};
 use fastanvil::{Dimension, RenderedPalette};
 
 use fastanvil::RegionFileLoader;
@@ -125,7 +122,7 @@ fn render(args: &ArgMatches) -> Result<()> {
         _ => "region",
     };
 
-    let loader = RegionFileLoader::<JavaChunk>::new(world.join(subpath));
+    let loader = RegionFileLoader::new(world.join(subpath));
 
     let coords = loader.list()?;
 
@@ -149,7 +146,7 @@ fn render(args: &ArgMatches) -> Result<()> {
     let region_maps: Vec<_> = coords
         .into_par_iter()
         .filter_map(|coord| {
-            let loader = RegionFileLoader::<pre18::JavaChunk>::new(world.join(subpath));
+            let loader = RegionFileLoader::new(world.join(subpath));
             let dimension = Dimension::new(Box::new(loader));
 
             let (x, z) = coord;
@@ -216,7 +213,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
     // don't care if dir already exists.
     std::fs::DirBuilder::new().create(out).unwrap_or_default();
 
-    let loader = RegionFileLoader::<JavaChunk>::new(world.join(subpath));
+    let loader = RegionFileLoader::new(world.join(subpath));
 
     let coords = loader.list()?;
 
@@ -240,7 +237,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
     let regions_processed = coords
         .into_par_iter()
         .map(|coord| {
-            let loader = RegionFileLoader::<JavaChunk>::new(world.join(subpath));
+            let loader = RegionFileLoader::new(world.join(subpath));
             let dimension = Dimension::new(Box::new(loader));
 
             let (x, z) = coord;

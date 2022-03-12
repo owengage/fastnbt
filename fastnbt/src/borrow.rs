@@ -40,21 +40,19 @@
 //!     }
 //!# }
 
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, fmt, marker::PhantomData};
 
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes::Bytes;
 
-use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
+use crate::{BYTE_ARRAY_TOKEN, INT_ARRAY_TOKEN, LONG_ARRAY_TOKEN};
 
 /// ByteArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. The carving masks
 /// in a chunk use this type, for example.
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct ByteArray<'a> {
-    #[allow(dead_code)]
-    tag: CompTag<BYTE_ARRAY_TAG>,
     data: &'a [u8],
 }
 
@@ -66,7 +64,44 @@ impl<'a> ByteArray<'a> {
 
     pub fn new(data: &'a [i8]) -> Self {
         let (_, data, _) = unsafe { data.align_to::<u8>() };
-        Self { tag: CompTag, data }
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+}
+
+impl<'a, 'de: 'a> Deserialize<'de> for ByteArray<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor<'a>(PhantomData<&'a ()>);
+        impl<'a, 'de: 'a> Visitor<'de> for InnerVisitor<'a> {
+            type Value = ByteArray<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("byte array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT byte array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == BYTE_ARRAY_TOKEN {
+                    Ok(ByteArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT byte array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(BYTE_ARRAY_TOKEN, InnerVisitor(PhantomData))
     }
 }
 
@@ -106,10 +141,8 @@ impl<'a> Serialize for ByteArray<'a> {
 /// IntArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Biomes in the chunk
 /// format are an example of this data type.
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct IntArray<'a> {
-    #[allow(dead_code)]
-    tag: CompTag<INT_ARRAY_TAG>,
     data: &'a [u8],
 }
 
@@ -121,7 +154,44 @@ impl<'a> IntArray<'a> {
 
     pub fn new(data: &'a [i32]) -> Self {
         let (_, data, _) = unsafe { data.align_to::<u8>() };
-        Self { tag: CompTag, data }
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+}
+
+impl<'a, 'de: 'a> Deserialize<'de> for IntArray<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor<'a>(PhantomData<&'a ()>);
+        impl<'a, 'de: 'a> Visitor<'de> for InnerVisitor<'a> {
+            type Value = IntArray<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("int array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT int array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == INT_ARRAY_TOKEN {
+                    Ok(IntArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT int array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(INT_ARRAY_TOKEN, InnerVisitor(PhantomData))
     }
 }
 
@@ -161,10 +231,8 @@ impl<'a> Serialize for IntArray<'a> {
 /// LongArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Block states
 /// (storage of all the blocks in a chunk) are an exmple of when this is used.
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct LongArray<'a> {
-    #[allow(dead_code)]
-    tag: CompTag<LONG_ARRAY_TAG>,
     data: &'a [u8],
 }
 
@@ -176,7 +244,44 @@ impl<'a> LongArray<'a> {
 
     pub fn new(data: &'a [i64]) -> Self {
         let (_, data, _) = unsafe { data.align_to::<u8>() };
-        Self { tag: CompTag, data }
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+}
+
+impl<'a, 'de: 'a> Deserialize<'de> for LongArray<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor<'a>(PhantomData<&'a ()>);
+        impl<'a, 'de: 'a> Visitor<'de> for InnerVisitor<'a> {
+            type Value = LongArray<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("long array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT long array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == LONG_ARRAY_TOKEN {
+                    Ok(LongArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT long array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(LONG_ARRAY_TOKEN, InnerVisitor(PhantomData))
     }
 }
 

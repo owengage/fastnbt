@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
 
+use crate::JavaChunk;
 use crate::{biome::Biome, Block};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -39,11 +40,11 @@ pub trait Chunk: Send + Sync {
     fn y_range(&self) -> Range<isize>;
 }
 
-pub trait Region<C: Chunk>: Send + Sync {
+pub trait Region: Send + Sync {
     /// Load the chunk at the given chunk coordinates, ie 0..32 for x and z.
     /// Implmentations do not need to be concerned with caching chunks they have
     /// loaded, this will be handled by the types using the region.
-    fn chunk(&self, x: CCoord, z: CCoord) -> Option<C>;
+    fn chunk(&self, x: CCoord, z: CCoord) -> Option<JavaChunk>;
 }
 
 #[derive(Debug)]
@@ -64,25 +65,25 @@ impl Display for LoaderError {
 ///
 /// An example implementation could be loading a region file from a local disk,
 /// or perhaps a WASM version loading from a file buffer in the browser.
-pub trait RegionLoader<C: Chunk>: Send + Sync {
+pub trait RegionLoader: Send + Sync {
     /// Get a particular region. Returns None if region does not exist.
-    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region<C>>>;
+    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>>;
 
     /// List the regions that this loader can return. Implmentations need to
     /// provide this so that callers can efficiently find regions to process.
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
 }
 
-type DimensionHashMap<C> = HashMap<(RCoord, RCoord), Arc<dyn Region<C>>>;
+type DimensionHashMap = HashMap<(RCoord, RCoord), Arc<dyn Region>>;
 
 /// Dimension provides a cache on top of a RegionLoader.
-pub struct Dimension<C: Chunk> {
-    loader: Box<dyn RegionLoader<C>>,
-    regions: Mutex<DimensionHashMap<C>>,
+pub struct Dimension {
+    loader: Box<dyn RegionLoader>,
+    regions: Mutex<DimensionHashMap>,
 }
 
-impl<C: Chunk> Dimension<C> {
-    pub fn new(loader: Box<dyn RegionLoader<C>>) -> Self {
+impl Dimension {
+    pub fn new(loader: Box<dyn RegionLoader>) -> Self {
         Self {
             loader,
             regions: Default::default(),
@@ -90,7 +91,7 @@ impl<C: Chunk> Dimension<C> {
     }
 
     /// Get a region, maybe from Dimension's internal cache.
-    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<dyn Region<C>>> {
+    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<dyn Region>> {
         let mut cache = self.regions.lock().unwrap();
 
         cache.get(&(x, z)).map(Arc::clone).or_else(|| {
@@ -107,19 +108,19 @@ mod test {
 
     use super::*;
 
-    struct DummyRegion<C: Chunk>(PhantomData<C>);
+    struct DummyRegion(PhantomData<JavaChunk>);
 
-    impl<C: Chunk> Region<C> for DummyRegion<C> {
-        fn chunk(&self, _x: CCoord, _z: CCoord) -> Option<C> {
+    impl Region for DummyRegion {
+        fn chunk(&self, _x: CCoord, _z: CCoord) -> Option<JavaChunk> {
             unimplemented!()
         }
     }
 
-    struct DummyLoader<C: Chunk>(PhantomData<C>);
+    struct DummyLoader(PhantomData<JavaChunk>);
 
-    impl<C: Chunk + 'static> RegionLoader<C> for DummyLoader<C> {
-        fn region(&self, _x: RCoord, _z: RCoord) -> Option<Box<dyn Region<C>>> {
-            Some(Box::new(DummyRegion::<C>(PhantomData)))
+    impl RegionLoader for DummyLoader {
+        fn region(&self, _x: RCoord, _z: RCoord) -> Option<Box<dyn Region>> {
+            Some(Box::new(DummyRegion(PhantomData)))
         }
 
         fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>> {

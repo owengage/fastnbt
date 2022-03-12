@@ -392,15 +392,40 @@ where
 
             visitor.visit_seq(ListAccess::new(de, size))
         }
-        Tag::ByteArray | Tag::IntArray | Tag::LongArray => {
+        Tag::ByteArray => {
             if last_hint == Some("seq") {
                 return Err(Error::bespoke(
                     "expected NBT Array, found seq: use ByteArray, IntArray or LongArray types"
                         .into(),
                 ));
             }
+
             let size = de.input.consume_list_size()?;
-            visitor.visit_map(ArrayWrapperAccess::new(de, size, tag))
+
+            // visitor.visit_borrowed_bytes(bs)
+            visitor.visit_map(ArrayWrapperAccess::bytes(de, size))
+        }
+        Tag::IntArray => {
+            if last_hint == Some("seq") {
+                return Err(Error::bespoke(
+                    "expected NBT Array, found seq: use ByteArray, IntArray or LongArray types"
+                        .into(),
+                ));
+            }
+
+            let size = de.input.consume_list_size()?;
+            visitor.visit_map(ArrayWrapperAccess::ints(de, size))
+        }
+        Tag::LongArray => {
+            if last_hint == Some("seq") {
+                return Err(Error::bespoke(
+                    "expected NBT Array, found seq: use ByteArray, IntArray or LongArray types"
+                        .into(),
+                ));
+            }
+
+            let size = de.input.consume_list_size()?;
+            visitor.visit_map(ArrayWrapperAccess::longs(de, size))
         }
         // This would really only occur when we encounter a list where the
         // element type is 'End', but we specifically handle that case, so we
@@ -440,9 +465,9 @@ impl<'de> InputHelper<'de> {
         Ok(s)
     }
 
-    fn consume_bytes_unchecked(&mut self, size: i32) -> Result<&'de [u8]> {
+    pub(crate) fn consume_bytes(&mut self, size: i32) -> Result<&'de [u8]> {
         let size: usize = size.try_into().map_err(|_| Error::invalid_size(size))?;
-        let bs = &self.0[..size];
+        let bs = self.subslice(0..size)?;
         self.0 = &self.0[size..];
         Ok(bs)
     }
@@ -484,15 +509,15 @@ impl<'de> InputHelper<'de> {
             }
             Tag::ByteArray => {
                 let size = self.consume_list_size()?;
-                self.consume_bytes_unchecked(size)?;
+                self.consume_bytes(size)?;
             }
             Tag::IntArray => {
                 let size = self.consume_list_size()?;
-                self.consume_bytes_unchecked(size * 4)?;
+                self.consume_bytes(size * 4)?;
             }
             Tag::LongArray => {
                 let size = self.consume_list_size()?;
-                self.consume_bytes_unchecked(size * 8)?;
+                self.consume_bytes(size * 8)?;
             }
             Tag::Compound => {
                 // Need to loop and ignore each value until we reach an end tag.
@@ -663,19 +688,19 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
                 match el {
                     Tag::Byte => {
-                        let bs = self.input.consume_bytes_unchecked(size)?;
+                        let bs = self.input.consume_bytes(size)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Short => {
-                        let bs = self.input.consume_bytes_unchecked(size * 2)?;
+                        let bs = self.input.consume_bytes(size * 2)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Int => {
-                        let bs = self.input.consume_bytes_unchecked(size * 4)?;
+                        let bs = self.input.consume_bytes(size * 4)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Long => {
-                        let bs = self.input.consume_bytes_unchecked(size * 8)?;
+                        let bs = self.input.consume_bytes(size * 8)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     _ => Err(Error::bespoke(format!(
@@ -690,18 +715,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             } => match tag {
                 Tag::ByteArray => {
                     let size = self.input.consume_list_size()?;
-                    let bs = self.input.consume_bytes_unchecked(size)?;
+                    let bs = self.input.consume_bytes(size)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 Tag::IntArray => {
                     let size = self.input.consume_list_size()?;
-                    let bs = self.input.consume_bytes_unchecked(size * 4i32)?;
+                    let bs = self.input.consume_bytes(size * 4i32)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 // This allows us to borrow blockstates rather than copy them.
                 Tag::LongArray => {
                     let size = self.input.consume_list_size()?;
-                    let bs = self.input.consume_bytes_unchecked(size * 8i32)?;
+                    let bs = self.input.consume_bytes(size * 8i32)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 _ => Err(Error::bespoke(format!("expected bytes, found {:?}", tag))),
@@ -754,11 +779,34 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[inline]
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_newtype_struct(self)
+        let target_tag = match name {
+            crate::BYTE_ARRAY_TOKEN => Tag::ByteArray,
+            crate::INT_ARRAY_TOKEN => Tag::IntArray,
+            crate::LONG_ARRAY_TOKEN => Tag::LongArray,
+            _ => return visitor.visit_newtype_struct(self),
+        };
+
+        let data_tag = *match self.layers.last() {
+            Some(Layer::Compound { current_tag, .. }) => current_tag
+                .as_ref()
+                .ok_or_else(|| Error::bespoke("deserialize: did not know value's tag".to_string())),
+            Some(Layer::List { element_tag, .. }) => Ok(element_tag),
+            None => Err(Error::bespoke(
+                "deserialize: not in compound or list".to_string(),
+            )),
+        }?;
+
+        if target_tag == data_tag {
+            consume_value(self, visitor, target_tag)
+        } else {
+            Err(Error::bespoke(format!(
+                "expected {data_tag}, found {target_tag}"
+            )))
+        }
     }
 
     #[inline]

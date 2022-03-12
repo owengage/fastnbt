@@ -9,11 +9,14 @@ edition = "2018"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.3"
+libfuzzer-sys = "0.4.3"
+serde = {version="1", features=["derive"]}
+
 [dependencies.fastanvil]
 path = "../fastanvil"
 [dependencies.fastnbt]
 path = "../fastnbt"
+features = ["arbitrary1"]
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -28,6 +31,12 @@ doc = false
 [[bin]]
 name = "deserialize_value"
 path = "fuzz_targets/deserialize_value.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "serialize_value"
+path = "fuzz_targets/serialize_value.rs"
 test = false
 doc = false
 

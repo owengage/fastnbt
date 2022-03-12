@@ -3,8 +3,6 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use fastnbt::de::from_bytes;
-
 use crate::{biome::Biome, Block, Chunk, HeightMode, JavaChunk, Palette, Rgba, TopShadeRenderer};
 
 // const CHUNK_1_12: &[u8] = include_bytes!("../../resources/1.12.chunk");
@@ -30,7 +28,7 @@ impl Palette for HashPalette {
     }
 }
 
-fn exercise_render(chunk: &impl Chunk) -> [[u8; 4]; 256] {
+fn exercise_render(chunk: &dyn Chunk) -> [[u8; 4]; 256] {
     let palette = HashPalette;
 
     let renderer = TopShadeRenderer::new(&palette, HeightMode::Trust);
@@ -309,7 +307,8 @@ fn chunk_21w44a() {
         [93, 115, 32, 255],
         [93, 115, 32, 255],
     ];
-    let chunk: JavaChunk = from_bytes(CHUNK_21W44A_1).unwrap();
+    let chunk = JavaChunk::from_bytes(CHUNK_21W44A_1).unwrap();
+    // let chunk: JavaChunk = from_bytes(CHUNK_21W44A_1).unwrap();
     assert_eq!(expected, exercise_render(&chunk));
 }
 
@@ -573,7 +572,7 @@ fn chunk_1_17_0() {
         [172, 23, 75, 255],
         [120, 69, 32, 255],
     ];
-    let chunk: JavaChunk = from_bytes(CHUNK_1_17_0).unwrap();
+    let chunk = JavaChunk::from_bytes(CHUNK_1_17_0).unwrap();
     assert_eq!(expected, exercise_render(&chunk));
 }
 
@@ -837,7 +836,7 @@ fn chunk_1_17_1() {
         [106, 59, 65, 255],
         [106, 59, 65, 255],
     ];
-    let chunk: JavaChunk = from_bytes(CHUNK_1_17_1).unwrap();
+    let chunk = JavaChunk::from_bytes(CHUNK_1_17_1).unwrap();
     exercise_render(&chunk);
     assert_eq!(expected, exercise_render(&chunk));
 }
@@ -1103,7 +1102,7 @@ fn chunk_custom_heights_1_17_1() {
         [85, 144, 66, 255],
     ];
 
-    let chunk: JavaChunk = from_bytes(CHUNK_CUSTOM_HEIGHTS_1_17_1).unwrap();
+    let chunk = JavaChunk::from_bytes(CHUNK_CUSTOM_HEIGHTS_1_17_1).unwrap();
     assert_eq!(expected, exercise_render(&chunk));
 }
 

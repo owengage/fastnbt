@@ -11,10 +11,16 @@ keywords = ["minecraft", "nbt", "serde"]
 categories = ["parser-implementations"]
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
+arbitrary = { version = "1", optional = true, features = ["derive"] }
 byteorder = "1"
 cesu8 = "1.1"
+serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11.5"
+serde_with = { version = "1" }
+
+
+[features]
+arbitrary1 = ["arbitrary"]
 
 [dev-dependencies]
 flate2 = "1"
