@@ -125,14 +125,14 @@ impl<'a> Serialize for ByteArray<'a> {
         // signal the serializer.
         #[derive(Serialize)]
         #[allow(non_camel_case_types)]
-        enum __fastnbt_byte_array<'a> {
-            Data(&'a Bytes),
+        enum Inner<'a> {
+            __fastnbt_byte_array(&'a Bytes),
         }
 
         // Alignment of i64 is >= alignment of bytes so this should always work.
         let (_, data, _) = unsafe { self.data.align_to::<u8>() };
 
-        let array = __fastnbt_byte_array::Data(Bytes::new(data));
+        let array = Inner::__fastnbt_byte_array(Bytes::new(data));
 
         array.serialize(serializer)
     }
@@ -215,14 +215,14 @@ impl<'a> Serialize for IntArray<'a> {
         // signal the serializer.
         #[derive(Serialize)]
         #[allow(non_camel_case_types)]
-        enum __fastnbt_int_array<'a> {
-            Data(&'a Bytes),
+        enum Inner<'a> {
+            __fastnbt_int_array(&'a Bytes),
         }
 
         // Alignment of i64 is >= alignment of bytes so this should always work.
         let (_, data, _) = unsafe { self.data.align_to::<u8>() };
 
-        let array = __fastnbt_int_array::Data(Bytes::new(data));
+        let array = Inner::__fastnbt_int_array(Bytes::new(data));
 
         array.serialize(serializer)
     }
@@ -305,14 +305,14 @@ impl<'a> Serialize for LongArray<'a> {
         // signal the serializer.
         #[derive(Serialize)]
         #[allow(non_camel_case_types)]
-        enum __fastnbt_long_array<'a> {
-            Data(&'a Bytes),
+        enum Inner<'a> {
+            __fastnbt_long_array(&'a Bytes),
         }
 
         // Alignment of i64 is >= alignment of bytes so this should always work.
         let (_, data, _) = unsafe { self.data.align_to::<u8>() };
 
-        let array = __fastnbt_long_array::Data(Bytes::new(data));
+        let array = Inner::__fastnbt_long_array(Bytes::new(data));
 
         array.serialize(serializer)
     }

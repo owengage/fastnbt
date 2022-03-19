@@ -142,6 +142,7 @@ use std::{convert::TryFrom, fmt::Display};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 #[repr(u8)]
 pub enum Tag {
     /// Represents the end of a Compound object.

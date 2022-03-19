@@ -1,6 +1,4 @@
-use serde::de::DeserializeOwned;
-
-use crate::{Chunk, JavaChunk, LoaderError};
+use crate::{JavaChunk, LoaderError};
 use crate::{LoaderResult, RegionBuffer};
 use crate::{RCoord, Region, RegionLoader};
 use std::marker::PhantomData;

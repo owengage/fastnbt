@@ -1248,3 +1248,9 @@ fn can_cow_cesu8() {
     assert!(matches!(v.borrowed, Cow::Borrowed(_)));
     assert_eq!("abc", v.borrowed);
 }
+
+#[test]
+fn large_list() {
+    let input = [10, 0, 0, 9, 0, 0, 10, 4, 0, 5, 252];
+    let _v: Result<Value> = from_bytes(&input);
+}

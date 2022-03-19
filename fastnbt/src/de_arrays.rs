@@ -16,36 +16,42 @@ enum State {
 pub(crate) struct ArrayWrapperAccess<'a, 'de> {
     de: &'a mut Deserializer<'de>,
     token: &'static str,
-    bytes_size: i32,
+    bytes_size: usize,
     state: State,
 }
 
 impl<'a, 'de> ArrayWrapperAccess<'a, 'de> {
-    pub(crate) fn bytes(de: &'a mut Deserializer<'de>, size: i32) -> Self {
-        Self {
+    pub(crate) fn bytes(de: &'a mut Deserializer<'de>, size: usize) -> Result<Self> {
+        Ok(Self {
             de,
-            bytes_size: size,
+            bytes_size: size
+                .checked_mul(1)
+                .ok_or_else(|| Error::bespoke("nbt array too large".to_string()))?,
             token: BYTE_ARRAY_TOKEN,
             state: State::Unread,
-        }
+        })
     }
 
-    pub(crate) fn ints(de: &'a mut Deserializer<'de>, size: i32) -> Self {
-        Self {
+    pub(crate) fn ints(de: &'a mut Deserializer<'de>, size: usize) -> Result<Self> {
+        Ok(Self {
             de,
-            bytes_size: size * 4,
+            bytes_size: size
+                .checked_mul(4)
+                .ok_or_else(|| Error::bespoke("nbt array too large".to_string()))?,
             token: INT_ARRAY_TOKEN,
             state: State::Unread,
-        }
+        })
     }
 
-    pub(crate) fn longs(de: &'a mut Deserializer<'de>, size: i32) -> Self {
-        Self {
+    pub(crate) fn longs(de: &'a mut Deserializer<'de>, size: usize) -> Result<Self> {
+        Ok(Self {
             de,
-            bytes_size: size * 8,
+            bytes_size: size
+                .checked_mul(8)
+                .ok_or_else(|| Error::bespoke("nbt array too large".to_string()))?,
             token: LONG_ARRAY_TOKEN,
             state: State::Unread,
-        }
+        })
     }
 }
 
@@ -69,7 +75,7 @@ impl<'a, 'de> de::MapAccess<'de> for ArrayWrapperAccess<'a, 'de> {
     where
         V: de::DeserializeSeed<'de>,
     {
-        let data = self.de.input.consume_bytes(self.bytes_size)?;
+        let data = self.de.input.consume_bytes_usize(self.bytes_size)?;
         let dz = BorrowedBytesDeserializer::new(data);
         seed.deserialize(dz)
     }

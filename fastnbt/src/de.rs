@@ -273,6 +273,13 @@ pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
 where
     T: de::Deserialize<'a>,
 {
+    from_bytes_with_opts(input, Default::default())
+}
+
+pub fn from_bytes_with_opts<'a, T>(input: &'a [u8], opts: DeOpts) -> Result<T>
+where
+    T: de::Deserialize<'a>,
+{
     const GZIP_MAGIC_BYTES: [u8; 2] = [0x1f, 0x8b];
 
     // Provide freindly error for the common case of passing GZip data to
@@ -283,7 +290,7 @@ where
         ));
     }
 
-    let mut des = Deserializer::from_bytes(input);
+    let mut des = Deserializer::from_bytes(input, opts);
     let t = T::deserialize(&mut des)?;
     Ok(t)
 }
@@ -295,6 +302,20 @@ pub struct Deserializer<'de> {
     pub(crate) input: InputHelper<'de>,
     layers: Vec<Layer>,
     last_hint: Option<&'static str>,
+    pub(crate) opts: DeOpts,
+}
+
+pub struct DeOpts {
+    /// Maximum number of bytes a list or array can be.
+    pub max_seq_len: usize,
+}
+
+impl Default for DeOpts {
+    fn default() -> Self {
+        Self {
+            max_seq_len: 100_000,
+        }
+    }
 }
 
 impl<'de> Deserializer<'de> {
@@ -302,11 +323,12 @@ impl<'de> Deserializer<'de> {
     /// for more information.
     ///
     /// [`de`]: ./index.html
-    pub fn from_bytes(input: &'de [u8]) -> Self {
+    pub fn from_bytes(input: &'de [u8], opts: DeOpts) -> Self {
         Self {
             input: InputHelper(input),
             layers: vec![],
             last_hint: None,
+            opts,
         }
     }
 }
@@ -385,6 +407,13 @@ where
                 ));
             }
 
+            if size as usize >= de.opts.max_seq_len {
+                return Err(Error::bespoke(format!(
+                    "size ({}) greater than max sequence length ({})",
+                    size, de.opts.max_seq_len,
+                )));
+            }
+
             de.layers.push(Layer::List {
                 remaining_elements: size,
                 element_tag,
@@ -403,7 +432,11 @@ where
             let size = de.input.consume_list_size()?;
 
             // visitor.visit_borrowed_bytes(bs)
-            visitor.visit_map(ArrayWrapperAccess::bytes(de, size))
+            visitor.visit_map(ArrayWrapperAccess::bytes(
+                de,
+                size.try_into()
+                    .map_err(|_| Error::bespoke("nbt array size was negative".to_string()))?,
+            )?)
         }
         Tag::IntArray => {
             if last_hint == Some("seq") {
@@ -414,7 +447,11 @@ where
             }
 
             let size = de.input.consume_list_size()?;
-            visitor.visit_map(ArrayWrapperAccess::ints(de, size))
+            visitor.visit_map(ArrayWrapperAccess::ints(
+                de,
+                size.try_into()
+                    .map_err(|_| Error::bespoke("nbt array size was negative".to_string()))?,
+            )?)
         }
         Tag::LongArray => {
             if last_hint == Some("seq") {
@@ -425,7 +462,11 @@ where
             }
 
             let size = de.input.consume_list_size()?;
-            visitor.visit_map(ArrayWrapperAccess::longs(de, size))
+            visitor.visit_map(ArrayWrapperAccess::longs(
+                de,
+                size.try_into()
+                    .map_err(|_| Error::bespoke("nbt array size was negative".to_string()))?,
+            )?)
         }
         // This would really only occur when we encounter a list where the
         // element type is 'End', but we specifically handle that case, so we
@@ -467,6 +508,10 @@ impl<'de> InputHelper<'de> {
 
     pub(crate) fn consume_bytes(&mut self, size: i32) -> Result<&'de [u8]> {
         let size: usize = size.try_into().map_err(|_| Error::invalid_size(size))?;
+        self.consume_bytes_usize(size)
+    }
+
+    pub(crate) fn consume_bytes_usize(&mut self, size: usize) -> Result<&'de [u8]> {
         let bs = self.subslice(0..size)?;
         self.0 = &self.0[size..];
         Ok(bs)
@@ -513,11 +558,11 @@ impl<'de> InputHelper<'de> {
             }
             Tag::IntArray => {
                 let size = self.consume_list_size()?;
-                self.consume_bytes(size * 4)?;
+                self.consume_bytes_usize(try_size(size, 4)?)?;
             }
             Tag::LongArray => {
                 let size = self.consume_list_size()?;
-                self.consume_bytes(size * 8)?;
+                self.consume_bytes_usize(try_size(size, 8)?)?;
             }
             Tag::Compound => {
                 // Need to loop and ignore each value until we reach an end tag.
@@ -692,15 +737,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Short => {
-                        let bs = self.input.consume_bytes(size * 2)?;
+                        let bs = self.input.consume_bytes_usize(try_size(size, 2)?)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Int => {
-                        let bs = self.input.consume_bytes(size * 4)?;
+                        let bs = self.input.consume_bytes_usize(try_size(size, 4)?)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     Tag::Long => {
-                        let bs = self.input.consume_bytes(size * 8)?;
+                        let bs = self.input.consume_bytes_usize(try_size(size, 8)?)?;
                         visitor.visit_borrowed_bytes(bs)
                     }
                     _ => Err(Error::bespoke(format!(
@@ -720,13 +765,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 }
                 Tag::IntArray => {
                     let size = self.input.consume_list_size()?;
-                    let bs = self.input.consume_bytes(size * 4i32)?;
+                    let bs = self.input.consume_bytes_usize(try_size(size, 4)?)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 // This allows us to borrow blockstates rather than copy them.
                 Tag::LongArray => {
                     let size = self.input.consume_list_size()?;
-                    let bs = self.input.consume_bytes(size * 8i32)?;
+                    let bs = self.input.consume_bytes_usize(try_size(size, 8)?)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
                 _ => Err(Error::bespoke(format!("expected bytes, found {:?}", tag))),
@@ -879,6 +924,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.last_hint = Some("seq");
         self.deserialize_any(visitor)
     }
+}
+
+fn try_size(size: i32, multiplier: usize) -> Result<usize> {
+    let size: usize = size
+        .try_into()
+        .map_err(|_| Error::bespoke("size was negative".to_string()))?;
+
+    size.checked_mul(multiplier)
+        .ok_or_else(|| Error::bespoke("size too large".to_string()))
 }
 
 struct CompoundAccess<'a, 'de> {

@@ -1,21 +1,16 @@
 use std::{collections::HashMap, iter::FromIterator};
 
 use crate::{
-    borrow, de::from_bytes, ser::to_bytes, test::resources::CHUNK_RAW_WITH_ENTITIES, ByteArray,
-    IntArray, LongArray, Tag, Value,
+    borrow,
+    de::from_bytes,
+    ser::to_bytes,
+    test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
+    ByteArray, IntArray, LongArray, Tag, Value,
 };
 use serde::Serialize;
 use serde_bytes::Bytes;
 
 use super::builder::Builder;
-
-#[derive(Serialize)]
-struct Single<T: Serialize> {
-    val: T,
-}
-
-#[derive(Serialize)]
-struct Wrap<T: Serialize>(T);
 
 #[test]
 fn simple_byte() {
@@ -671,6 +666,35 @@ fn bytes_as_fields() {
         .build();
 
     assert_eq!(expected, to_bytes(&map).unwrap());
+}
+
+#[test]
+fn basic_newtype_variant_enum() {
+    #[derive(Serialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum Letter {
+        _A(u32),
+        B(String),
+    }
+
+    #[derive(Serialize, Debug)]
+    struct V {
+        letter: Letter,
+    }
+
+    let v = V {
+        letter: Letter::B("abc".to_owned()),
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .string("letter", "abc") // should deserialize as B?
+        .end_compound()
+        .build();
+
+    let actual = to_bytes(&v).unwrap();
+
+    assert_eq!(actual, expected);
 }
 
 // TODO: serialize_newtype_variant but for NOT NBT arrays

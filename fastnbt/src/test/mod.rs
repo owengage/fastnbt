@@ -1,5 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
+use serde::{Deserialize, Serialize};
+
 use crate::Tag;
 
 #[allow(clippy::float_cmp)]
@@ -15,6 +17,14 @@ mod minecraft_chunk;
 mod resources;
 mod ser;
 mod stream;
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct Single<T: Serialize> {
+    val: T,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Wrap<T: Serialize>(T);
 
 fn assert_try_into(tag: Tag) {
     assert_eq!(tag, (tag as u8).try_into().unwrap());

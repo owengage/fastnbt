@@ -4,9 +4,9 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes::Bytes;
 
-pub(crate) const BYTE_ARRAY_TOKEN: &str = "$fastnbt__byte_array";
-pub(crate) const INT_ARRAY_TOKEN: &str = "$fastnbt__int_array";
-pub(crate) const LONG_ARRAY_TOKEN: &str = "$fastnbt__long_array";
+pub(crate) const BYTE_ARRAY_TOKEN: &str = "__fastnbt_byte_array";
+pub(crate) const INT_ARRAY_TOKEN: &str = "__fastnbt_int_array";
+pub(crate) const LONG_ARRAY_TOKEN: &str = "__fastnbt_long_array";
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
@@ -57,13 +57,13 @@ impl Serialize for ByteArray {
         // signal the serializer.
         #[derive(Serialize)]
         #[allow(non_camel_case_types)]
-        enum __fastnbt_byte_array<'a> {
-            ByteArray(&'a Bytes),
+        enum Inner<'a> {
+            __fastnbt_byte_array(&'a Bytes),
         }
 
         // Safe to treat [i8] as [u8].
         let data = unsafe { &*(self.data.as_slice() as *const [i8] as *const [u8]) };
-        let array = __fastnbt_byte_array::ByteArray(Bytes::new(data));
+        let array = Inner::__fastnbt_byte_array(Bytes::new(data));
 
         array.serialize(serializer)
     }
@@ -157,14 +157,14 @@ impl Serialize for IntArray {
         // signal the serializer.
         #[derive(Serialize)]
         #[allow(non_camel_case_types)]
-        enum __fastnbt_int_array<'a> {
-            Data(&'a Bytes),
+        enum Inner<'a> {
+            __fastnbt_int_array(&'a Bytes),
         }
 
         // Alignment of i32 is >= alignment of bytes so this should always work.
         let (_, data, _) = unsafe { self.data.as_slice().align_to::<u8>() };
 
-        let array = __fastnbt_int_array::Data(Bytes::new(data));
+        let array = Inner::__fastnbt_int_array(Bytes::new(data));
 
         array.serialize(serializer)
     }
@@ -243,14 +243,14 @@ impl Serialize for LongArray {
         // signal the serializer.
         #[derive(Serialize)]
         #[allow(non_camel_case_types)]
-        enum __fastnbt_long_array<'a> {
-            Data(&'a Bytes),
+        enum Inner<'a> {
+            __fastnbt_long_array(&'a Bytes),
         }
 
         // Alignment of i64 is >= alignment of bytes so this should always work.
         let (_, data, _) = unsafe { self.data.as_slice().align_to::<u8>() };
 
-        let array = __fastnbt_long_array::Data(Bytes::new(data));
+        let array = Inner::__fastnbt_long_array(Bytes::new(data));
 
         array.serialize(serializer)
     }

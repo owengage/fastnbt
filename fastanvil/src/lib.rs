@@ -3,10 +3,8 @@
 //! `anvil::Region` can be given a `Read` and `Seek` type eg a file in order to extract chunk data.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
-use serde::de::DeserializeOwned;
 use std::io::{Read, Seek, SeekFrom};
 use std::{convert::TryFrom, sync::Mutex};
 

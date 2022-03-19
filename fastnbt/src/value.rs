@@ -5,7 +5,7 @@ use serde::{
     Deserialize, Serialize,
 };
 
-use crate::{ByteArray, IntArray, LongArray};
+use crate::{ByteArray, IntArray, LongArray, Tag};
 
 /// Value is a complete NBT value. It owns its data. Compounds and Lists are
 /// resursively deserialized. This type takes care to preserve all the
@@ -29,7 +29,6 @@ use crate::{ByteArray, IntArray, LongArray};
 /// # }
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub enum Value {
     Byte(i8),
     Short(i16),
@@ -43,6 +42,73 @@ pub enum Value {
     LongArray(LongArray),
     List(Vec<Value>),
     Compound(HashMap<String, Value>),
+}
+
+#[cfg(feature = "arbitrary1")]
+fn het_list<'a, T, F>(u: &mut arbitrary::Unstructured<'a>, f: F) -> arbitrary::Result<Vec<Value>>
+where
+    F: FnMut(T) -> Value,
+    T: arbitrary::Arbitrary<'a>,
+{
+    Ok(u.arbitrary_iter::<T>()?
+        .collect::<arbitrary::Result<Vec<_>>>()?
+        .into_iter()
+        .map(f)
+        .collect())
+}
+
+#[cfg(feature = "arbitrary1")]
+fn arb_list(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Vec<Value>> {
+    use Value::*;
+
+    Ok(match u.arbitrary::<Tag>()? {
+        Tag::End => return Err(arbitrary::Error::IncorrectFormat),
+        Tag::Byte => het_list(u, Byte)?,
+        Tag::Short => het_list(u, Short)?,
+        Tag::Int => het_list(u, Int)?,
+        Tag::Long => het_list(u, Long)?,
+        Tag::Float => het_list(u, Float)?,
+        Tag::Double => het_list(u, Double)?,
+        Tag::ByteArray => het_list(u, ByteArray)?,
+        Tag::String => het_list(u, String)?,
+        Tag::List => {
+            // make a list of lists
+            let len = u.arbitrary_len::<Value>()?;
+            let mut v = vec![];
+            for _ in 0..len {
+                v.push(Value::List(arb_list(u)?));
+            }
+            v
+        }
+        Tag::Compound => het_list(u, Compound)?,
+        Tag::IntArray => het_list(u, IntArray)?,
+        Tag::LongArray => het_list(u, LongArray)?,
+    })
+}
+
+#[cfg(feature = "arbitrary1")]
+impl<'a> arbitrary::Arbitrary<'a> for Value {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        use Value::*;
+
+        Ok(match u.arbitrary::<Tag>()? {
+            Tag::End => return Err(arbitrary::Error::IncorrectFormat),
+            Tag::Byte => Byte(u.arbitrary()?),
+            Tag::Short => Short(u.arbitrary()?),
+            Tag::Int => Int(u.arbitrary()?),
+            Tag::Long => Long(u.arbitrary()?),
+            Tag::Float => Float(u.arbitrary()?),
+            Tag::Double => Double(u.arbitrary()?),
+            Tag::ByteArray => ByteArray(u.arbitrary()?),
+            Tag::String => String(u.arbitrary()?),
+            Tag::Compound => Compound(u.arbitrary()?),
+            Tag::IntArray => IntArray(u.arbitrary()?),
+            Tag::LongArray => LongArray(u.arbitrary()?),
+
+            // Lists need to all be the same type.
+            Tag::List => List(arb_list(u)?),
+        })
+    }
 }
 
 impl Value {
@@ -262,12 +328,22 @@ impl<'de> Visitor<'de> for KeyClassifier {
         formatter.write_str("an nbt field string")
     }
 
+    fn visit_string<E>(self, s: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        match s.as_str() {
+            crate::BYTE_ARRAY_TOKEN => Ok(KeyClass::ByteArray),
+            crate::INT_ARRAY_TOKEN => Ok(KeyClass::IntArray),
+            crate::LONG_ARRAY_TOKEN => Ok(KeyClass::LongArray),
+            _ => Ok(KeyClass::Compound(s)),
+        }
+    }
+
     fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
-        // TODO: Intercept visit_string as well, to save the string allocation
-        // in the common case.
         match s {
             crate::BYTE_ARRAY_TOKEN => Ok(KeyClass::ByteArray),
             crate::INT_ARRAY_TOKEN => Ok(KeyClass::IntArray),

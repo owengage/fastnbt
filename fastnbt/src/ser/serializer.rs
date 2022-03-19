@@ -188,15 +188,15 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
 
     fn serialize_newtype_variant<T: ?Sized>(
         self,
-        name: &'static str,
+        _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         value: &T,
     ) -> Result<()>
     where
         T: Serialize,
     {
-        match name {
+        match variant {
             "__fastnbt_byte_array" => {
                 self.try_write_header(Tag::ByteArray)?;
                 value.serialize(ArraySerializer {

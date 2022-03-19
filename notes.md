@@ -12,7 +12,8 @@
 [ ] Remove old array deserializing
 [ ] Tighten up borrowing bytes/strings.
 [ ] anvil: make it work with old chunks again (fixed it to 1.18 only)
- 
+[ ] opts builder
+
 I don't need to abandon the JavaChunk enum just because I'm abandoning the
 deserializer! I can just make the chunk_from_bytes function return the enum
 (that doesn't implement deserialize). I could even have JavaChunk::from_bytes.
