@@ -1,3 +1,5 @@
+use std::{collections::HashMap, iter::FromIterator};
+
 use crate::{de::from_bytes, error::Result, test::builder::Builder, Tag, Value};
 
 /// Bugs found via cargo-fuzz.
@@ -20,4 +22,17 @@ fn list_of_end() {
 
     let v: Result<Value> = from_bytes(&input);
     assert!(v.is_err());
+}
+
+#[test]
+fn float_double() {
+    //           C   name  f  name  ............ end compound
+    let input = [10, 0, 0, 5, 0, 0, 0, 0, 0, 10, 0];
+    let v: Value = from_bytes(&input).unwrap();
+    let expected = Value::Compound(HashMap::from_iter([(
+        "".to_string(),
+        Value::Float(1.4e-44),
+    )]));
+
+    assert_eq!(expected, v);
 }

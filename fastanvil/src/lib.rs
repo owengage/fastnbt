@@ -3,10 +3,8 @@
 //! `anvil::Region` can be given a `Read` and `Seek` type eg a file in order to extract chunk data.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use fastnbt::de::from_bytes;
 use flate2::read::ZlibDecoder;
 use num_enum::TryFromPrimitive;
-use serde::de::DeserializeOwned;
 use std::io::{Read, Seek, SeekFrom};
 use std::{convert::TryFrom, sync::Mutex};
 
@@ -51,13 +49,13 @@ pub struct RegionBuffer<S: Seek + Read> {
     data: Mutex<S>,
 }
 
-impl<S: Seek + Read + Send + Sync, C: Chunk + DeserializeOwned> Region<C> for RegionBuffer<S> {
-    fn chunk(&self, x: CCoord, z: CCoord) -> Option<C> {
+impl<S: Seek + Read + Send + Sync> Region for RegionBuffer<S> {
+    fn chunk(&self, x: CCoord, z: CCoord) -> Option<JavaChunk> {
         let loc = self.chunk_location(x.0 as usize, z.0 as usize).ok()?;
 
         let data = self.load_chunk(loc.x, loc.z).ok()?;
 
-        let res = from_bytes::<C>(&data);
+        let res = JavaChunk::from_bytes(&data);
 
         match &res {
             Ok(_) => {}

@@ -1,4 +1,6 @@
-use crate::{de::from_bytes, Tag, Value};
+use std::collections::HashMap;
+
+use crate::{de::from_bytes, ser::to_bytes, Tag, Value};
 
 use super::builder::Builder;
 
@@ -96,12 +98,31 @@ fn distinguish_floats() {
         .start_compound("")
         .float("a", 1.23)
         .double("b", 3.21)
+        .float("c", 4.56)
         .end_compound()
         .build();
 
     let v: Value = from_bytes(&input).unwrap();
     assert_contains!(v, "a", Value::Float(f), f == 1.23);
     assert_contains!(v, "b", Value::Double(f), f == 3.21);
+    assert_contains!(v, "c", Value::Float(f), f == 4.56);
+
+    let bs = to_bytes(&v).unwrap();
+    let rt: Value = from_bytes(&bs).unwrap();
+    assert_eq!(rt, v);
+}
+
+#[test]
+fn fuzz_float() {
+    let v = Value::Float(1.4e-44);
+    let mut inner = HashMap::new();
+    inner.insert("".to_string(), v);
+
+    let v = Value::Compound(inner);
+    let bs = to_bytes(&v).unwrap();
+    let roundtrip: Value = from_bytes(&bs).unwrap(); // anything that serializes should deserialize.
+
+    assert_eq!(v, roundtrip);
 }
 
 #[test]
@@ -167,27 +188,17 @@ fn distinguish_lists() {
         .build();
 
     let v: Value = from_bytes(&input).unwrap();
-    assert_contains!(
-        v,
-        "a",
-        Value::List(ref data),
-        data.iter()
-            .eq(&[Value::Byte(1), Value::Byte(2), Value::Byte(3)])
-    );
-    assert_contains!(
-        v,
-        "b",
-        Value::List(ref data),
-        data.iter()
-            .eq(&[Value::Int(1), Value::Int(2), Value::Int(3)])
-    );
-    assert_contains!(
-        v,
-        "c",
-        Value::List(ref data),
-        data.iter()
-            .eq(&[Value::Long(1), Value::Long(2), Value::Long(3)])
-    );
+    assert_contains!(v, "a", Value::List(ref data), data.iter().eq(&[1, 2, 3]));
+    assert_contains!(v, "b", Value::List(ref data), data.iter().eq(&[1, 2, 3]));
+    assert_contains!(v, "c", Value::List(ref data), data.iter().eq(&[1, 2, 3]));
+}
+
+#[test]
+fn empty_compound() {
+    let input = Builder::new().start_compound("").end_compound().build();
+
+    let v: Value = from_bytes(&input).unwrap();
+    assert!(matches!(v, Value::Compound(_)))
 }
 
 #[test]

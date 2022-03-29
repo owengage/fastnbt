@@ -120,28 +120,29 @@
 //! deserializing to Rust objects directly.
 //!
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub mod borrow;
 pub mod de;
 pub mod error;
+pub mod ser;
 pub mod stream;
 
 mod arrays;
+mod de_arrays;
 mod value;
 
 pub use arrays::*;
 pub use value::*;
 
-pub(crate) mod de_arrays;
-
 #[cfg(test)]
 mod test;
 
-use std::convert::{TryFrom, TryInto};
+use std::{convert::TryFrom, fmt::Display};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 #[repr(u8)]
 pub enum Tag {
     /// Represents the end of a Compound object.
@@ -172,12 +173,8 @@ pub enum Tag {
     LongArray = 12,
 }
 
-pub(crate) const BYTE_ARRAY_TAG: u8 = 7;
-pub(crate) const INT_ARRAY_TAG: u8 = 11;
-pub(crate) const LONG_ARRAY_TAG: u8 = 12;
-
 // Crates exist to generate this code for us, but would add to our compile
-// times, so we instead right it out manually, the tags will very rarely change
+// times, so we instead write it out manually, the tags will very rarely change
 // so isn't a massive burden, but saves a significant amount of compile time.
 impl TryFrom<u8> for Tag {
     type Error = ();
@@ -223,31 +220,23 @@ impl From<Tag> for u8 {
     }
 }
 
-/// Compile time NBT tag type. Useful for forcing a custom type to have a field
-/// that must be a given tag. Used for the Array types.
-#[derive(Serialize, Clone, Copy, PartialEq)]
-pub(crate) struct CompTag<const N: u8>;
-
-impl<'de, const N: u8> Deserialize<'de> for CompTag<N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let tag: u8 = Deserialize::deserialize(deserializer)?;
-        if tag != N {
-            Err(serde::de::Error::custom("unexpected array type"))
-        } else {
-            Ok(Self)
-        }
-    }
-}
-
-impl<const N: u8> std::fmt::Debug for CompTag<N> {
+impl Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tag = <u8 as TryInto<Tag>>::try_into(N);
-        match tag {
-            Ok(tag) => tag.fmt(f),
-            Err(_) => write!(f, "InvalidTag({})", N),
-        }
+        let s = match self {
+            Tag::End => "end",
+            Tag::Byte => "byte",
+            Tag::Short => "short",
+            Tag::Int => "int",
+            Tag::Long => "long",
+            Tag::Float => "float",
+            Tag::Double => "double",
+            Tag::ByteArray => "byte-array",
+            Tag::String => "string",
+            Tag::List => "list",
+            Tag::Compound => "compound",
+            Tag::IntArray => "int-array",
+            Tag::LongArray => "long-array",
+        };
+        f.write_str(s)
     }
 }

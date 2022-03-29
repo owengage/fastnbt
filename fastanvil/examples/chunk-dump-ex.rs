@@ -1,4 +1,4 @@
-use fastanvil::{JavaChunk, RegionBuffer};
+use fastanvil::{CurrentJavaChunk, RegionBuffer};
 use fastnbt::de::from_bytes;
 
 //
@@ -13,7 +13,7 @@ fn main() {
     let region = RegionBuffer::new(file);
     let data = region.load_chunk(0, 0).unwrap();
 
-    let chunk: JavaChunk = from_bytes(data.as_slice()).unwrap();
+    let chunk: CurrentJavaChunk = from_bytes(data.as_slice()).unwrap();
 
     println!("{:?}", chunk);
 }

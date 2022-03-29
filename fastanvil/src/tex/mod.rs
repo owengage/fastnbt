@@ -48,6 +48,7 @@ pub struct Element {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct Rotation {
     origin: Vec<f32>,
     axis: String,
@@ -57,6 +58,7 @@ pub struct Rotation {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct Face {
     texture: String,
     uv: Option<[f32; 4]>,

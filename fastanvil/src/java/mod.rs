@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use fastnbt::{de::from_bytes, error::Result};
 pub mod pre18;
 
 mod block;
@@ -17,7 +18,6 @@ pub use section_data::*;
 pub use section_tower::*;
 
 use once_cell::sync::Lazy;
-use serde::Deserialize;
 
 use crate::{biome::Biome, Chunk, HeightMode};
 
@@ -35,11 +35,21 @@ pub static SNOW_BLOCK: Lazy<Block> = Lazy::new(|| Block {
 });
 
 /// A Minecraft chunk.
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum JavaChunk {
     Post18(CurrentJavaChunk),
     Pre18(pre18::JavaChunk),
+}
+
+impl JavaChunk {
+    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+        let chunk: Result<CurrentJavaChunk> = from_bytes(data);
+
+        match chunk {
+            Ok(chunk) => Ok(Self::Post18(chunk)),
+            Err(_) => Ok(Self::Pre18(from_bytes::<pre18::JavaChunk>(data)?)),
+        }
+    }
 }
 
 // TODO: Find a better way to dispatch these methods.

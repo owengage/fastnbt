@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{Block, CCoord, Chunk, Dimension, HeightMode, RCoord};
+use crate::{Block, CCoord, Chunk, Dimension, HeightMode, JavaChunk, RCoord};
 
 use super::biome::Biome;
 
@@ -25,7 +25,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         }
     }
 
-    pub fn render<C: Chunk>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
+    pub fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         if chunk.status() != "full" && chunk.status() != "spawn" {
@@ -61,7 +61,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
     /// Drill for colour. Starting at y_start, make way down the column until we
     /// have an opaque colour to return. This tackles things like transparency.
-    fn drill_for_colour<C: Chunk>(
+    fn drill_for_colour<C: Chunk + ?Sized>(
         &self,
         x: usize,
         y_start: isize,
@@ -145,7 +145,13 @@ fn water_depth_to_alpha(water_depth: isize) -> u8 {
     (180 + 2 * water_depth).min(250) as u8
 }
 
-fn water_depth<C: Chunk>(x: usize, mut y: isize, z: usize, chunk: &C, y_min: isize) -> isize {
+fn water_depth<C: Chunk + ?Sized>(
+    x: usize,
+    mut y: isize,
+    z: usize,
+    chunk: &C,
+    y_min: isize,
+) -> isize {
     let mut depth = 1;
     while y > y_min {
         let block = match chunk.block(x, y, z) {
@@ -229,10 +235,10 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
+pub fn render_region<P: Palette>(
     x: RCoord,
     z: RCoord,
-    dimension: Dimension<C>,
+    dimension: Dimension,
     renderer: TopShadeRenderer<P>,
 ) -> RegionMap<Rgba> {
     let mut map = RegionMap::new(x, z, [0u8; 4]);
@@ -242,7 +248,7 @@ pub fn render_region<P: Palette, C: Chunk + std::fmt::Debug>(
         None => return map,
     };
 
-    let mut cache: [Option<C>; 32] = Default::default();
+    let mut cache: [Option<JavaChunk>; 32] = Default::default();
 
     // Cache the last row of chunks from the above region to allow top-shading
     // on region boundaries.

@@ -1,5 +1,51 @@
 # Notes
 
+# v2
+
+[x] get owned NBT arrays working, also within Value.
+[x] get borrowed NBT arrays working for deserialize
+[ ] get borrowed NBT arrays working for serialize
+[ ] removed deref from nbt arrays
+[ ] make sure borrowed/owned interface the same for arrays
+[ ] get value working
+[ ] Run fuzzer again
+[ ] Remove old array deserializing
+[ ] Tighten up borrowing bytes/strings.
+[ ] anvil: make it work with old chunks again (fixed it to 1.18 only)
+[ ] opts builder
+
+I don't need to abandon the JavaChunk enum just because I'm abandoning the
+deserializer! I can just make the chunk_from_bytes function return the enum
+(that doesn't implement deserialize). I could even have JavaChunk::from_bytes.
+
+Abandonded trying to make a enum that can deserialize any chunk over many
+versions. It's simply not compatible with the 'mapping into the serde model'
+that now occurs for NBT arrays. In particular it seems because I use borrowed
+str/bytes for them. Before when it was a sequence the deserializer for the serde
+content thing using in untagged enums could figure stuff out. Now it can't.
+Turns out it would never worked for borrowed NBT arrays.
+
+https://github.com/serde-rs/serde/issues/1183
+https://github.com/serde-rs/json/issues/497
+https://github.com/serde-rs/serde/pull/1354
+
+# serializer
+
+Revealed issues with Value type. Need to find equivalent way to do the strict_x
+for a vec of those types. serde_as looks like it might be able to do what we
+want, but might require changing how I do the strict things.
+
+Fuzzer also revealing more bugs!
+
+MAybe the value type needs to not be an untagged enum. The serde_json Value can
+do this somehow, maybe I should explore how that happens? How json handles maps
+might be informative, since it somehow detects if it's an infinite precision
+number or a normal JSON object.
+
+```
+cargo +nightly fuzz run serialize_value
+```
+
 # 1.18 hole problem
 
 If I put calculate heights on, it somewhat fixes the issues, except that water

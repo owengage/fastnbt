@@ -40,19 +40,19 @@
 //!     }
 //!# }
 
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, fmt, marker::PhantomData};
 
 use byteorder::{BigEndian, ReadBytesExt};
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
+use serde_bytes::Bytes;
 
-use crate::{CompTag, BYTE_ARRAY_TAG, INT_ARRAY_TAG, LONG_ARRAY_TAG};
+use crate::{BYTE_ARRAY_TOKEN, INT_ARRAY_TOKEN, LONG_ARRAY_TOKEN};
 
 /// ByteArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. The carving masks
 /// in a chunk use this type, for example.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct ByteArray<'a> {
-    tag: CompTag<BYTE_ARRAY_TAG>,
     data: &'a [u8],
 }
 
@@ -60,6 +60,48 @@ impl<'a> ByteArray<'a> {
     /// Create an iterator over the bytes.
     pub fn iter(&self) -> ByteIter<'a> {
         ByteIter(*self)
+    }
+
+    pub fn new(data: &'a [i8]) -> Self {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+}
+
+impl<'a, 'de: 'a> Deserialize<'de> for ByteArray<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor<'a>(PhantomData<&'a ()>);
+        impl<'a, 'de: 'a> Visitor<'de> for InnerVisitor<'a> {
+            type Value = ByteArray<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("byte array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT byte array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == BYTE_ARRAY_TOKEN {
+                    Ok(ByteArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT byte array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(BYTE_ARRAY_TOKEN, InnerVisitor(PhantomData))
     }
 }
 
@@ -73,12 +115,34 @@ impl<'a> Iterator for ByteIter<'a> {
     }
 }
 
+impl<'a> Serialize for ByteArray<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // We can't know anything about NBT here, since we might be serializing
+        // to a different format. But we can create a hidden inner type to
+        // signal the serializer.
+        #[derive(Serialize)]
+        #[allow(non_camel_case_types)]
+        enum Inner<'a> {
+            __fastnbt_byte_array(&'a Bytes),
+        }
+
+        // Alignment of i64 is >= alignment of bytes so this should always work.
+        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+
+        let array = Inner::__fastnbt_byte_array(Bytes::new(data));
+
+        array.serialize(serializer)
+    }
+}
+
 /// IntArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Biomes in the chunk
 /// format are an example of this data type.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct IntArray<'a> {
-    tag: CompTag<INT_ARRAY_TAG>,
     data: &'a [u8],
 }
 
@@ -86,6 +150,48 @@ impl<'a> IntArray<'a> {
     /// Create an iterator over the i32s
     pub fn iter(&self) -> IntIter<'a> {
         IntIter(*self)
+    }
+
+    pub fn new(data: &'a [i32]) -> Self {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+}
+
+impl<'a, 'de: 'a> Deserialize<'de> for IntArray<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor<'a>(PhantomData<&'a ()>);
+        impl<'a, 'de: 'a> Visitor<'de> for InnerVisitor<'a> {
+            type Value = IntArray<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("int array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT int array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == INT_ARRAY_TOKEN {
+                    Ok(IntArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT int array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(INT_ARRAY_TOKEN, InnerVisitor(PhantomData))
     }
 }
 
@@ -99,12 +205,34 @@ impl<'a> Iterator for IntIter<'a> {
     }
 }
 
+impl<'a> Serialize for IntArray<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // We can't know anything about NBT here, since we might be serializing
+        // to a different format. But we can create a hidden inner type to
+        // signal the serializer.
+        #[derive(Serialize)]
+        #[allow(non_camel_case_types)]
+        enum Inner<'a> {
+            __fastnbt_int_array(&'a Bytes),
+        }
+
+        // Alignment of i64 is >= alignment of bytes so this should always work.
+        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+
+        let array = Inner::__fastnbt_int_array(Bytes::new(data));
+
+        array.serialize(serializer)
+    }
+}
+
 /// LongArray can be used to deserialize the NBT data of the same name. This
 /// borrows from the original input data when deserializing. Block states
 /// (storage of all the blocks in a chunk) are an exmple of when this is used.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct LongArray<'a> {
-    tag: CompTag<LONG_ARRAY_TAG>,
     data: &'a [u8],
 }
 
@@ -112,6 +240,48 @@ impl<'a> LongArray<'a> {
     /// Create an iterator over the i64s
     pub fn iter(&self) -> LongIter<'a> {
         LongIter(*self)
+    }
+
+    pub fn new(data: &'a [i64]) -> Self {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        Self { data }
+    }
+
+    pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+}
+
+impl<'a, 'de: 'a> Deserialize<'de> for LongArray<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct InnerVisitor<'a>(PhantomData<&'a ()>);
+        impl<'a, 'de: 'a> Visitor<'de> for InnerVisitor<'a> {
+            type Value = LongArray<'a>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("long array")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let token = map.next_key::<&str>()?.ok_or_else(|| {
+                    serde::de::Error::custom("expected NBT long array token, but got empty map")
+                })?;
+                let data = map.next_value::<&[u8]>()?;
+
+                if token == LONG_ARRAY_TOKEN {
+                    Ok(LongArray::from_bytes(data))
+                } else {
+                    Err(serde::de::Error::custom("expected NBT long array token"))
+                }
+            }
+        }
+        deserializer.deserialize_newtype_struct(LONG_ARRAY_TOKEN, InnerVisitor(PhantomData))
     }
 }
 
@@ -122,6 +292,29 @@ impl<'a> Iterator for LongIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.data.read_i64::<BigEndian>().ok()
+    }
+}
+
+impl<'a> Serialize for LongArray<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // We can't know anything about NBT here, since we might be serializing
+        // to a different format. But we can create a hidden inner type to
+        // signal the serializer.
+        #[derive(Serialize)]
+        #[allow(non_camel_case_types)]
+        enum Inner<'a> {
+            __fastnbt_long_array(&'a Bytes),
+        }
+
+        // Alignment of i64 is >= alignment of bytes so this should always work.
+        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+
+        let array = Inner::__fastnbt_long_array(Bytes::new(data));
+
+        array.serialize(serializer)
     }
 }
 

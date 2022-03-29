@@ -22,6 +22,16 @@ impl serde::de::Error for Error {
     }
 }
 
+// TODO: Separate error types for ser and de?
+impl serde::ser::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
+        Error(msg.to_string())
+    }
+}
+
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error(format!("io error: {}", e))
