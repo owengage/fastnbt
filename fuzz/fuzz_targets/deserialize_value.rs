@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 
 use fastnbt::de::{from_bytes_with_opts, DeOpts};
 use fastnbt::error::Result;
-use fastnbt::ser::to_bytes;
+use fastnbt::to_bytes;
 use fastnbt::Value;
 
 fuzz_target!(|data: &[u8]| {

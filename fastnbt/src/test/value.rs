@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{de::from_bytes, ser::to_bytes, Tag, Value};
+use crate::{from_bytes, to_bytes, Tag, Value};
 
 use super::builder::Builder;
 

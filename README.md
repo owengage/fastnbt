@@ -47,7 +47,7 @@ your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.
 
 ```rust
 use fastnbt::error::Result;
-use fastnbt::{de::from_bytes, Value};
+use fastnbt::{from_bytes, Value};
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::io::Read;

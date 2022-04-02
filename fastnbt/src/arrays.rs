@@ -83,9 +83,8 @@ impl ByteArray {
     }
 }
 
-// TODO: Remove
 impl Deref for ByteArray {
-    type Target = Vec<i8>;
+    type Target = [i8];
 
     fn deref(&self) -> &Self::Target {
         &self.data
@@ -171,7 +170,7 @@ impl Serialize for IntArray {
 }
 
 impl Deref for IntArray {
-    type Target = Vec<i32>;
+    type Target = [i32];
 
     fn deref(&self) -> &Self::Target {
         &self.data
@@ -257,7 +256,7 @@ impl Serialize for LongArray {
 }
 
 impl Deref for LongArray {
-    type Target = Vec<i64>;
+    type Target = [i64];
 
     fn deref(&self) -> &Self::Target {
         &self.data

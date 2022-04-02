@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::{de::from_bytes, Value};
+use crate::{from_bytes, Value};
 use crate::{ByteArray, IntArray, LongArray, Tag};
 
 use super::builder::Builder;
@@ -832,7 +832,7 @@ fn vec_from_nbt_byte_array() -> Result<()> {
         .build();
 
     let v: V = from_bytes(payload.as_slice())?;
-    assert_eq!(*v.a, [1, 2, 3]);
+    assert!(v.a.iter().eq(&[1, 2, 3]));
     assert_eq!(*v.b, [4, 5, 6]);
     assert_eq!(*v.c, [7, 8, 9]);
     Ok(())
@@ -1118,7 +1118,7 @@ fn byte_array_in_fullvalue() {
         Value::Compound(ref map) => {
             let a = &map["a"];
             match a {
-                Value::ByteArray(arr) => assert_eq!(&**arr, &[1, 2, 3]),
+                Value::ByteArray(arr) => assert!(arr.iter().eq(&[1, 2, 3])),
                 _ => panic!("{:?}", a),
             }
         }

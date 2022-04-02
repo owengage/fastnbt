@@ -1,6 +1,6 @@
 use std::{collections::HashMap, iter::FromIterator};
 
-use crate::{de::from_bytes, error::Result, test::builder::Builder, Tag, Value};
+use crate::{error::Result, from_bytes, test::builder::Builder, Tag, Value};
 
 /// Bugs found via cargo-fuzz.
 

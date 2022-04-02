@@ -4,9 +4,9 @@ use libfuzzer_sys::fuzz_target;
 use serde::Serialize;
 use std::collections::HashMap;
 
-use fastnbt::de::from_bytes;
 use fastnbt::error::Result;
-use fastnbt::ser::to_bytes;
+use fastnbt::from_bytes;
+use fastnbt::to_bytes;
 use fastnbt::Value;
 
 fuzz_target!(|v: Value| {

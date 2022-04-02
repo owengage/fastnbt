@@ -248,53 +248,6 @@ use byteorder::{BigEndian, ReadBytesExt};
 
 use serde::{de, forward_to_deserialize_any};
 
-/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
-/// information.
-///
-/// ```no_run
-/// # use fastnbt::Value;
-/// # use flate2::read::GzDecoder;
-/// # use std::io;
-/// # use std::io::Read;
-/// # use fastnbt::error::Result;
-/// # fn main() -> Result<()> {
-/// # let some_reader = io::stdin();
-/// let mut decoder = GzDecoder::new(some_reader);
-/// let mut buf = vec![];
-/// decoder.read_to_end(&mut buf).unwrap();
-///
-/// let val: Value = fastnbt::de::from_bytes(buf.as_slice())?;
-/// # Ok(())
-/// # }
-/// ```
-///
-/// [`de`]: ./index.html
-pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
-where
-    T: de::Deserialize<'a>,
-{
-    from_bytes_with_opts(input, Default::default())
-}
-
-pub fn from_bytes_with_opts<'a, T>(input: &'a [u8], opts: DeOpts) -> Result<T>
-where
-    T: de::Deserialize<'a>,
-{
-    const GZIP_MAGIC_BYTES: [u8; 2] = [0x1f, 0x8b];
-
-    // Provide freindly error for the common case of passing GZip data to
-    // `from_bytes`. This would be invalid starting data for NBT anyway.
-    if input.starts_with(&GZIP_MAGIC_BYTES) {
-        return Err(Error::bespoke(
-            "from_bytes expects raw NBT, but input appears to be gzipped".to_string(),
-        ));
-    }
-
-    let mut des = Deserializer::from_bytes(input, opts);
-    let t = T::deserialize(&mut des)?;
-    Ok(t)
-}
-
 /// Deserializer for NBT data. See the [`de`] module for more information.
 ///
 /// [`de`]: ./index.html

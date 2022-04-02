@@ -5,7 +5,7 @@ use crate::error::Result;
 use crate::ByteArray;
 use crate::IntArray;
 use crate::LongArray;
-use crate::{de::from_bytes, test::builder::Builder};
+use crate::{from_bytes, test::builder::Builder};
 
 #[test]
 fn byte_array() -> Result<()> {
@@ -21,7 +21,7 @@ fn byte_array() -> Result<()> {
         .build();
 
     let v: V = from_bytes(payload.as_slice())?;
-    assert_eq!(&*v.bs, &[1, 2, 3, 4, 5]);
+    assert!(v.bs.iter().eq(&[1, 2, 3, 4, 5]));
 
     Ok(())
 }

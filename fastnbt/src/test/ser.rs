@@ -1,11 +1,9 @@
 use std::{collections::HashMap, iter::FromIterator};
 
 use crate::{
-    borrow,
-    de::from_bytes,
-    ser::to_bytes,
+    borrow, from_bytes,
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
-    ByteArray, IntArray, LongArray, Tag, Value,
+    to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
 };
 use serde::Serialize;
 use serde_bytes::Bytes;

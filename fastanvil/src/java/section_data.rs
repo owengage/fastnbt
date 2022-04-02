@@ -48,7 +48,7 @@ impl<T: Debug> BlockData<T> {
     pub fn try_iter_indices(&self) -> Option<StatesIter> {
         if let Some(data) = &self.inner.data {
             let bits = blockstates_bits_per_block(self.inner.palette.len());
-            Some(StatesIter::new(bits, 16 * 16 * 16, data.as_slice()))
+            Some(StatesIter::new(bits, 16 * 16 * 16, data))
         } else {
             None
         }
@@ -77,7 +77,7 @@ impl<T: Debug> BiomeData<T> {
     pub fn try_iter_indices(&self) -> Option<StatesIter> {
         if let Some(data) = &self.inner.data {
             let bits = biomes_bits_per_block(self.inner.palette.len());
-            Some(StatesIter::new(bits, 4 * 4 * 4, data.as_slice()))
+            Some(StatesIter::new(bits, 4 * 4 * 4, data))
         } else {
             None
         }

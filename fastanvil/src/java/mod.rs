@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use fastnbt::{de::from_bytes, error::Result};
+use fastnbt::{error::Result, from_bytes};
 pub mod pre18;
 
 mod block;

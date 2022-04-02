@@ -1,5 +1,5 @@
 use super::resources::{CHUNK_RAW, CHUNK_RAW_WITH_ENTITIES};
-use crate::{de::from_bytes, Value};
+use crate::{from_bytes, Value};
 use serde::Deserialize;
 
 #[test]

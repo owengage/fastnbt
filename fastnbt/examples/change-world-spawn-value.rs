@@ -16,7 +16,7 @@ fn main() {
     let mut bytes = vec![];
     decoder.read_to_end(&mut bytes).unwrap();
 
-    let mut leveldat: Value = fastnbt::de::from_bytes(&bytes).unwrap();
+    let mut leveldat: Value = fastnbt::from_bytes(&bytes).unwrap();
 
     match &mut leveldat {
         Value::Compound(level) => {
@@ -33,7 +33,7 @@ fn main() {
         _ => panic!(),
     }
 
-    let new_bytes = fastnbt::ser::to_bytes(&leveldat).unwrap();
+    let new_bytes = fastnbt::to_bytes(&leveldat).unwrap();
     let outfile = std::fs::File::create("level.dat").unwrap();
     let mut encoder = GzEncoder::new(outfile, Compression::fast());
     encoder.write_all(&new_bytes).unwrap();

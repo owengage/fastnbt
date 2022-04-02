@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use fastnbt::de::from_bytes;
 use fastnbt::error::Result;
+use fastnbt::from_bytes;
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 use std::io::Read;

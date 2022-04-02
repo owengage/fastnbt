@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Box::new(io::stdout())
             };
 
-            let chunk: Value = fastnbt::de::from_bytes(data).unwrap();
+            let chunk: Value = fastnbt::from_bytes(data).unwrap();
 
             match output_format {
                 "rust" => {

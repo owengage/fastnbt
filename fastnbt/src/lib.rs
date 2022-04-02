@@ -23,8 +23,11 @@
 //! the original NBT. Without these types, it is not possible to tell if some
 //! data came from a NBT List or an NBT Array.
 //!
+//! A limitation of these array types is that they cannot be used with serde's
+//! untagged enums. If this is important to you please open an issue.
+//!
 //! Use these in your own data structures. They all implement
-//! [`Deref`][`std::ops::Deref`] for dereferencing into the underlying `Vec`.
+//! [`Deref`][`std::ops::Deref`] for dereferencing into a slice`.
 //!
 //! For versions that borrow their data, see [`borrow`]. For more information
 //! about deserialization see [`de`].
@@ -44,7 +47,7 @@
 //!
 //!# fn main(){
 //!     let buf: &[u8] = unimplemented!("get a buffer from somewhere");
-//!     let section: Section = fastnbt::de::from_bytes(buf).unwrap();
+//!     let section: Section = fastnbt::from_bytes(buf).unwrap();
 //!     let states = section.block_states.unwrap();
 //!
 //!     for long in states.iter() {
@@ -69,7 +72,7 @@
 //!```no_run
 //! use std::borrow::Cow;
 //! use fastnbt::error::Result;
-//! use fastnbt::{de::from_bytes, Value};
+//! use fastnbt::{from_bytes, Value};
 //! use flate2::read::GzDecoder;
 //! use serde::Deserialize;
 //! use std::io::Read;
@@ -120,7 +123,9 @@
 //! deserializing to Rust objects directly.
 //!
 
-use serde::Deserialize;
+use de::DeOpts;
+use ser::{Serializer, State};
+use serde::{de as serde_de, Deserialize, Serialize};
 
 pub mod borrow;
 pub mod de;
@@ -138,7 +143,11 @@ pub use value::*;
 #[cfg(test)]
 mod test;
 
-use std::{convert::TryFrom, fmt::Display};
+use crate::{
+    de::Deserializer,
+    error::{Error, Result},
+};
+use std::{convert::TryFrom, fmt::Display, io::Write};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -179,7 +188,7 @@ pub enum Tag {
 impl TryFrom<u8> for Tag {
     type Error = ();
 
-    fn try_from(value: u8) -> Result<Self, ()> {
+    fn try_from(value: u8) -> std::result::Result<Self, ()> {
         use Tag::*;
         Ok(match value {
             0 => End,
@@ -239,4 +248,74 @@ impl Display for Tag {
         };
         f.write_str(s)
     }
+}
+
+pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
+    let mut result = vec![];
+    let mut serializer = Serializer {
+        writer: &mut result,
+        state: State::Compound {
+            current_field: String::new(),
+        },
+    };
+    v.serialize(&mut serializer)?;
+    Ok(result)
+}
+
+pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
+    let mut serializer = Serializer {
+        writer,
+        state: State::Compound {
+            current_field: String::new(),
+        },
+    };
+    v.serialize(&mut serializer)?;
+    Ok(())
+}
+
+/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
+/// information.
+///
+/// ```no_run
+/// # use fastnbt::Value;
+/// # use flate2::read::GzDecoder;
+/// # use std::io;
+/// # use std::io::Read;
+/// # use fastnbt::error::Result;
+/// # fn main() -> Result<()> {
+/// # let some_reader = io::stdin();
+/// let mut decoder = GzDecoder::new(some_reader);
+/// let mut buf = vec![];
+/// decoder.read_to_end(&mut buf).unwrap();
+///
+/// let val: Value = fastnbt::from_bytes(buf.as_slice())?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// [`de`]: ./index.html
+pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
+where
+    T: serde_de::Deserialize<'a>,
+{
+    from_bytes_with_opts(input, Default::default())
+}
+
+pub fn from_bytes_with_opts<'a, T>(input: &'a [u8], opts: DeOpts) -> Result<T>
+where
+    T: serde_de::Deserialize<'a>,
+{
+    const GZIP_MAGIC_BYTES: [u8; 2] = [0x1f, 0x8b];
+
+    // Provide freindly error for the common case of passing GZip data to
+    // `from_bytes`. This would be invalid starting data for NBT anyway.
+    if input.starts_with(&GZIP_MAGIC_BYTES) {
+        return Err(Error::bespoke(
+            "from_bytes expects raw NBT, but input appears to be gzipped".to_string(),
+        ));
+    }
+
+    let mut des = Deserializer::from_bytes(input, opts);
+    let t = T::deserialize(&mut des)?;
+    Ok(t)
 }

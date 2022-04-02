@@ -19,7 +19,7 @@ use crate::{ByteArray, IntArray, LongArray, Tag};
 /// #
 /// # fn main() -> Result<()> {
 /// #   let mut buf = vec![];
-///     let compound: HashMap<String, Value> = fastnbt::de::from_bytes(buf.as_slice())?;
+///     let compound: HashMap<String, Value> = fastnbt::from_bytes(buf.as_slice())?;
 ///     match compound["DataVersion"] {
 ///         Value::Int(ver) => println!("Version: {}", ver),
 ///         _ => {},

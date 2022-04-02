@@ -9,7 +9,7 @@ fn main() {
     let mut buf = vec![];
     decoder.read_to_end(&mut buf).unwrap();
 
-    let val: Value = fastnbt::de::from_bytes(buf.as_slice()).unwrap();
+    let val: Value = fastnbt::from_bytes(buf.as_slice()).unwrap();
 
     println!("{:#?}", val);
 }

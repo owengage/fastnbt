@@ -130,7 +130,7 @@ impl JavaChunk {
                     .map(|hm| {
                         // unwrap, if heightmaps exists, sections should... 🤞
                         let y_min = self.level.sections.as_ref().unwrap().y_min();
-                        expand_heightmap(hm.as_slice(), y_min, self.data_version)
+                        expand_heightmap(hm, y_min, self.data_version)
                     })
                     .map(|hm| map.copy_from_slice(hm.as_slice()))
                     .is_some();
