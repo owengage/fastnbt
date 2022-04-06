@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
 
-use crate::JavaChunk;
+use crate::Region;
 use crate::{biome::Biome, Block};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -38,13 +38,6 @@ pub trait Chunk: Send + Sync {
 
     /// Get the range of Y values that are valid for this chunk.
     fn y_range(&self) -> Range<isize>;
-}
-
-pub trait Region: Send + Sync {
-    /// Load the chunk at the given chunk coordinates, ie 0..32 for x and z.
-    /// Implmentations do not need to be concerned with caching chunks they have
-    /// loaded, this will be handled by the types using the region.
-    fn chunk(&self, x: CCoord, z: CCoord) -> Option<JavaChunk>;
 }
 
 #[derive(Debug)]
@@ -105,6 +98,8 @@ impl Dimension {
 #[cfg(test)]
 mod test {
     use std::marker::PhantomData;
+
+    use crate::JavaChunk;
 
     use super::*;
 

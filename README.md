@@ -36,7 +36,50 @@ This repository contains multiple related projects.
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.
 
-# Serde deserializer example
+# Example: editing level.dat
+
+The following edits the world spawn to 250, 200, 250 (probably not a good
+idea!). Full example in fastnbt/examples directory.
+
+```rust
+#[derive(Serialize, Deserialize)]
+struct LevelDat {
+    #[serde(rename = "Data")]
+    data: Data,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Data {
+    spawn_x: i32,
+    spawn_y: i32,
+    spawn_z: i32,
+
+    #[serde(flatten)]
+    other: HashMap<String, Value>,
+}
+
+fn main() {
+    let args: Vec<_> = std::env::args_os().collect();
+    let file = std::fs::File::open(&args[1]).unwrap();
+    let mut decoder = GzDecoder::new(file);
+    let mut bytes = vec![];
+    decoder.read_to_end(&mut bytes).unwrap();
+
+    let mut leveldat: LevelDat = fastnbt::from_bytes(&bytes).unwrap();
+
+    leveldat.data.spawn_x = 250;
+    leveldat.data.spawn_y = 200;
+    leveldat.data.spawn_z = 250;
+
+    let new_bytes = fastnbt::to_bytes(&leveldat).unwrap();
+    let outfile = std::fs::File::create("level.dat").unwrap();
+    let mut encoder = GzEncoder::new(outfile, Compression::fast());
+    encoder.write_all(&new_bytes).unwrap();
+}
+```
+
+# Example: print player inventory
 
  This example demonstrates printing out a players inventory and ender chest contents from the [player dat
  files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds. We
@@ -46,12 +89,6 @@ your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.
    structure of.
 
 ```rust
-use fastnbt::error::Result;
-use fastnbt::{from_bytes, Value};
-use flate2::read::GzDecoder;
-use serde::Deserialize;
-use std::io::Read;
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct PlayerDat<'a> {
@@ -93,7 +130,7 @@ For the libraries
 
 ```toml
 [dependencies]
-fastnbt = "1"
+fastnbt = "2.0.0-alpha"
 fastanvil = "0.24"
 ```
 
