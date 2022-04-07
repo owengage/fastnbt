@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
 
-use crate::Region;
+use crate::RegionRead;
 use crate::{biome::Biome, Block};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -60,14 +60,14 @@ impl Display for LoaderError {
 /// or perhaps a WASM version loading from a file buffer in the browser.
 pub trait RegionLoader: Send + Sync {
     /// Get a particular region. Returns None if region does not exist.
-    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn Region>>;
+    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn RegionRead>>;
 
     /// List the regions that this loader can return. Implmentations need to
     /// provide this so that callers can efficiently find regions to process.
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
 }
 
-type DimensionHashMap = HashMap<(RCoord, RCoord), Arc<dyn Region>>;
+type DimensionHashMap = HashMap<(RCoord, RCoord), Arc<Mutex<Box<dyn RegionRead>>>>;
 
 /// Dimension provides a cache on top of a RegionLoader.
 pub struct Dimension {
@@ -84,11 +84,11 @@ impl Dimension {
     }
 
     /// Get a region, maybe from Dimension's internal cache.
-    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<dyn Region>> {
+    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<Mutex<Box<dyn RegionRead>>>> {
         let mut cache = self.regions.lock().unwrap();
 
         cache.get(&(x, z)).map(Arc::clone).or_else(|| {
-            let r = Arc::from(self.loader.region(x, z)?);
+            let r = Arc::from(Mutex::new(self.loader.region(x, z)?));
             cache.insert((x, z), Arc::clone(&r));
             Some(r)
         })
@@ -105,16 +105,20 @@ mod test {
 
     struct DummyRegion(PhantomData<JavaChunk>);
 
-    impl Region for DummyRegion {
-        fn chunk(&self, _x: CCoord, _z: CCoord) -> Option<JavaChunk> {
-            unimplemented!()
+    impl RegionRead for DummyRegion {
+        fn read_compressed_chunk(
+            &mut self,
+            x: usize,
+            z: usize,
+        ) -> crate::Result<(crate::CompressionScheme, Vec<u8>)> {
+            todo!()
         }
     }
 
     struct DummyLoader(PhantomData<JavaChunk>);
 
     impl RegionLoader for DummyLoader {
-        fn region(&self, _x: RCoord, _z: RCoord) -> Option<Box<dyn Region>> {
+        fn region(&self, _x: RCoord, _z: RCoord) -> Option<Box<dyn RegionRead>> {
             Some(Box::new(DummyRegion(PhantomData)))
         }
 

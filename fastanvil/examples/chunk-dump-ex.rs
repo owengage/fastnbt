@@ -10,7 +10,7 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let file = std::fs::File::open(args[0].clone()).unwrap();
 
-    let region = RegionBuffer::new(file);
+    let mut region = RegionBuffer::new(file);
     let data = region.load_chunk(0, 0).unwrap();
 
     let chunk: CurrentJavaChunk = from_bytes(data.as_slice()).unwrap();

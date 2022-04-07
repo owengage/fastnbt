@@ -254,30 +254,40 @@ pub fn render_region<P: Palette>(
     // on region boundaries.
     if let Some(r) = dimension.region(x, RCoord(z.0 - 1)) {
         for (x, entry) in cache.iter_mut().enumerate() {
-            *entry = r.chunk(CCoord(x as isize), CCoord(31));
+            *entry = r
+                .lock()
+                .unwrap()
+                .read_chunk(x, 31)
+                .ok()
+                .and_then(|b| JavaChunk::from_bytes(&b).ok())
         }
     }
 
-    for z in 0isize..32 {
-        for x in 0isize..32 {
-            let (x, z) = (CCoord(x), CCoord(z));
-            let data = map.chunk_mut(x, z);
+    for z in 0usize..32 {
+        for x in 0usize..32 {
+            let data = map.chunk_mut(CCoord(x as isize), CCoord(z as isize));
 
-            let chunk_data = region.chunk(x, z).map(|chunk| {
-                // Get the chunk at the same x coordinate from the cache. This
-                // should be the chunk that is directly above the current. We
-                // know this because once we have processed this chunk we put it
-                // in the cache in the same place. So the next time we get the
-                // current one will be when we're processing directly below us.
-                //
-                // Thanks to the default None value this works fine for the
-                // first row or for any missing chunks.
-                let north = cache[x.0 as usize].as_ref();
+            let chunk_data = region
+                .lock()
+                .unwrap()
+                .read_chunk(x, z)
+                .ok()
+                .and_then(|chunk| JavaChunk::from_bytes(&chunk).ok())
+                .map(|chunk| {
+                    // Get the chunk at the same x coordinate from the cache. This
+                    // should be the chunk that is directly above the current. We
+                    // know this because once we have processed this chunk we put it
+                    // in the cache in the same place. So the next time we get the
+                    // current one will be when we're processing directly below us.
+                    //
+                    // Thanks to the default None value this works fine for the
+                    // first row or for any missing chunks.
+                    let north = cache[x].as_ref();
 
-                let res = renderer.render(&chunk, north);
-                cache[x.0 as usize] = Some(chunk);
-                res
-            });
+                    let res = renderer.render(&chunk, north);
+                    cache[x] = Some(chunk);
+                    res
+                });
 
             if let Some(d) = chunk_data {
                 data[..].clone_from_slice(&d);

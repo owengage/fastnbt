@@ -31,6 +31,7 @@ pub enum Error {
     InvalidOffset(isize, isize),
     InvalidChunkMeta,
     ChunkNotFound,
+    ChunkTooLarge,
 }
 
 impl From<std::io::Error> for Error {
@@ -53,6 +54,7 @@ impl std::fmt::Display for Error {
                 f.write_str("compression scheme was not recognised for chunk")
             }
             Error::ChunkNotFound => f.write_str("chunk not found in region"),
+            Error::ChunkTooLarge => f.write_str("chunk too large to store"),
         }
     }
 }
@@ -103,7 +105,7 @@ mod tests {
     #[test]
     fn invalid_offset() {
         let r = Builder::new().location(2, 1).build();
-        let r = RegionBuffer::new(r);
+        let mut r = RegionBuffer::new(r).unwrap();
         match r.chunk_location(32, 32) {
             Err(Error::InvalidOffset(32, 32)) => {}
             _ => panic!("should error"),
@@ -113,7 +115,7 @@ mod tests {
     #[test]
     fn invalid_offset_only_in_x() {
         let r = Builder::new().location(2, 1).build();
-        let r = RegionBuffer::new(r);
+        let mut r = RegionBuffer::new(r).unwrap();
         match r.chunk_location(32, 0) {
             Err(Error::InvalidOffset(32, 0)) => {}
             _ => panic!("should error"),
@@ -123,7 +125,7 @@ mod tests {
     #[test]
     fn invalid_offset_only_in_z() {
         let r = Builder::new().location(2, 1).build();
-        let r = RegionBuffer::new(r);
+        let mut r = RegionBuffer::new(r).unwrap();
         match r.chunk_location(0, 32) {
             Err(Error::InvalidOffset(0, 32)) => {}
             _ => panic!("should error"),
@@ -133,7 +135,7 @@ mod tests {
     #[test]
     fn offset_beyond_data_given() {
         let r = Builder::new().location(2, 1).build_unpadded();
-        let r = RegionBuffer::new(r);
+        let mut r = RegionBuffer::new(r).unwrap();
         match r.chunk_location(1, 0) {
             Err(Error::IO(inner)) if inner.kind() == std::io::ErrorKind::UnexpectedEof => {}
             o => panic!("should error {:?}", o),
@@ -142,7 +144,7 @@ mod tests {
     #[test]
     fn first_location() -> Result<()> {
         let r = Builder::new().location(2, 1).build();
-        let r = RegionBuffer::new(r);
+        let mut r = RegionBuffer::new(r).unwrap();
 
         assert_eq!(
             ChunkLocation {
