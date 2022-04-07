@@ -1,7 +1,7 @@
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::{
-    CompressionScheme::Uncompressed, Error, RegionBuffer, RegionRead, RegionWrite,
+    ChunkLocation, CompressionScheme::Uncompressed, Error, RegionBuffer, RegionRead, RegionWrite,
     CHUNK_HEADER_SIZE, SECTOR_SIZE,
 };
 
@@ -13,7 +13,11 @@ fn assert_info<S>(r: &mut RegionBuffer<S>, x: usize, z: usize, offset: u64, size
 where
     S: Read + Write + Seek,
 {
-    let (found_offset, found_size) = r.info(x, z).unwrap();
+    let ChunkLocation {
+        offset: found_offset,
+        sectors: found_size,
+    } = r.location(x, z).unwrap();
+
     assert_eq!(offset, found_offset);
     assert_eq!(size, found_size);
 }

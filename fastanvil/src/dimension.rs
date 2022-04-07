@@ -108,8 +108,8 @@ mod test {
     impl RegionRead for DummyRegion {
         fn read_compressed_chunk(
             &mut self,
-            x: usize,
-            z: usize,
+            _x: usize,
+            _z: usize,
         ) -> crate::Result<(crate::CompressionScheme, Vec<u8>)> {
             todo!()
         }
