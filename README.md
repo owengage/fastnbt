@@ -26,12 +26,16 @@ Demo of Hermitcraft season 8 and more at [owengage.com/anvil](https://owengage.c
 
 ![alt rendered map](demo.png)  
 
-This repository contains multiple related projects.
+This repository contains multiple related crates.
 
-* [fastnbt](fastnbt/README.md): Fast serde serializer/deserializer for *Minecraft: Java
+* [fastnbt](fastnbt/README.md) contains a serde serializer and deserializer for *Minecraft: Java
   Edition*'s NBT data format.
-* fastanvil: For rendering Minecraft worlds to maps.
-* fastnbt-tools: Various tools for NBT/Anvil, notably a map renderer.
+* fastanvil allows rendering maps of worlds, including a `JavaChunk`
+  that can load chunk data, a palette for colouring most blocks in the
+  game, and `RegionRead`/`RegionWrite` traits for using the Region file
+  format.
+* fastnbt-tools: Various tools for NBT/Anvil, notably a map rendering
+  executable, `anvil`.
 
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.
