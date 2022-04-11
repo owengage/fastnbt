@@ -1,4 +1,4 @@
-use flate2::read::{ZlibDecoder, ZlibEncoder};
+use flate2::read::ZlibEncoder;
 use flate2::Compression;
 use std::convert::TryFrom;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
@@ -24,27 +24,32 @@ pub(crate) const CHUNK_HEADER_SIZE: usize = 5;
 pub trait RegionRead {
     fn read_chunk(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
         // Metadata encodes the length in bytes and the compression type
-        let (scheme, compressed) = self.read_compressed_chunk(x, z)?;
-        let compressed = Cursor::new(compressed);
+        let scheme = self.compression_scheme(x, z)?;
 
-        let mut decoder = match scheme {
-            CompressionScheme::Zlib => ZlibDecoder::new(compressed),
-            _ => panic!("unknown compression scheme (gzip?)"),
-        };
-
-        let mut outbuf = Vec::new();
-        // read the whole Chunk
-        decoder.read_to_end(&mut outbuf)?;
-        Ok(outbuf)
+        match scheme {
+            CompressionScheme::Zlib => {
+                let mut decoder = flate2::write::ZlibDecoder::new(vec![]);
+                self.read_compressed_chunk(x, z, &mut decoder)?;
+                Ok(decoder.finish()?)
+            }
+            CompressionScheme::Gzip => {
+                let mut decoder = flate2::write::GzDecoder::new(vec![]);
+                self.read_compressed_chunk(x, z, &mut decoder)?;
+                Ok(decoder.finish()?)
+            }
+            CompressionScheme::Uncompressed => {
+                let mut buf = vec![];
+                self.read_compressed_chunk(x, z, &mut buf)?;
+                Ok(buf)
+            }
+        }
     }
 
     /// Low level method. Read a compressed chunk, returning the compression
     /// scheme used.
-    fn read_compressed_chunk(&mut self, x: usize, z: usize)
-        -> Result<(CompressionScheme, Vec<u8>)>;
+    fn read_compressed_chunk(&mut self, x: usize, z: usize, writer: &mut dyn Write) -> Result<()>;
 
-    // TODO: Let user provide a writer that we write the chunk directly to?
-    // To be useful we would need a method that gets the compression scheme separately.
+    fn compression_scheme(&mut self, x: usize, z: usize) -> Result<CompressionScheme>;
 }
 
 pub trait RegionWrite {
@@ -170,11 +175,7 @@ impl<S> RegionRead for RegionBuffer<S>
 where
     S: Read + Write + Seek,
 {
-    fn read_compressed_chunk(
-        &mut self,
-        x: usize,
-        z: usize,
-    ) -> Result<(CompressionScheme, Vec<u8>)> {
+    fn read_compressed_chunk(&mut self, x: usize, z: usize, writer: &mut dyn Write) -> Result<()> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
@@ -191,10 +192,32 @@ where
             self.data.read_exact(&mut buf)?;
             let metadata = ChunkMeta::new(&buf)?;
 
-            let mut compressed_chunk = vec![0; metadata.compressed_len as usize];
-            self.data.read_exact(&mut compressed_chunk)?;
+            let mut adapted = (&mut self.data).take(metadata.compressed_len as u64);
 
-            Ok((metadata.compression_scheme, compressed_chunk))
+            io::copy(&mut adapted, writer)?;
+
+            Ok(())
+        }
+    }
+
+    fn compression_scheme(&mut self, x: usize, z: usize) -> Result<CompressionScheme> {
+        if x >= 32 || z >= 32 {
+            return Err(Error::InvalidOffset(x as isize, z as isize));
+        }
+
+        let loc = self.location(x, z)?;
+
+        if loc.offset == 0 && loc.sectors == 0 {
+            Err(Error::ChunkNotFound)
+        } else {
+            self.data
+                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+
+            let mut buf = [0u8; 5];
+            self.data.read_exact(&mut buf)?;
+            let metadata = ChunkMeta::new(&buf)?;
+
+            Ok(metadata.compression_scheme)
         }
     }
 }

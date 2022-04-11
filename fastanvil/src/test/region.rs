@@ -33,7 +33,7 @@ fn new_region_should_be_empty() {
 
     for x in 0..32 {
         for z in 0..32 {
-            let chunk = r.read_compressed_chunk(x, z);
+            let chunk = r.read_chunk(x, z);
             assert!(matches!(chunk, Err(Error::ChunkNotFound)))
         }
     }
@@ -100,7 +100,7 @@ fn write_and_get_chunk() {
     let mut r = new_empty();
     r.write_compressed_chunk(0, 0, Uncompressed, &[1, 2, 3])
         .unwrap();
-    let (_, c) = r.read_compressed_chunk(0, 0).unwrap();
+    let c = r.read_chunk(0, 0).unwrap();
     assert_eq!(c, &[1, 2, 3]);
 }
 
@@ -109,15 +109,9 @@ fn getting_other_chunks_404s() {
     let mut r = new_empty();
     r.write_compressed_chunk(1, 1, Uncompressed, &[1, 2, 3])
         .unwrap();
-    assert!(matches!(
-        r.read_compressed_chunk(0, 0),
-        Err(Error::ChunkNotFound)
-    ));
-    assert!(matches!(
-        r.read_compressed_chunk(1, 0),
-        Err(Error::ChunkNotFound)
-    ));
-    assert!(matches!(r.read_compressed_chunk(1, 1), Ok(_)));
+    assert!(matches!(r.read_chunk(0, 0), Err(Error::ChunkNotFound)));
+    assert!(matches!(r.read_chunk(1, 0), Err(Error::ChunkNotFound)));
+    assert!(matches!(r.read_chunk(1, 1), Ok(_)));
 }
 
 #[test]

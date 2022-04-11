@@ -94,36 +94,3 @@ impl Dimension {
         })
     }
 }
-
-#[cfg(test)]
-mod test {
-    use std::marker::PhantomData;
-
-    use crate::JavaChunk;
-
-    use super::*;
-
-    struct DummyRegion(PhantomData<JavaChunk>);
-
-    impl RegionRead for DummyRegion {
-        fn read_compressed_chunk(
-            &mut self,
-            _x: usize,
-            _z: usize,
-        ) -> crate::Result<(crate::CompressionScheme, Vec<u8>)> {
-            todo!()
-        }
-    }
-
-    struct DummyLoader(PhantomData<JavaChunk>);
-
-    impl RegionLoader for DummyLoader {
-        fn region(&self, _x: RCoord, _z: RCoord) -> Option<Box<dyn RegionRead>> {
-            Some(Box::new(DummyRegion(PhantomData)))
-        }
-
-        fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>> {
-            todo!()
-        }
-    }
-}
