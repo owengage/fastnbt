@@ -1,4 +1,5 @@
-use flate2::read::ZlibDecoder;
+use flate2::read::{ZlibDecoder, ZlibEncoder};
+use flate2::Compression;
 use std::convert::TryFrom;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 
@@ -47,6 +48,13 @@ pub trait RegionRead {
 }
 
 pub trait RegionWrite {
+    fn write_chunk(&mut self, x: usize, z: usize, uncompressed_chunk: &[u8]) -> Result<()> {
+        let mut buf = vec![];
+        let mut enc = ZlibEncoder::new(uncompressed_chunk, Compression::fast());
+        enc.read_to_end(&mut buf)?;
+        self.write_compressed_chunk(x, z, CompressionScheme::Zlib, &buf)
+    }
+
     /// Low level method. Write a chunk to the region file that has already been
     /// appropriately compressed for storage.
     fn write_compressed_chunk(

@@ -5,7 +5,7 @@
 [x] get owned NBT arrays working, also within Value.
 [x] get borrowed NBT arrays working for deserialize
 [ ] get borrowed NBT arrays working for serialize
-[ ] removed deref from nbt arrays
+[x] removed deref from nbt arrays
 [ ] make sure borrowed/owned interface the same for arrays
 [ ] get value working
 [ ] Run fuzzer again

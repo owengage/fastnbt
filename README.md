@@ -15,27 +15,19 @@ https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
 `fastnbt` is a serde serializer and deserializer for *Minecraft: Java Edition's*
 NBT format.
 
-This repository also contains fastanvil for rendering maps of Minecraft worlds.
-An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
-Supports 1.18 down to 1.15 inclusive. Eventually want to support at least down
-to 1.12.
+`fastanvil` allows rendering maps of worlds, including a `JavaChunk` that can load
+chunk data, a palette for colouring most blocks in the game, and
+`RegionRead`/`RegionWrite` traits for using the Region file format. `fastanvil`
+is pre-1.0, and minor versions may have breaking changes.
 
-# Demo
+An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
+Supports 1.18 down to 1.15 inclusive.
+
+# Demos
 
 Demo of Hermitcraft season 8 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft8)
 
 ![alt rendered map](demo.png)  
-
-This repository contains multiple related crates.
-
-* [fastnbt](fastnbt/README.md) contains a serde serializer and deserializer for *Minecraft: Java
-  Edition*'s NBT data format.
-* fastanvil allows rendering maps of worlds, including a `JavaChunk`
-  that can load chunk data, a palette for colouring most blocks in the
-  game, and `RegionRead`/`RegionWrite` traits for using the Region file
-  format.
-* fastnbt-tools: Various tools for NBT/Anvil, notably a map rendering
-  executable, `anvil`.
 
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.

@@ -5,7 +5,7 @@ use serde::{
     Deserialize, Serialize,
 };
 
-use crate::{ByteArray, IntArray, LongArray, Tag};
+use crate::{ByteArray, IntArray, LongArray};
 
 /// Value is a complete NBT value. It owns its data. Compounds and Lists are
 /// resursively deserialized. This type takes care to preserve all the
