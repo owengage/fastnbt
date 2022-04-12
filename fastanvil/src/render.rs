@@ -178,20 +178,16 @@ fn water_depth<C: Chunk + ?Sized>(
 /// See https://en.wikipedia.org/wiki/Alpha_compositing
 fn a_over_b_colour(colour: [u8; 4], below_colour: [u8; 4]) -> [u8; 4] {
     let linear = |c: u8| (((c as usize).pow(2)) as f32) / ((255 * 255) as f32);
+    let colour = colour.map(linear);
+    let below_colour = below_colour.map(linear);
 
-    let over_component = |ca: u8, aa: u8, cb: u8, ab: u8| {
-        let ca = linear(ca);
-        let cb = linear(cb);
-        let aa = linear(aa);
-        let ab = linear(ab);
+    let over_component = |ca: f32, aa: f32, cb: f32, ab: f32| {
         let a_out = aa + ab * (1. - aa);
         let linear_out = (ca * aa + cb * ab * (1. - aa)) / a_out;
         (linear_out * 255. * 255.).sqrt() as u8
     };
 
-    let over_alpha = |aa: u8, ab: u8| {
-        let aa = linear(aa);
-        let ab = linear(ab);
+    let over_alpha = |aa: f32, ab: f32| {
         let a_out = aa + ab * (1. - aa);
         (a_out * 255. * 255.).sqrt() as u8
     };
