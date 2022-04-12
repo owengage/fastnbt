@@ -79,7 +79,7 @@ fn main() {
         .open(out_path)
         .unwrap();
 
-    let mut new_region = Region::empty(out_file).unwrap();
+    let mut new_region = Region::new(out_file).unwrap();
 
     for z in 0..32 {
         for x in 0..32 {

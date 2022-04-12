@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek, Write},
 };
 
-use crate::{Block, CCoord, Chunk, HeightMode, JavaChunk, RCoord, RegionLoader};
+use crate::{Block, CCoord, Chunk, ChunkData, HeightMode, JavaChunk, RCoord, RegionLoader};
 
 use super::biome::Biome;
 
@@ -200,10 +200,6 @@ fn a_over_b_colour(colour: [u8; 4], below_colour: [u8; 4]) -> [u8; 4] {
     ]
 }
 
-pub trait IntoMap {
-    fn into_map(self) -> RegionMap<Rgba>;
-}
-
 pub struct RegionMap<T> {
     pub data: Vec<T>,
     pub x: RCoord,
@@ -289,6 +285,11 @@ where
 
             if let Some(d) = chunk_data {
                 data[..].clone_from_slice(&d);
+            } else {
+                // In the case where we failed to load this chunk for whatever
+                // reason, we treat it as a blank part of the map. This means
+                // the cache needs to reflect this.
+                cache[x] = None;
             }
         }
     }

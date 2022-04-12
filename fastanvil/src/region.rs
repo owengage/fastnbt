@@ -32,10 +32,10 @@ impl<S> Region<S>
 where
     S: Read + Write + Seek,
 {
-    /// Create an entirely empty region. The provided stream will be
-    /// overwritten, and will assume a seek to 0 is the start of the region. The
-    /// stream needs read, write, and seek like a file provides.
-    pub fn empty(mut stream: S) -> Result<Self> {
+    /// Create an new empty region. The provided stream will be overwritten, and
+    /// will assume a seek to 0 is the start of the region. The stream needs
+    /// read, write, and seek like a file provides.
+    pub fn new(mut stream: S) -> Result<Self> {
         stream.rewind()?;
         stream.write_all(&[0; REGION_HEADER_SIZE])?;
 
@@ -124,6 +124,9 @@ where
         self.write_compressed_chunk(x, z, CompressionScheme::Zlib, &buf)
     }
 
+    /// Low level method. Write the given compressed chunk data to the stream.
+    /// It is the callers responsibility to make sure the compression scheme
+    /// matches the compression used.
     pub fn write_compressed_chunk(
         &mut self,
         x: usize,
@@ -170,6 +173,9 @@ where
         Ok(())
     }
 
+    /// Low level method. Read a compressed chunk into the given writer. The
+    /// `compression_scheme` method can be used to discover how the chunk
+    /// written is compressed, allowing you to write directly to a decompresser.
     fn read_compressed_chunk(&mut self, x: usize, z: usize, writer: &mut dyn Write) -> Result<()> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x as isize, z as isize));
@@ -195,6 +201,9 @@ where
         }
     }
 
+    /// Low level method. Get the compression scheme that a given chunk is
+    /// compressed with in the region. Used in conjuction with
+    /// `read_compressed_chunk`.
     fn compression_scheme(&mut self, x: usize, z: usize) -> Result<CompressionScheme> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x as isize, z as isize));
@@ -216,6 +225,11 @@ where
         }
     }
 
+    pub fn iter(&mut self) -> RegionIter<'_, S> {
+        RegionIter::new(self)
+    }
+
+    /// Get the location of the chunk in the stream.
     pub(crate) fn location(&mut self, x: usize, z: usize) -> io::Result<ChunkLocation> {
         self.stream.seek(SeekFrom::Start(header_pos(x, z)))?;
 
@@ -231,6 +245,7 @@ where
         Ok(ChunkLocation { offset, sectors })
     }
 
+    /// Write the chunk data to the given offset, does no checking.
     fn set_chunk(&mut self, offset: u64, scheme: CompressionScheme, chunk: &[u8]) -> Result<()> {
         self.stream
             .seek(SeekFrom::Start(offset * SECTOR_SIZE as u64))?;
@@ -244,6 +259,7 @@ where
         Ok(())
     }
 
+    /// Write to the header for the given chunk.
     fn set_header(
         &mut self,
         x: usize,
@@ -294,6 +310,65 @@ pub enum CompressionScheme {
     Uncompressed = 3,
 }
 
+pub struct RegionIter<'a, S>
+where
+    S: Read + Write + Seek,
+{
+    inner: &'a mut Region<S>,
+    index: usize,
+}
+
+impl<'a, S> RegionIter<'a, S>
+where
+    S: Read + Write + Seek,
+{
+    fn new(inner: &'a mut Region<S>) -> Self {
+        Self { inner, index: 0 }
+    }
+
+    fn next_xz(&mut self) -> Option<(usize, usize)> {
+        let index = self.index;
+        self.index += 1;
+
+        if index == 32 * 32 {
+            return None;
+        }
+
+        let x = index % 32;
+        let z = index / 32;
+        Some((x, z))
+    }
+}
+pub struct ChunkData {
+    pub x: usize,
+    pub z: usize,
+    pub data: Vec<u8>,
+}
+
+impl<'a, S> Iterator for RegionIter<'a, S>
+where
+    S: Read + Write + Seek,
+{
+    type Item = Result<ChunkData>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((x, z)) = self.next_xz() {
+            let c = self
+                .inner
+                .read_chunk(x, z)
+                .map(|c| ChunkData { x, z, data: c });
+
+            // If the chunk isn't found, just skip it.
+            match c {
+                Err(Error::ChunkNotFound) => continue,
+                _ => return Some(c),
+            }
+        }
+
+        None
+    }
+}
+
 // copied from rust std unstable_div_ceil function
 pub const fn unstable_div_ceil(lhs: usize, rhs: usize) -> usize {
     let d = lhs / rhs;
@@ -327,15 +402,11 @@ struct ChunkMeta {
 }
 
 impl ChunkMeta {
-    fn new(data: &[u8]) -> Result<Self> {
-        if data.len() < 5 {
-            return Err(Error::InsufficientData);
-        }
-
-        let mut buf = &data[..5];
-        let len = buf.read_u32::<BigEndian>()?;
-        let scheme = buf.read_u8()?;
-        let scheme = CompressionScheme::try_from(scheme).map_err(|_| Error::InvalidChunkMeta)?;
+    fn new(mut data: &[u8]) -> Result<Self> {
+        let len = data.read_u32::<BigEndian>()?;
+        let scheme = data.read_u8()?;
+        let scheme =
+            CompressionScheme::try_from(scheme).map_err(|_| Error::UnknownCompression(scheme))?;
 
         Ok(Self {
             compressed_len: len - 1, // this len include the compression byte.

@@ -116,12 +116,10 @@ pub fn expand_heightmap(data: &[i64], y_min: isize, data_version: i32) -> Vec<i1
                 len => panic!("Len of heightmap data: {}", len),
             };
 
-            // TODO: We need to know the minimum block in this world in order to
-            // know how to offset the heightmap.
             let mut v = expand_generic_1_16(data, bits_per);
             v.resize(256, 0);
 
-            // Reinterpret as signed.
+            // Reinterpret as signed and offset by min y.
             v.into_iter().map(|h| (h as isize + y_min) as i16).collect()
         }
         _ => match data.len() {

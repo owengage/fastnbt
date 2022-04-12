@@ -5,10 +5,10 @@ use crate::{
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {
-    Region::empty(Cursor::new(vec![])).unwrap()
+    Region::new(Cursor::new(vec![])).unwrap()
 }
 
-fn assert_info<S>(r: &mut Region<S>, x: usize, z: usize, offset: u64, size: u64)
+fn assert_location<S>(r: &mut Region<S>, x: usize, z: usize, offset: u64, size: u64)
 where
     S: Read + Write + Seek,
 {
@@ -43,7 +43,7 @@ fn blank_write_chunk() {
     let mut r = new_empty();
     r.write_compressed_chunk(0, 0, Uncompressed, &[1, 2, 3])
         .unwrap();
-    assert_info(&mut r, 0, 0, 2, 1);
+    assert_location(&mut r, 0, 0, 2, 1);
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn exact_sector_size_chunk_takes_one_sector() {
     let mut r = new_empty();
     r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(1))
         .unwrap();
-    assert_info(&mut r, 0, 0, 2, 1);
+    assert_location(&mut r, 0, 0, 2, 1);
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn over_one_sector_size_chunk_takes_two_sectors() {
         &[0; SECTOR_SIZE - CHUNK_HEADER_SIZE + 1],
     )
     .unwrap();
-    assert_info(&mut r, 0, 0, 2, 2);
+    assert_location(&mut r, 0, 0, 2, 2);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn several_sector_chunk_takes_correct_size() {
     let mut r = new_empty();
     r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(5))
         .unwrap();
-    assert_info(&mut r, 0, 0, 2, 5);
+    assert_location(&mut r, 0, 0, 2, 5);
 }
 
 #[test]
@@ -90,8 +90,8 @@ fn write_several_chunks() {
     r.write_compressed_chunk(0, 1, Uncompressed, &n_sector_chunk(3))
         .unwrap();
 
-    assert_info(&mut r, 0, 0, 2, 2);
-    assert_info(&mut r, 0, 1, 4, 3);
+    assert_location(&mut r, 0, 0, 2, 2);
+    assert_location(&mut r, 0, 1, 4, 3);
 }
 
 #[test]
@@ -121,7 +121,7 @@ fn overwrite_with_smaller_chunk() {
     r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(1))
         .unwrap();
 
-    assert_info(&mut r, 0, 0, 2, 1);
+    assert_location(&mut r, 0, 0, 2, 1);
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn overwrite_with_larger_chunk() {
         .unwrap();
 
     // sectors now look like [H,H,??,??,01,00,00,00]
-    assert_info(&mut r, 0, 0, 5, 3);
+    assert_location(&mut r, 0, 0, 5, 3);
 }
 
 #[test]
@@ -166,9 +166,9 @@ fn chunk_can_fill_gap_left_by_moved_chunk_after_it() {
         .unwrap();
 
     // HH0000002221111
-    assert_info(&mut r, 0, 0, 2, 6);
-    assert_info(&mut r, 0, 1, 11, 4);
-    assert_info(&mut r, 0, 2, 8, 3);
+    assert_location(&mut r, 0, 0, 2, 6);
+    assert_location(&mut r, 0, 1, 11, 4);
+    assert_location(&mut r, 0, 2, 8, 3);
 }
 
 #[test]
@@ -183,8 +183,8 @@ fn load_from_existing_buffer() {
 
     // reload the region
     let mut r = Region::from_stream(buf).unwrap();
-    assert_info(&mut r, 0, 0, 2, 1);
-    assert_info(&mut r, 0, 1, 3, 2);
+    assert_location(&mut r, 0, 0, 2, 1);
+    assert_location(&mut r, 0, 1, 3, 2);
 }
 
 // TODO: Should we always zero out space? Would likely be good for compression.

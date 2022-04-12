@@ -26,10 +26,9 @@ mod test;
 
 #[derive(Debug)]
 pub enum Error {
-    InsufficientData,
     IO(std::io::Error),
     InvalidOffset(isize, isize),
-    InvalidChunkMeta,
+    UnknownCompression(u8),
     ChunkNotFound,
     ChunkTooLarge,
 }
@@ -45,14 +44,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::InsufficientData => f.write_str("insufficient data to parse chunk metadata"),
-            Error::IO(e) => f.write_fmt(format_args!("io error: {:?}", e)),
+            Error::IO(e) => f.write_fmt(format_args!("io error: {e:?}")),
             Error::InvalidOffset(x, z) => {
-                f.write_fmt(format_args!("invalid offset: x = {}, z = {}", x, z))
+                f.write_fmt(format_args!("invalid offset: x = {x}, z = {z}"))
             }
-            Error::InvalidChunkMeta => {
-                f.write_str("compression scheme was not recognised for chunk")
-            }
+            Error::UnknownCompression(scheme) => f.write_fmt(format_args!(
+                "compression scheme ({scheme}) was not recognised for chunk"
+            )),
             Error::ChunkNotFound => f.write_str("chunk not found in region"),
             Error::ChunkTooLarge => f.write_str("chunk too large to store"),
         }
