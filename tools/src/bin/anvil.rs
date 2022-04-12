@@ -1,7 +1,7 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
+use fastanvil::RenderedPalette;
 use fastanvil::{render_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, TopShadeRenderer};
-use fastanvil::{Dimension, RenderedPalette};
 
 use fastanvil::RegionFileLoader;
 use flate2::read::GzDecoder;
@@ -147,13 +147,12 @@ fn render(args: &ArgMatches) -> Result<()> {
         .into_par_iter()
         .filter_map(|coord| {
             let loader = RegionFileLoader::new(world.join(subpath));
-            let dimension = Dimension::new(Box::new(loader));
 
             let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
-                let map = render_region(x, z, dimension, drawer);
+                let map = render_region(x, z, &loader, drawer);
                 info!("processed r.{}.{}.mca", x.0, z.0);
                 Some(map)
             } else {
@@ -238,13 +237,12 @@ fn tiles(args: &ArgMatches) -> Result<()> {
         .into_par_iter()
         .map(|coord| {
             let loader = RegionFileLoader::new(world.join(subpath));
-            let dimension = Dimension::new(Box::new(loader));
 
             let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
-                let map = render_region(x, z, dimension, drawer);
+                let map = render_region(x, z, &loader, drawer);
                 info!("processed r.{}.{}.mca", x.0, z.0);
                 Some(map)
             } else {

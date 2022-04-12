@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
-use std::{collections::HashMap, error::Error, fmt::Display, ops::Range};
+use std::io::{Read, Seek, Write};
+use std::{error::Error, fmt::Display, ops::Range};
 
-use crate::RegionRead;
+use crate::Region;
 use crate::{biome::Biome, Block};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -58,39 +58,14 @@ impl Display for LoaderError {
 ///
 /// An example implementation could be loading a region file from a local disk,
 /// or perhaps a WASM version loading from a file buffer in the browser.
-pub trait RegionLoader: Send + Sync {
+pub trait RegionLoader<S>
+where
+    S: Seek + Read + Write,
+{
     /// Get a particular region. Returns None if region does not exist.
-    fn region(&self, x: RCoord, z: RCoord) -> Option<Box<dyn RegionRead>>;
+    fn region(&self, x: RCoord, z: RCoord) -> Option<Region<S>>;
 
     /// List the regions that this loader can return. Implmentations need to
     /// provide this so that callers can efficiently find regions to process.
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>>;
-}
-
-type DimensionHashMap = HashMap<(RCoord, RCoord), Arc<Mutex<Box<dyn RegionRead>>>>;
-
-/// Dimension provides a cache on top of a RegionLoader.
-pub struct Dimension {
-    loader: Box<dyn RegionLoader>,
-    regions: Mutex<DimensionHashMap>,
-}
-
-impl Dimension {
-    pub fn new(loader: Box<dyn RegionLoader>) -> Self {
-        Self {
-            loader,
-            regions: Default::default(),
-        }
-    }
-
-    /// Get a region, maybe from Dimension's internal cache.
-    pub fn region(&self, x: RCoord, z: RCoord) -> Option<Arc<Mutex<Box<dyn RegionRead>>>> {
-        let mut cache = self.regions.lock().unwrap();
-
-        cache.get(&(x, z)).map(Arc::clone).or_else(|| {
-            let r = Arc::from(Mutex::new(self.loader.region(x, z)?));
-            cache.insert((x, z), Arc::clone(&r));
-            Some(r)
-        })
-    }
 }

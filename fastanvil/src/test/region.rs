@@ -1,15 +1,14 @@
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::{
-    ChunkLocation, CompressionScheme::Uncompressed, Error, RegionBuffer, RegionRead, RegionWrite,
-    CHUNK_HEADER_SIZE, SECTOR_SIZE,
+    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, CHUNK_HEADER_SIZE, SECTOR_SIZE,
 };
 
-fn new_empty() -> RegionBuffer<Cursor<Vec<u8>>> {
-    RegionBuffer::new_empty(Cursor::new(vec![])).unwrap()
+fn new_empty() -> Region<Cursor<Vec<u8>>> {
+    Region::empty(Cursor::new(vec![])).unwrap()
 }
 
-fn assert_info<S>(r: &mut RegionBuffer<S>, x: usize, z: usize, offset: u64, size: u64)
+fn assert_info<S>(r: &mut Region<S>, x: usize, z: usize, offset: u64, size: u64)
 where
     S: Read + Write + Seek,
 {
@@ -183,7 +182,7 @@ fn load_from_existing_buffer() {
     let buf = r.into_inner().unwrap();
 
     // reload the region
-    let mut r = RegionBuffer::new(buf).unwrap();
+    let mut r = Region::from_stream(buf).unwrap();
     assert_info(&mut r, 0, 0, 2, 1);
     assert_info(&mut r, 0, 1, 3, 2);
 }

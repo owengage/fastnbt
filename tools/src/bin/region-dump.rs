@@ -8,7 +8,7 @@ use std::{
 
 use clap::{App, Arg};
 use env_logger::Env;
-use fastanvil::{RegionBuffer, RegionRead};
+use fastanvil::Region;
 use fastnbt::Value;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .expect("no output format specified");
     let out_dir = matches.value_of("out-dir");
 
-    let mut region = RegionBuffer::new(file).unwrap();
+    let mut region = Region::from_stream(file).unwrap();
 
     if let Some(dir) = out_dir {
         create_dir(dir).unwrap_or_default();

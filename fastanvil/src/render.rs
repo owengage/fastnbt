@@ -1,6 +1,9 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    io::{Read, Seek, Write},
+};
 
-use crate::{Block, CCoord, Chunk, Dimension, HeightMode, JavaChunk, RCoord};
+use crate::{Block, CCoord, Chunk, HeightMode, JavaChunk, RCoord, RegionLoader};
 
 use super::biome::Biome;
 
@@ -235,15 +238,18 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub fn render_region<P: Palette>(
+pub fn render_region<P: Palette, S>(
     x: RCoord,
     z: RCoord,
-    dimension: Dimension,
+    loader: &dyn RegionLoader<S>,
     renderer: TopShadeRenderer<P>,
-) -> RegionMap<Rgba> {
+) -> RegionMap<Rgba>
+where
+    S: Seek + Read + Write,
+{
     let mut map = RegionMap::new(x, z, [0u8; 4]);
 
-    let region = match dimension.region(x, z) {
+    let mut region = match loader.region(x, z) {
         Some(r) => r,
         None => return map,
     };
@@ -252,11 +258,9 @@ pub fn render_region<P: Palette>(
 
     // Cache the last row of chunks from the above region to allow top-shading
     // on region boundaries.
-    if let Some(r) = dimension.region(x, RCoord(z.0 - 1)) {
+    if let Some(mut r) = loader.region(x, RCoord(z.0 - 1)) {
         for (x, entry) in cache.iter_mut().enumerate() {
             *entry = r
-                .lock()
-                .unwrap()
                 .read_chunk(x, 31)
                 .ok()
                 .and_then(|b| JavaChunk::from_bytes(&b).ok())
@@ -268,8 +272,6 @@ pub fn render_region<P: Palette>(
             let data = map.chunk_mut(CCoord(x as isize), CCoord(z as isize));
 
             let chunk_data = region
-                .lock()
-                .unwrap()
                 .read_chunk(x, z)
                 .ok()
                 .and_then(|chunk| JavaChunk::from_bytes(&chunk).ok())

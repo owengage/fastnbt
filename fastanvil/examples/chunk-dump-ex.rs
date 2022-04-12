@@ -1,4 +1,4 @@
-use fastanvil::{CurrentJavaChunk, RegionBuffer, RegionRead};
+use fastanvil::{CurrentJavaChunk, Region};
 use fastnbt::from_bytes;
 
 //
@@ -10,7 +10,7 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let file = std::fs::File::open(args[0].clone()).unwrap();
 
-    let mut region = RegionBuffer::new(file).unwrap();
+    let mut region = Region::from_stream(file).unwrap();
     let data = region.read_chunk(0, 0).unwrap();
 
     let chunk: CurrentJavaChunk = from_bytes(data.as_slice()).unwrap();

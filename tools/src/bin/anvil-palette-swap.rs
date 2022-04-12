@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::File};
 
 use clap::{App, Arg};
-use fastanvil::{RegionBuffer, RegionRead, RegionWrite};
+use fastanvil::Region;
 use fastnbt::Value;
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +70,7 @@ fn main() {
     let to = matches.value_of("to").unwrap();
 
     let region = File::open(region).unwrap();
-    let mut region = RegionBuffer::new(region).unwrap();
+    let mut region = Region::from_stream(region).unwrap();
 
     let out_file = File::options()
         .read(true)
@@ -79,7 +79,7 @@ fn main() {
         .open(out_path)
         .unwrap();
 
-    let mut new_region = RegionBuffer::new_empty(out_file).unwrap();
+    let mut new_region = Region::empty(out_file).unwrap();
 
     for z in 0..32 {
         for x in 0..32 {

@@ -6,13 +6,17 @@
 [x] get borrowed NBT arrays working for deserialize
 [ ] get borrowed NBT arrays working for serialize
 [x] removed deref from nbt arrays
-[ ] make sure borrowed/owned interface the same for arrays
-[ ] get value working
+[x] make sure borrowed/owned interface the same for arrays
+[x] get value working
 [ ] Run fuzzer again
 [ ] Remove old array deserializing
 [ ] Tighten up borrowing bytes/strings.
-[ ] anvil: make it work with old chunks again (fixed it to 1.18 only)
+[x] anvil: make it work with old chunks again (fixed it to 1.18 only)
 [ ] opts builder
+[x] make write_chunk convenience method. make write_compressed private.
+[ ] iter for region?
+
+Any point to the Region being two traits? Why not just combine them?
 
 I don't need to abandon the JavaChunk enum just because I'm abandoning the
 deserializer! I can just make the chunk_from_bytes function return the enum
