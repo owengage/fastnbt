@@ -90,27 +90,26 @@ where
 
     /// Read the chunk located at the chunk coordindates x, z. These should
     /// both be 0..32. The chunk data returned is uncompressed NBT.
-    pub fn read_chunk(&mut self, x: usize, z: usize) -> Result<Vec<u8>> {
-        // Metadata encodes the length in bytes and the compression type
-        let scheme = self.compression_scheme(x, z)?;
-
-        match scheme {
-            CompressionScheme::Zlib => {
-                let mut decoder = flate2::write::ZlibDecoder::new(vec![]);
-                self.read_compressed_chunk(x, z, &mut decoder)?;
-                Ok(decoder.finish()?)
-            }
-            CompressionScheme::Gzip => {
-                let mut decoder = flate2::write::GzDecoder::new(vec![]);
-                self.read_compressed_chunk(x, z, &mut decoder)?;
-                Ok(decoder.finish()?)
-            }
-            CompressionScheme::Uncompressed => {
-                let mut buf = vec![];
-                self.read_compressed_chunk(x, z, &mut buf)?;
-                Ok(buf)
-            }
-        }
+    pub fn read_chunk(&mut self, x: usize, z: usize) -> Result<Option<Vec<u8>>> {
+        self.compression_scheme(x, z)?
+            .map(|scheme| match scheme {
+                CompressionScheme::Zlib => {
+                    let mut decoder = flate2::write::ZlibDecoder::new(vec![]);
+                    self.read_compressed_chunk(x, z, &mut decoder)?;
+                    Ok(decoder.finish()?)
+                }
+                CompressionScheme::Gzip => {
+                    let mut decoder = flate2::write::GzDecoder::new(vec![]);
+                    self.read_compressed_chunk(x, z, &mut decoder)?;
+                    Ok(decoder.finish()?)
+                }
+                CompressionScheme::Uncompressed => {
+                    let mut buf = vec![];
+                    self.read_compressed_chunk(x, z, &mut buf)?;
+                    Ok(buf)
+                }
+            })
+            .transpose()
     }
 
     /// Write the given uncompressed NBT chunk data to the chunk coordinates x,
@@ -176,7 +175,14 @@ where
     /// Low level method. Read a compressed chunk into the given writer. The
     /// `compression_scheme` method can be used to discover how the chunk
     /// written is compressed, allowing you to write directly to a decompresser.
-    fn read_compressed_chunk(&mut self, x: usize, z: usize, writer: &mut dyn Write) -> Result<()> {
+    ///
+    /// Returns a bool indicating if a chunk was found at the given x,z.
+    fn read_compressed_chunk(
+        &mut self,
+        x: usize,
+        z: usize,
+        writer: &mut dyn Write,
+    ) -> Result<bool> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
@@ -184,7 +190,7 @@ where
         let loc = self.location(x, z)?;
 
         if loc.offset == 0 && loc.sectors == 0 {
-            Err(Error::ChunkNotFound)
+            Ok(false)
         } else {
             self.stream
                 .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
@@ -197,14 +203,14 @@ where
 
             io::copy(&mut adapted, writer)?;
 
-            Ok(())
+            Ok(true)
         }
     }
 
     /// Low level method. Get the compression scheme that a given chunk is
     /// compressed with in the region. Used in conjuction with
     /// `read_compressed_chunk`.
-    fn compression_scheme(&mut self, x: usize, z: usize) -> Result<CompressionScheme> {
+    fn compression_scheme(&mut self, x: usize, z: usize) -> Result<Option<CompressionScheme>> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
@@ -212,7 +218,7 @@ where
         let loc = self.location(x, z)?;
 
         if loc.offset == 0 && loc.sectors == 0 {
-            Err(Error::ChunkNotFound)
+            Ok(None)
         } else {
             self.stream
                 .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
@@ -221,7 +227,7 @@ where
             self.stream.read_exact(&mut buf)?;
             let metadata = ChunkMeta::new(&buf)?;
 
-            Ok(metadata.compression_scheme)
+            Ok(Some(metadata.compression_scheme))
         }
     }
 
@@ -353,15 +359,12 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((x, z)) = self.next_xz() {
-            let c = self
-                .inner
-                .read_chunk(x, z)
-                .map(|c| ChunkData { x, z, data: c });
+            let c = self.inner.read_chunk(x, z);
 
-            // If the chunk isn't found, just skip it.
             match c {
-                Err(Error::ChunkNotFound) => continue,
-                _ => return Some(c),
+                Ok(Some(c)) => return Some(Ok(ChunkData { x, z, data: c })),
+                Ok(None) => {} // chunk absent, fine.
+                Err(e) => return Some(Err(e)),
             }
         }
 

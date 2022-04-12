@@ -84,7 +84,7 @@ fn main() {
     for z in 0..32 {
         for x in 0..32 {
             match region.read_chunk(x, z) {
-                Ok(data) => {
+                Ok(Some(data)) => {
                     let mut chunk: Chunk = fastnbt::from_bytes(&data).unwrap();
                     for section in chunk.sections.iter_mut() {
                         let palette: &mut Vec<PaletteItem> = &mut section.block_states.palette;
@@ -97,7 +97,7 @@ fn main() {
                     let ser = fastnbt::to_bytes(&chunk).unwrap();
                     new_region.write_chunk(x, z, &ser).unwrap();
                 }
-                Err(fastanvil::Error::ChunkNotFound) => {}
+                Ok(None) => {}
                 Err(e) => eprintln!("{e}"),
             }
         }

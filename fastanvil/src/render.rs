@@ -248,6 +248,8 @@ where
 
     let mut cache: [Option<JavaChunk>; 32] = Default::default();
 
+    // TODO: actually let this fail rather than flatten the result.
+
     // Cache the last row of chunks from the above region to allow top-shading
     // on region boundaries.
     if let Some(mut r) = loader.region(x, RCoord(z.0 - 1)) {
@@ -255,6 +257,7 @@ where
             *entry = r
                 .read_chunk(x, 31)
                 .ok()
+                .flatten()
                 .and_then(|b| JavaChunk::from_bytes(&b).ok())
         }
     }
@@ -263,9 +266,11 @@ where
         for x in 0usize..32 {
             let data = map.chunk_mut(CCoord(x as isize), CCoord(z as isize));
 
+            // TODO: actually let this fail rather than flatten the result.
             let chunk_data = region
                 .read_chunk(x, z)
                 .ok()
+                .flatten()
                 .and_then(|chunk| JavaChunk::from_bytes(&chunk).ok())
                 .map(|chunk| {
                     // Get the chunk at the same x coordinate from the cache. This

@@ -11,7 +11,7 @@ fn main() {
     let file = std::fs::File::open(args[0].clone()).unwrap();
 
     let mut region = Region::from_stream(file).unwrap();
-    let data = region.read_chunk(0, 0).unwrap();
+    let data = region.read_chunk(0, 0).unwrap().unwrap();
 
     let chunk: CurrentJavaChunk = from_bytes(data.as_slice()).unwrap();
 

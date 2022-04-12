@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     for z in 0..32 {
         for x in 0..32 {
             match region.read_chunk(x, z) {
-                Ok(data) => {
+                Ok(Some(data)) => {
                     let mut out: Box<dyn Write> = if let Some(dir) = out_dir {
                         let ext = match output_format {
                             "nbt" => "nbt",
@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         _ => panic!("unknown output format '{}'", output_format),
                     }
                 }
-                Err(AnvilError::ChunkNotFound) => {}
+                Ok(None) => {}
                 Err(e) => return Err(e.into()),
             }
         }

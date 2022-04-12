@@ -29,7 +29,6 @@ pub enum Error {
     IO(std::io::Error),
     InvalidOffset(isize, isize),
     UnknownCompression(u8),
-    ChunkNotFound,
     ChunkTooLarge,
 }
 
@@ -51,7 +50,6 @@ impl std::fmt::Display for Error {
             Error::UnknownCompression(scheme) => f.write_fmt(format_args!(
                 "compression scheme ({scheme}) was not recognised for chunk"
             )),
-            Error::ChunkNotFound => f.write_str("chunk not found in region"),
             Error::ChunkTooLarge => f.write_str("chunk too large to store"),
         }
     }
