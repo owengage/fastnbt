@@ -6,6 +6,7 @@ use crate::{from_bytes, Value};
 use crate::{ByteArray, IntArray, LongArray, Tag};
 
 use super::builder::Builder;
+use super::Single;
 use serde::Deserialize;
 
 #[test]
@@ -1253,4 +1254,47 @@ fn can_cow_cesu8() {
 fn large_list() {
     let input = [10, 0, 0, 9, 0, 0, 10, 4, 0, 5, 252];
     let _v: Result<Value> = from_bytes(&input);
+}
+
+#[test]
+fn hashmap_with_bytes() {
+    // Users should be able to decode strings as borrowed byte strings if they
+    // really want to.
+    let input = Builder::new()
+        .start_compound("")
+        .string("hello", "😈")
+        .end_compound()
+        .build();
+
+    let v: HashMap<&[u8], &[u8]> = from_bytes(&input).unwrap();
+    assert_eq!(
+        cesu8::from_java_cesu8(v["hello".as_bytes()])
+            .unwrap()
+            .as_bytes(),
+        "😈".as_bytes()
+    );
+}
+
+#[test]
+fn hashmap_with_byte_buf() {
+    // Users should be able to decode strings as borrowed byte strings if they
+    // really want to.
+    let input = Builder::new()
+        .start_compound("")
+        .string("hello", "😈")
+        .end_compound()
+        .build();
+
+    let _v: HashMap<&[u8], serde_bytes::ByteBuf> = from_bytes(&input).unwrap();
+}
+
+#[test]
+fn chars() {
+    let input = Builder::new()
+        .start_compound("")
+        .string("val", "a")
+        .end_compound()
+        .build();
+    let v: Single<char> = from_bytes(&input).unwrap();
+    assert_eq!('a', v.val);
 }

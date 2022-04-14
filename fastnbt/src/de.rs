@@ -446,6 +446,14 @@ impl<'de> InputHelper<'de> {
         Ok(s)
     }
 
+    fn consume_size_prefixed_bytes(&mut self) -> Result<&'de [u8]> {
+        let len = self.0.read_u16::<BigEndian>()? as usize;
+        let str_data = self.subslice(0..len)?;
+
+        self.0 = &self.0[len..];
+        Ok(str_data)
+    }
+
     pub(crate) fn consume_bytes(&mut self, size: i32) -> Result<&'de [u8]> {
         let size: usize = size.try_into().map_err(|_| Error::invalid_size(size))?;
         self.consume_bytes_usize(size)
@@ -544,7 +552,7 @@ impl<'de> InputHelper<'de> {
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    forward_to_deserialize_any!(struct map identifier i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 str string tuple);
+    forward_to_deserialize_any!(struct map identifier char i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 str string tuple);
 
     fn is_human_readable(&self) -> bool {
         false
@@ -634,14 +642,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[inline]
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!("char")
-    }
-
-    #[inline]
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -714,18 +714,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                     let bs = self.input.consume_bytes_usize(try_size(size, 8)?)?;
                     visitor.visit_borrowed_bytes(bs)
                 }
+                Tag::String => {
+                    let s = self.input.consume_size_prefixed_bytes()?;
+                    visitor.visit_borrowed_bytes(s)
+                }
                 _ => Err(Error::bespoke(format!("expected bytes, found {:?}", tag))),
             },
         }
     }
 
     #[inline]
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        // How do we even get here? Vec and slices don't call this.
-        unimplemented!("byte_buf")
+        self.deserialize_bytes(visitor)
     }
 
     #[inline]
