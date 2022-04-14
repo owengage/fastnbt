@@ -246,6 +246,7 @@ use crate::error::{Error, Result};
 use crate::{DeOpts, Tag};
 use byteorder::{BigEndian, ReadBytesExt};
 
+use serde::de::Unexpected;
 use serde::{de, forward_to_deserialize_any};
 
 /// Deserializer for NBT data. See the [`de`] module for more information.
@@ -759,11 +760,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     #[inline]
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit_struct")
+        self.deserialize_unit(visitor)
     }
 
     #[inline]
@@ -802,12 +803,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _len: usize,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("tuple_struct")
+        self.deserialize_seq(visitor)
     }
 
     #[inline]
@@ -846,12 +847,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             Layer::Compound {
                 current_tag: _,
                 stage: _,
-            } => todo!("compound(none)"), // ???
+            } => unreachable!(), // ???
             Layer::List {
                 remaining_elements: _,
                 element_tag: _,
             } => {
-                todo!();
+                unreachable!();
             }
         }
 
@@ -1007,20 +1008,29 @@ impl<'a, 'de> de::VariantAccess<'de> for UnitVariantAccess<'a, 'de> {
     where
         T: serde::de::DeserializeSeed<'de>,
     {
-        todo!("unit variant: newtype variant")
+        Err(de::Error::invalid_type(
+            Unexpected::UnitVariant,
+            &"newtype variant",
+        ))
     }
 
     fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit variant: variant")
+        Err(de::Error::invalid_type(
+            Unexpected::TupleVariant,
+            &"tuple variant",
+        ))
     }
 
     fn struct_variant<V>(self, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit variant: struct variant")
+        Err(de::Error::invalid_type(
+            Unexpected::StructVariant,
+            &"struct variant",
+        ))
     }
 }

@@ -7,7 +7,7 @@ use crate::{ByteArray, IntArray, LongArray, Tag};
 
 use super::builder::Builder;
 use super::Single;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[test]
 fn error_impls_sync_send() {
@@ -570,13 +570,18 @@ fn optional() -> Result<()> {
 #[test]
 fn unit_just_requires_presense() -> Result<()> {
     #[derive(Deserialize)]
+    struct Foo;
+
+    #[derive(Deserialize)]
     struct V {
         _unit: (),
+        _unit_struct: Foo,
     }
 
     let payload = Builder::new()
         .start_compound("object")
         .byte("_unit", 0)
+        .byte("_unit_struct", 0)
         .end_compound()
         .build();
 
@@ -1297,4 +1302,57 @@ fn chars() {
         .build();
     let v: Single<char> = from_bytes(&input).unwrap();
     assert_eq!('a', v.val);
+}
+
+#[test]
+fn enum_variant_types() {
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    enum Letter {
+        NewType(u32),
+        Tuple(u8, u8, u8),
+        Struct { a: String },
+    }
+
+    let newtype_input = Builder::new()
+        .start_compound("")
+        .string("val", "NewType")
+        .end_compound()
+        .build();
+    let v: Result<Single<Letter>> = from_bytes(&newtype_input);
+    assert!(matches!(v, Err(_)));
+
+    let tuple_input = Builder::new()
+        .start_compound("")
+        .string("val", "Tuple")
+        .end_compound()
+        .build();
+
+    let v: Result<Single<Letter>> = from_bytes(&tuple_input);
+    assert!(matches!(v, Err(_)));
+
+    let struct_input = Builder::new()
+        .start_compound("")
+        .string("val", "Struct")
+        .end_compound()
+        .build();
+    let v: Result<Single<Letter>> = from_bytes(&struct_input);
+    assert!(matches!(v, Err(_)));
+}
+
+#[test]
+fn tuple_struct() {
+    #[derive(Deserialize, Serialize)]
+    struct Rgb(u8, u8, u8);
+
+    let input = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Byte, 3)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte_payload(3)
+        .end_compound()
+        .build();
+
+    let v: Single<Rgb> = from_bytes(&input).unwrap();
+    assert!(matches!(v.val, Rgb(1, 2, 3)));
 }
