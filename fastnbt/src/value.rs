@@ -59,6 +59,7 @@ where
 
 #[cfg(feature = "arbitrary1")]
 fn arb_list(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Vec<Value>> {
+    use crate::Tag;
     use Value::*;
 
     Ok(match u.arbitrary::<Tag>()? {
@@ -89,6 +90,7 @@ fn arb_list(u: &mut arbitrary::Unstructured) -> arbitrary::Result<Vec<Value>> {
 #[cfg(feature = "arbitrary1")]
 impl<'a> arbitrary::Arbitrary<'a> for Value {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        use crate::Tag;
         use Value::*;
 
         Ok(match u.arbitrary::<Tag>()? {

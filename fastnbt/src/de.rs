@@ -243,7 +243,7 @@ use std::ops::Range;
 
 use crate::de_arrays::ArrayWrapperAccess;
 use crate::error::{Error, Result};
-use crate::Tag;
+use crate::{DeOpts, Tag};
 use byteorder::{BigEndian, ReadBytesExt};
 
 use serde::{de, forward_to_deserialize_any};
@@ -256,19 +256,6 @@ pub struct Deserializer<'de> {
     layers: Vec<Layer>,
     last_hint: Option<&'static str>,
     pub(crate) opts: DeOpts,
-}
-
-pub struct DeOpts {
-    /// Maximum number of bytes a list or array can be.
-    pub max_seq_len: usize,
-}
-
-impl Default for DeOpts {
-    fn default() -> Self {
-        Self {
-            max_seq_len: 100_000,
-        }
-    }
 }
 
 impl<'de> Deserializer<'de> {

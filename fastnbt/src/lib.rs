@@ -123,7 +123,6 @@
 //! deserializing to Rust objects directly.
 //!
 
-use de::DeOpts;
 use ser::{Serializer, State};
 use serde::{de as serde_de, Deserialize, Serialize};
 
@@ -299,6 +298,30 @@ where
     T: serde_de::Deserialize<'a>,
 {
     from_bytes_with_opts(input, Default::default())
+}
+
+pub struct DeOpts {
+    /// Maximum number of bytes a list or array can be.
+    max_seq_len: usize,
+}
+
+impl DeOpts {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn max_seq_len(mut self, value: usize) -> Self {
+        self.max_seq_len = value;
+        self
+    }
+}
+
+impl Default for DeOpts {
+    fn default() -> Self {
+        Self {
+            max_seq_len: 100_000,
+        }
+    }
 }
 
 pub fn from_bytes_with_opts<'a, T>(input: &'a [u8], opts: DeOpts) -> Result<T>

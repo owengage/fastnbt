@@ -281,7 +281,7 @@ where
         buf[0] = ((offset & 0xFF0000) >> 16) as u8;
         buf[1] = ((offset & 0x00FF00) >> 8) as u8;
         buf[2] = (offset & 0x0000FF) as u8;
-        buf[3] = new_sector_count as u8; // TODO, what if it doesn't fit.
+        buf[3] = new_sector_count as u8;
 
         // seek to header
         self.stream.seek(SeekFrom::Start(header_pos(x, z)))?;
