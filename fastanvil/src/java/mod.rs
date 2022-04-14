@@ -18,7 +18,6 @@ pub use section_data::*;
 pub use section_tower::*;
 
 use once_cell::sync::Lazy;
-use serde::Deserialize;
 
 use crate::{biome::Biome, Chunk, HeightMode};
 

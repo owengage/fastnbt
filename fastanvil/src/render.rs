@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek, Write},
 };
 
-use crate::{Block, CCoord, Chunk, ChunkData, HeightMode, JavaChunk, RCoord, RegionLoader};
+use crate::{Block, CCoord, Chunk, HeightMode, JavaChunk, RCoord, RegionLoader};
 
 use super::biome::Biome;
 
@@ -263,7 +263,7 @@ where
     }
 
     for z in 0usize..32 {
-        for x in 0usize..32 {
+        for (x, cache) in cache.iter_mut().enumerate() {
             let data = map.chunk_mut(CCoord(x as isize), CCoord(z as isize));
 
             // TODO: actually let this fail rather than flatten the result.
@@ -281,10 +281,10 @@ where
                     //
                     // Thanks to the default None value this works fine for the
                     // first row or for any missing chunks.
-                    let north = cache[x].as_ref();
+                    let north = cache.as_ref();
 
                     let res = renderer.render(&chunk, north);
-                    cache[x] = Some(chunk);
+                    *cache = Some(chunk);
                     res
                 });
 
@@ -294,7 +294,7 @@ where
                 // In the case where we failed to load this chunk for whatever
                 // reason, we treat it as a blank part of the map. This means
                 // the cache needs to reflect this.
-                cache[x] = None;
+                *cache = None;
             }
         }
     }

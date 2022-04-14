@@ -1,5 +1,4 @@
 use core::panic;
-use fastanvil::Error as AnvilError;
 use std::{
     error::Error,
     fs::{create_dir, File},
