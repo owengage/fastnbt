@@ -694,7 +694,3 @@ fn basic_newtype_variant_enum() {
 
     assert_eq!(actual, expected);
 }
-
-// TODO: serialize_newtype_variant but for NOT NBT arrays
-// TODO: deep nesting (doubts about how I'm managing state). Somewhat tackling
-// this with fuzzing + arbitrary.

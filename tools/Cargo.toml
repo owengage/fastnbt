@@ -7,8 +7,8 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-fastnbt = { path = "../fastnbt", version = "2.0.0-alpha" }
-fastanvil = { path = "../fastanvil", version = "0.24" }
+fastnbt = { path = "../fastnbt", version = "2.0.0" }
+fastanvil = { path = "../fastanvil", version = "0.25" }
 rayon = "1.3.0"
 flate2 = "1.0"
 image = "0.23.4"

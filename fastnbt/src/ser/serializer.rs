@@ -15,15 +15,14 @@ use super::{
     array_serializer::ArraySerializer, name_serializer::NameSerializer, write_nbt::WriteNbt,
 };
 
-// FIXME: remove clone
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum State {
     ListStart { len: usize },
     ListRest,
     Compound { current_field: String },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum TupleState {
     Start { len: usize },
     Rest,

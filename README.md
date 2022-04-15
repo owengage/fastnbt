@@ -130,7 +130,7 @@ For the libraries
 ```toml
 [dependencies]
 fastnbt = "2.0.0-alpha"
-fastanvil = "0.24"
+fastanvil = "0.25"
 ```
 
 For the `anvil` executable

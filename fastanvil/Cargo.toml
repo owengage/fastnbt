@@ -2,13 +2,13 @@
 name = "fastanvil"
 description = "Minecraft Anvil library"
 repository = "https://github.com/owengage/fastnbt"
-version = "0.24.0"
+version = "0.25.0"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-fastnbt = { path = "../fastnbt", version = "2.0.0-alpha" }
+fastnbt = { path = "../fastnbt", version = "2.0.0" }
 flate2 = "1.0"
 num_enum = "0.5"
 image = { version = "0.23", default-features = false }

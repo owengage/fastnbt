@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "fastanvil"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "bit_field",
  "byteorder",
@@ -367,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "2.0.0-alpha"
+version = "2.0.0"
 dependencies = [
  "arbitrary",
  "byteorder",
