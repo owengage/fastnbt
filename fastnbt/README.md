@@ -37,7 +37,7 @@ breaking changes.
 There are other crates for NBT out there, this tries to give an honest
 comparison to them. 
 
-The Hemtite `nbt` crate was the only other crate I found with serde
+The Hematite `nbt` crate was the only other crate I found with serde
 deserialization. 
 
 * Both crates support serialization and deserialization with

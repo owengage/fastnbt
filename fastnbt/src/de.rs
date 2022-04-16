@@ -61,30 +61,8 @@
 //! In order for [`Value`][`crate::Value`] to preserve all NBT information, the
 //! deserializer "[maps into serde's data
 //! model](https://serde.rs/data-model.html#mapping-into-the-data-model)". This
-//! means that the NBT arrays come out not as a simple 'seq' but instead
-//! something like
-//!
-//! ```txt
-//! map{
-//!     tag: u8,
-//!     data: seq<T>,
-//! }
-//! ```
-//!
-//! in some pseudo-language for serde's data model.
-//!
-//! These means the Int Array can be modelled something like this in Rust:
-//!
-//! ```rust
-//! pub struct IntArray {
-//!    tag: u8,
-//!    data: Vec<i32>,
-//! }
-//! ```
-//!
-//! The actual structure is slightly different in order to check the tag is
-//! correct. You can create your own types to capture these Arrays or just use
-//! the ones provided in this crate.
+//! means that in order to deserialize NBT array types, you must use the types
+//! provided in this crate, eg [LongArray][`crate::LongArray`].
 //!
 //! # Other quirks
 //!
@@ -95,8 +73,8 @@
 //!   vectors.
 //! * Any integral value from NBT can be deserialized to bool. Any non-zero
 //!   value becomes `true`.
-//! * You can deserialize a field to the unit type `()`. This ignores the value
-//!   but ensures that it existed.
+//! * You can deserialize a field to the unit type `()` or unit struct. This
+//!   ignores the value but ensures that it existed.
 //! * You cannot deserialize into anything other than a `struct` or similar
 //!   container eg `HashMap`. This is due to a misalignment between the NBT
 //!   format and Rust's types. Attempting to will give a `NoRootCompound` error.

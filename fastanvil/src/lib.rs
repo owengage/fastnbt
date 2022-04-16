@@ -1,6 +1,16 @@
-//! For handling Minecraft's region format, Anvil.
+//! For handling Minecraft's region format, Anvil. This crate is mostly to
+//! support creating maps of Minecraft worlds and is not stable (per-1.0). The
+//! [`Region`] struct is probably the most generally useful part in this crate.
 //!
-//! `anvil::Region` can be given a `Read` and `Seek` type eg a file in order to extract chunk data.
+//! This crate also contains a [`JavaChunk`] that allows deserializing 1.18
+//! down to about 1.15 chunks into some structs. This doesn't record all
+//! information from a chunk however, eg entities are lost. It is not suitable
+//! for serializing back into a region.
+//!
+//! You can create your own chunk structures to (de)serialize using [`fastnbt`].
+//!
+//! [`Region`] can be given a `Read`, `Write` and `Seek` type eg a file in
+//! order to read and write chunk data.
 
 pub mod biome;
 pub mod tex;

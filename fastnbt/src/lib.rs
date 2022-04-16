@@ -1,8 +1,9 @@
-//! fastnbt aims for fast deserializing of NBT data from *Minecraft: Java
-//! Edition*. This format is used by the game to store various things, such as
-//! the world data and player inventories.
+//! fastnbt aims for fast deserializing and serializing of NBT data from
+//! *Minecraft: Java Edition*. This format is used by the game to store various
+//! things, such as the world data and player inventories.
 //!
 //! * For documentation and examples of serde deserialization, see [`de`].
+//! * For documentation and examples of serde serialization, see [`ser`].
 //! * For a `serde_json`-like `Value` type see [`Value`].
 //! * For NBT array types see [`ByteArray`], [`IntArray`], and [`LongArray`].
 //! * For 'zero-copy' NBT array types see [`borrow`].
@@ -12,16 +13,16 @@
 //!
 //! ```toml
 //! [dependencies]
-//! fastnbt = "1"
+//! fastnbt = "2"
 //! ```
 //!
 //! # Byte, Int and Long array types
 //!
 //! There are three array types in NBT. To capture these, use [`ByteArray`],
-//! [`IntArray`], and [`LongArray`]. These NBT types do not deserialize straight
-//! into serde sequences like `Vec` in order to preserve the information from
-//! the original NBT. Without these types, it is not possible to tell if some
-//! data came from a NBT List or an NBT Array.
+//! [`IntArray`], and [`LongArray`]. in order to preserve the information from
+//! the original NBT, these NBT types do not deserialize straight into serde
+//! sequences like `Vec`. Without these types, it is not possible to tell if
+//! some data came from a NBT List or an NBT Array.
 //!
 //! A limitation of these array types is that they cannot be used with serde's
 //! untagged enums. If this is important to you please open an issue.
@@ -29,8 +30,7 @@
 //! Use these in your own data structures. They all implement
 //! [`Deref`][`std::ops::Deref`] for dereferencing into a slice`.
 //!
-//! For versions that borrow their data, see [`borrow`]. For more information
-//! about deserialization see [`de`].
+//! For versions that borrow their data, see [`borrow`].
 //!
 //! An example of deserializing a section of a chunk:
 //!
@@ -249,6 +249,8 @@ impl Display for Tag {
     }
 }
 
+/// Serialize some `T` into NBT data. See the [`ser`] module for more
+/// information.
 pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     let mut result = vec![];
     let mut serializer = Serializer {
@@ -261,6 +263,8 @@ pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     Ok(result)
 }
 
+/// Serialize some `T` into NBT data. See the [`ser`] module for more
+/// information.
 pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
     let mut serializer = Serializer {
         writer,
@@ -300,16 +304,21 @@ where
     from_bytes_with_opts(input, Default::default())
 }
 
+/// Options for customozing deserialization.
 pub struct DeOpts {
     /// Maximum number of bytes a list or array can be.
     max_seq_len: usize,
 }
 
 impl DeOpts {
+    /// Create new options. This object follows a builder pattern.
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Set the maximum length any given sequence can be, eg lists. This does
+    /// not apply to NBT array types. This can help prevent panics on malformed
+    /// data.
     pub fn max_seq_len(mut self, value: usize) -> Self {
         self.max_seq_len = value;
         self
@@ -324,6 +333,7 @@ impl Default for DeOpts {
     }
 }
 
+/// Similar to [`from_bytes`] but with options.
 pub fn from_bytes_with_opts<'a, T>(input: &'a [u8], opts: DeOpts) -> Result<T>
 where
     T: serde_de::Deserialize<'a>,

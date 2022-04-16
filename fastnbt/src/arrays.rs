@@ -8,6 +8,9 @@ pub(crate) const BYTE_ARRAY_TOKEN: &str = "__fastnbt_byte_array";
 pub(crate) const INT_ARRAY_TOKEN: &str = "__fastnbt_int_array";
 pub(crate) const LONG_ARRAY_TOKEN: &str = "__fastnbt_long_array";
 
+/// NBT ByteArray that owns its data. This type preserves the exact NBT type
+/// when (de)serializing. This dereferences into a i8 slice, so should be usable
+/// basically anywhere a slice should be.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct ByteArray {
@@ -70,10 +73,12 @@ impl Serialize for ByteArray {
 }
 
 impl ByteArray {
+    /// Create a new ByteArray from the given data.
     pub fn new(data: Vec<i8>) -> Self {
         Self { data }
     }
 
+    /// Produce a ByteArray from raw data.
     pub(crate) fn from_bytes(data: &[u8]) -> Self {
         // Safe to treat [u8] as [i8].
         let data = unsafe { &*(data as *const [u8] as *const [i8]) };
@@ -91,6 +96,9 @@ impl Deref for ByteArray {
     }
 }
 
+/// NBT IntArray that owns its data. This type preserves the exact NBT type
+/// when (de)serializing. This dereferences into a i32 slice, so should be usable
+/// basically anywhere a slice should be.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct IntArray {
@@ -98,10 +106,12 @@ pub struct IntArray {
 }
 
 impl IntArray {
+    /// Create a new IntArray from the given data.
     pub fn new(data: Vec<i32>) -> Self {
         Self { data }
     }
 
+    /// Produce a IntArray from raw data.
     pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
         let data = data
             .chunks_exact(4)
@@ -177,6 +187,9 @@ impl Deref for IntArray {
     }
 }
 
+/// NBT LongArray that owns its data. This type preserves the exact NBT type
+/// when (de)serializing. This dereferences into a i64 slice, so should be usable
+/// basically anywhere a slice should be.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct LongArray {
@@ -184,6 +197,7 @@ pub struct LongArray {
 }
 
 impl LongArray {
+    /// Create a new LongArray from the given data.
     pub fn new(data: Vec<i64>) -> Self {
         Self { data }
     }
