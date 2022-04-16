@@ -32,18 +32,21 @@ breaking change are:
 Changes that make `fastnbt` incompatible with WebAssembly *are* considered
 breaking changes.
 
-# Comparison to other NBT crates
+# Other NBT crates
 
-There are other crates for NBT out there, this tries to give an honest
-comparison to them. 
+There appears to be a few crates that support serde (de)serialization, the main
+ones I found were:
 
-The Hematite `nbt` crate was the only other crate I found with serde
-deserialization. 
+* [`hematite_nbt`](https://github.com/PistonDevelopers/hematite_nbt)
+* [`quartz_nbt`](https://github.com/Rusty-Quartz/quartz_nbt)
 
-* Both crates support serialization and deserialization with
+There are likely others! There are definitely more without serde support.
+
+* All these crates support serialization and deserialization with
   serde.
-* They are not interoperable due to requiring custom handling of NBT Array
-  types.
-* They both handle Minecraft's (actually Java's) specialised Unicode.
-* fastnbt supports borrowing from the underlying bytes being deserialized.
-* fastnbt's `Value` type can round-trip deserialize-serialize NBT arrays.
+* They are not interoperable with eachother due to requiring custom handling of
+  NBT Array types.
+* They all handle Minecraft's (actually Java's) specialised Unicode.
+* quartz and fastnbt support borrowing from the underlying bytes being deserialized.
+* fastnbt's `Value` type can round-trip deserialize-serialize NBT arrays. The
+  other crates have value types as well, they may also rount-trip correctly.
