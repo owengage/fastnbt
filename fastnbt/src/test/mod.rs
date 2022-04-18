@@ -17,6 +17,7 @@ mod minecraft_chunk;
 mod resources;
 mod ser;
 mod stream;
+mod macros;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Single<T: Serialize> {

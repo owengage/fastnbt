@@ -135,6 +135,8 @@ pub mod stream;
 mod arrays;
 mod de_arrays;
 mod value;
+#[macro_use]
+mod macros;
 
 pub use arrays::*;
 pub use value::*;

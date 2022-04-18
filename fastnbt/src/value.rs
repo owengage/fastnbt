@@ -472,3 +472,38 @@ partialeq_numeric! {
     eq_u64[u8 u16 u32 u64 usize]
     eq_f64[f32 f64]
 }
+
+macro_rules! from {
+    ($type:ty, $variant:ident $(, $($part:tt)+)?) => {
+        impl From<$type> for Value {
+            fn from(val: $type) -> Self {
+                Self::$variant(val$($($part)+)?)
+            }
+        }
+        impl From<&$type> for Value {
+            fn from(val: &$type) -> Self {
+                Self::$variant(val.to_owned()$($($part)+)?)
+            }
+        }
+    };
+}
+from!(i8, Byte);
+from!(u8, Byte, as i8);
+from!(i16, Short);
+from!(u16, Short, as i16);
+from!(i32, Int);
+from!(u32, Int, as i32);
+from!(i64, Long);
+from!(u64, Long, as i64);
+from!(f32, Float);
+from!(f64, Double);
+from!(String, String);
+from!(&str, String, .to_owned());
+from!(ByteArray, ByteArray);
+from!(IntArray, IntArray);
+from!(LongArray, LongArray);
+
+pub fn to_value<T>(value: T) -> Value
+where Value: From<T> {
+    Value::from(value)
+}
