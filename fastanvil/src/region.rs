@@ -30,21 +30,8 @@ pub struct Region<S> {
 
 impl<S> Region<S>
 where
-    S: Read + Write + Seek,
+    S: Read + Seek,
 {
-    /// Create an new empty region. The provided stream will be overwritten, and
-    /// will assume a seek to 0 is the start of the region. The stream needs
-    /// read, write, and seek like a file provides.
-    pub fn new(mut stream: S) -> Result<Self> {
-        stream.rewind()?;
-        stream.write_all(&[0; REGION_HEADER_SIZE])?;
-
-        Ok(Self {
-            stream,
-            offsets: vec![2], // 2 is the end of the header
-        })
-    }
-
     /// Load a region from an existing stream. Will assume a seek of zero is the
     /// start of the region. This does not load all region data into memory.
     /// Chunks are read from the underlying stream when needed.
@@ -82,12 +69,6 @@ where
         Ok(tmp)
     }
 
-    /// Return the inner buffer used. The buffer is rewound to the beginning.
-    pub fn into_inner(mut self) -> io::Result<S> {
-        self.stream.rewind()?;
-        Ok(self.stream)
-    }
-
     /// Read the chunk located at the chunk coordindates x, z. These should
     /// both be 0..32. The chunk data returned is uncompressed NBT.
     pub fn read_chunk(&mut self, x: usize, z: usize) -> Result<Option<Vec<u8>>> {
@@ -110,6 +91,126 @@ where
                 }
             })
             .transpose()
+    }
+
+    /// Get the location of the chunk in the stream.
+    pub(crate) fn location(&mut self, x: usize, z: usize) -> io::Result<ChunkLocation> {
+        self.stream.seek(SeekFrom::Start(header_pos(x, z)))?;
+
+        let mut buf = [0u8; 4];
+        self.stream.read_exact(&mut buf[..])?;
+
+        let mut offset = 0u64;
+        offset |= (buf[0] as u64) << 16;
+        offset |= (buf[1] as u64) << 8;
+        offset |= buf[2] as u64;
+        let sectors = buf[3] as u64;
+
+        Ok(ChunkLocation { offset, sectors })
+    }
+
+    /// Low level method. Read a compressed chunk into the given writer. The
+    /// `compression_scheme` method can be used to discover how the chunk
+    /// written is compressed, allowing you to write directly to a decompresser.
+    ///
+    /// Returns a bool indicating if a chunk was found at the given x,z.
+    fn read_compressed_chunk(
+        &mut self,
+        x: usize,
+        z: usize,
+        writer: &mut dyn Write,
+    ) -> Result<bool> {
+        if x >= 32 || z >= 32 {
+            return Err(Error::InvalidOffset(x as isize, z as isize));
+        }
+
+        let loc = self.location(x, z)?;
+
+        if loc.offset == 0 && loc.sectors == 0 {
+            Ok(false)
+        } else {
+            self.stream
+                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+
+            let mut buf = [0u8; 5];
+            self.stream.read_exact(&mut buf)?;
+            let metadata = ChunkMeta::new(&buf)?;
+
+            let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
+
+            io::copy(&mut adapted, writer)?;
+
+            Ok(true)
+        }
+    }
+
+    /// Return the inner buffer used. The buffer is rewound to the beginning.
+    pub fn into_inner(mut self) -> io::Result<S> {
+        self.stream.rewind()?;
+        Ok(self.stream)
+    }
+
+    /// Low level method. Get the compression scheme that a given chunk is
+    /// compressed with in the region. Used in conjuction with
+    /// `read_compressed_chunk`.
+    fn compression_scheme(&mut self, x: usize, z: usize) -> Result<Option<CompressionScheme>> {
+        if x >= 32 || z >= 32 {
+            return Err(Error::InvalidOffset(x as isize, z as isize));
+        }
+
+        let loc = self.location(x, z)?;
+
+        if loc.offset == 0 && loc.sectors == 0 {
+            Ok(None)
+        } else {
+            self.stream
+                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+
+            let mut buf = [0u8; 5];
+            self.stream.read_exact(&mut buf)?;
+            let metadata = ChunkMeta::new(&buf)?;
+
+            Ok(Some(metadata.compression_scheme))
+        }
+    }
+
+    pub fn iter(&mut self) -> RegionIter<'_, S> {
+        RegionIter::new(self)
+    }
+
+    fn chunk_meta(&self, compressed_chunk_size: u32, scheme: CompressionScheme) -> [u8; 5] {
+        let mut buf = [0u8; 5];
+        let mut c = Cursor::new(buf.as_mut_slice());
+
+        // size written to disk includes the byte representing the compression
+        // scheme, so +1.
+        c.write_u32::<BigEndian>(compressed_chunk_size + 1).unwrap();
+        c.write_u8(match scheme {
+            CompressionScheme::Gzip => 1,
+            CompressionScheme::Zlib => 2,
+            CompressionScheme::Uncompressed => 3,
+        })
+        .unwrap();
+
+        buf
+    }
+}
+
+impl<S> Region<S>
+where
+    S: Read + Write + Seek,
+{
+    /// Create an new empty region. The provided stream will be overwritten, and
+    /// will assume a seek to 0 is the start of the region. The stream needs
+    /// read, write, and seek like a file provides.
+    pub fn new(mut stream: S) -> Result<Self> {
+        stream.rewind()?;
+        stream.write_all(&[0; REGION_HEADER_SIZE])?;
+
+        Ok(Self {
+            stream,
+            offsets: vec![2], // 2 is the end of the header
+        })
     }
 
     /// Write the given uncompressed NBT chunk data to the chunk coordinates x,
@@ -172,85 +273,6 @@ where
         Ok(())
     }
 
-    /// Low level method. Read a compressed chunk into the given writer. The
-    /// `compression_scheme` method can be used to discover how the chunk
-    /// written is compressed, allowing you to write directly to a decompresser.
-    ///
-    /// Returns a bool indicating if a chunk was found at the given x,z.
-    fn read_compressed_chunk(
-        &mut self,
-        x: usize,
-        z: usize,
-        writer: &mut dyn Write,
-    ) -> Result<bool> {
-        if x >= 32 || z >= 32 {
-            return Err(Error::InvalidOffset(x as isize, z as isize));
-        }
-
-        let loc = self.location(x, z)?;
-
-        if loc.offset == 0 && loc.sectors == 0 {
-            Ok(false)
-        } else {
-            self.stream
-                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
-
-            let mut buf = [0u8; 5];
-            self.stream.read_exact(&mut buf)?;
-            let metadata = ChunkMeta::new(&buf)?;
-
-            let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
-
-            io::copy(&mut adapted, writer)?;
-
-            Ok(true)
-        }
-    }
-
-    /// Low level method. Get the compression scheme that a given chunk is
-    /// compressed with in the region. Used in conjuction with
-    /// `read_compressed_chunk`.
-    fn compression_scheme(&mut self, x: usize, z: usize) -> Result<Option<CompressionScheme>> {
-        if x >= 32 || z >= 32 {
-            return Err(Error::InvalidOffset(x as isize, z as isize));
-        }
-
-        let loc = self.location(x, z)?;
-
-        if loc.offset == 0 && loc.sectors == 0 {
-            Ok(None)
-        } else {
-            self.stream
-                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
-
-            let mut buf = [0u8; 5];
-            self.stream.read_exact(&mut buf)?;
-            let metadata = ChunkMeta::new(&buf)?;
-
-            Ok(Some(metadata.compression_scheme))
-        }
-    }
-
-    pub fn iter(&mut self) -> RegionIter<'_, S> {
-        RegionIter::new(self)
-    }
-
-    /// Get the location of the chunk in the stream.
-    pub(crate) fn location(&mut self, x: usize, z: usize) -> io::Result<ChunkLocation> {
-        self.stream.seek(SeekFrom::Start(header_pos(x, z)))?;
-
-        let mut buf = [0u8; 4];
-        self.stream.read_exact(&mut buf[..])?;
-
-        let mut offset = 0u64;
-        offset |= (buf[0] as u64) << 16;
-        offset |= (buf[1] as u64) << 8;
-        offset |= buf[2] as u64;
-        let sectors = buf[3] as u64;
-
-        Ok(ChunkLocation { offset, sectors })
-    }
-
     /// Write the chunk data to the given offset, does no checking.
     fn set_chunk(&mut self, offset: u64, scheme: CompressionScheme, chunk: &[u8]) -> Result<()> {
         self.stream
@@ -288,23 +310,6 @@ where
         self.stream.write_all(&buf)?;
         Ok(())
     }
-
-    fn chunk_meta(&self, compressed_chunk_size: u32, scheme: CompressionScheme) -> [u8; 5] {
-        let mut buf = [0u8; 5];
-        let mut c = Cursor::new(buf.as_mut_slice());
-
-        // size written to disk includes the byte representing the compression
-        // scheme, so +1.
-        c.write_u32::<BigEndian>(compressed_chunk_size + 1).unwrap();
-        c.write_u8(match scheme {
-            CompressionScheme::Gzip => 1,
-            CompressionScheme::Zlib => 2,
-            CompressionScheme::Uncompressed => 3,
-        })
-        .unwrap();
-
-        buf
-    }
 }
 
 /// Various compression schemes that NBT data is typically compressed with.
@@ -318,7 +323,7 @@ pub enum CompressionScheme {
 
 pub struct RegionIter<'a, S>
 where
-    S: Read + Write + Seek,
+    S: Read + Seek,
 {
     inner: &'a mut Region<S>,
     index: usize,
@@ -326,7 +331,7 @@ where
 
 impl<'a, S> RegionIter<'a, S>
 where
-    S: Read + Write + Seek,
+    S: Read + Seek,
 {
     fn new(inner: &'a mut Region<S>) -> Self {
         Self { inner, index: 0 }
