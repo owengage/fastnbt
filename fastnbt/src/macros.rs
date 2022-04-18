@@ -42,6 +42,38 @@ macro_rules! nbt {
         nbt_unexpected!($unexpected)
     };
 
+    /* ------------ IntArray types ------------ */
+
+    // Done with trailing comma.
+    (@int_array [$($elems:expr,)*]) => {
+        vec![$($elems,)*]
+    };
+
+    // Done without trailing comma.
+    (@int_array [$($elems:expr),*]) => {
+        vec![$($elems),*]
+    };
+
+    // Next element is an expression followed by comma.
+    (@int_array [$($elems:expr,)*] $next:expr, $($rest:tt)*) => {
+        nbt!(@int_array [$($elems,)* $next,] $($rest)*)
+    };
+
+    // Last element is an expression with no trailing comma.
+    (@int_array [$($elems:expr,)*] $last:expr) => {
+        nbt!(@int_array [$($elems,)* $last])
+    };
+
+    // Comma after the most recent element.
+    (@int_array [$($elems:expr),*] , $($rest:tt)*) => {
+        nbt!(@int_array [$($elems,)*] $($rest)*)
+    };
+
+    // Unexpected token after most recent element.
+    (@int_array [$($elems:expr),*] $unexpected:tt $($rest:tt)*) => {
+        nbt_unexpected!($unexpected)
+    };
+
     //////////////////////////////////////////////////////////////////////////
     // TT muncher for parsing the inside of an object {...}. Each entry is
     // inserted into the given map variable.
@@ -140,6 +172,18 @@ macro_rules! nbt {
 
     ([]) => {
         $crate::Value::List(vec![])
+    };
+
+    ([B; $($tt:tt)+ ]) => {
+        $crate::Value::ByteArray($crate::ByteArray::new(nbt!(@int_array [] $($tt)+)))
+    };
+
+    ([I; $($tt:tt)+ ]) => {
+        $crate::Value::IntArray($crate::IntArray::new(nbt!(@int_array [] $($tt)+)))
+    };
+
+    ([L; $($tt:tt)+ ]) => {
+        $crate::Value::LongArray($crate::LongArray::new(nbt!(@int_array [] $($tt)+)))
     };
 
     ([ $($tt:tt)+ ]) => {

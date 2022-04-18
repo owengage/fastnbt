@@ -65,15 +65,15 @@ fn nbt() {
     );
 
     assert_eq!(
-        nbt!(ByteArray::new(vec![1, 2, 3])),
+        nbt!([B; 1, 2, 3]),
         Value::ByteArray(ByteArray::new(vec![1, 2, 3]))
     );
     assert_eq!(
-        nbt!(IntArray::new(vec![1, 2, 3])),
+        nbt!([I;1,2,3]),
         Value::IntArray(IntArray::new(vec![1, 2, 3]))
     );
     assert_eq!(
-        nbt!(LongArray::new(vec![1, 2, 3])),
+        nbt!([L; 1, 2, 3,]),
         Value::LongArray(LongArray::new(vec![1, 2, 3]))
     );
 }
