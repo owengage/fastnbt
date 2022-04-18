@@ -14,6 +14,8 @@ fn nbt() {
     assert_eq!(nbt!(1_u64), Value::Long(1));
     assert_eq!(nbt!(1_f32), Value::Float(1.0));
     assert_eq!(nbt!(1.0), Value::Double(1.0));
+    assert_eq!(nbt!(true), Value::Byte(1));
+    assert_eq!(nbt!(false), Value::Byte(0));
 
     assert_eq!(nbt!("string"), Value::String("string".to_owned()));
     assert_eq!(

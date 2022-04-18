@@ -503,6 +503,17 @@ from!(ByteArray, ByteArray);
 from!(IntArray, IntArray);
 from!(LongArray, LongArray);
 
+impl From<bool> for Value {
+    fn from(val: bool) -> Self {
+        Self::Byte(if val { 1 } else { 0 })
+    }
+}
+impl From<&bool> for Value {
+    fn from(val: &bool) -> Self {
+        Self::Byte(if *val { 1 } else { 0 })
+    }
+}
+
 pub fn to_value<T>(value: T) -> Value
 where Value: From<T> {
     Value::from(value)
