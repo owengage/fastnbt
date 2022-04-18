@@ -64,6 +64,9 @@ fn nbt() {
         ]))
     );
 
+    assert_eq!(nbt!([B;]), Value::ByteArray(ByteArray::new(vec![])));
+    assert_eq!(nbt!([I;]), Value::IntArray(IntArray::new(vec![])));
+    assert_eq!(nbt!([L;]), Value::LongArray(LongArray::new(vec![])));
     assert_eq!(
         nbt!([B; 1, 2, 3]),
         Value::ByteArray(ByteArray::new(vec![1, 2, 3]))

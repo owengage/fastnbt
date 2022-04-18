@@ -170,6 +170,18 @@ macro_rules! nbt {
     // Must be invoked as: nbt!($($json)+)
     //////////////////////////////////////////////////////////////////////////
 
+    ([B;]) => {
+        $crate::Value::ByteArray($crate::ByteArray::new(vec![]))
+    };
+
+    ([I;]) => {
+        $crate::Value::IntArray($crate::IntArray::new(vec![]))
+    };
+
+    ([L;]) => {
+        $crate::Value::LongArray($crate::LongArray::new(vec![]))
+    };
+
     ([]) => {
         $crate::Value::List(vec![])
     };
