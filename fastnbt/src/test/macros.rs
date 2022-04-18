@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::Value;
+use crate::{Value, ByteArray, IntArray, LongArray};
 
 #[test]
 fn nbt() {
@@ -60,5 +60,18 @@ fn nbt() {
             ("key2".to_owned(), Value::Int(42)),
             ("key3".to_owned(), Value::List(vec![Value::Int(4), Value::Int(2)])),
         ]))
+    );
+
+    assert_eq!(
+        nbt!(ByteArray::new(vec![1, 2, 3])),
+        Value::ByteArray(ByteArray::new(vec![1, 2, 3]))
+    );
+    assert_eq!(
+        nbt!(IntArray::new(vec![1, 2, 3])),
+        Value::IntArray(IntArray::new(vec![1, 2, 3]))
+    );
+    assert_eq!(
+        nbt!(LongArray::new(vec![1, 2, 3])),
+        Value::LongArray(LongArray::new(vec![1, 2, 3]))
     );
 }
