@@ -2,14 +2,15 @@
 //! *Minecraft: Java Edition*. This format is used by the game to store various
 //! things, such as the world data and player inventories.
 //!
-//! * For documentation and examples of serde deserialization, see [`de`].
-//! * For documentation and examples of serde serialization, see [`ser`].
+//! * For documentation and examples of serde (de)serialization, see [`ser`] and
+//!   [`de`].
 //! * For a `serde_json`-like `Value` type see [`Value`].
+//! * To easily create values, see the [`nbt`] macro.
 //! * For NBT array types see [`ByteArray`], [`IntArray`], and [`LongArray`].
-//! * For 'zero-copy' NBT array types see [`borrow`].
+//! * For zero-copy NBT array types see [`borrow`].
 //!
 //! Both this and related crates are under one [fastnbt Github
-//! repository](https://github.com/owengage/fastnbt)
+//! repository](https://github.com/owengage/fastnbt).
 //!
 //! ```toml
 //! [dependencies]
@@ -19,8 +20,8 @@
 //! # Byte, Int and Long array types
 //!
 //! There are three array types in NBT. To capture these, use [`ByteArray`],
-//! [`IntArray`], and [`LongArray`]. in order to preserve the information from
-//! the original NBT, these NBT types do not deserialize straight into serde
+//! [`IntArray`], and [`LongArray`]. In order to preserve the information from
+//! the original NBT, these NBT types do not (de)serialize straight from/into serde
 //! sequences like `Vec`. Without these types, it is not possible to tell if
 //! some data came from a NBT List or an NBT Array.
 //!

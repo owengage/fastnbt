@@ -13,7 +13,7 @@ https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
 [crates.io]: https://crates.io/crates/fastnbt
 
 `fastnbt` is a serde serializer and deserializer for *Minecraft: Java Edition's*
-NBT format.
+NBT format, including `Value` type and `nbt!` macro.
 
 `fastanvil` allows rendering maps of worlds, and a
 `Region` for using the Region file format.

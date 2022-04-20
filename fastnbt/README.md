@@ -5,7 +5,8 @@ Documentation: [docs.rs](https://docs.rs/crate/fastnbt)
 Fast deserializer and serializer for *Minecraft: Java Edition*'s NBT format.
 
 Includes a `Value` type for serializing or deserializing any NBT. `Value`
-correctly preserves the exact NBT structure.
+correctly preserves the exact NBT structure. The `nbt!` macro allows easy
+creation of these values.
 
 The derserializer allows you to avoid allocations where possible. Strings can be
 deserialized to `&'a str` where `'a` is the lifetime of the data being
@@ -50,3 +51,5 @@ There are likely others! There are definitely more without serde support.
 * quartz and fastnbt support borrowing from the underlying bytes being deserialized.
 * fastnbt's `Value` type can round-trip deserialize-serialize NBT arrays. The
   other crates have value types as well, they may also rount-trip correctly.
+
+  Honestly, they all seem like good options!

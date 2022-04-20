@@ -27,16 +27,54 @@
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#[macro_export]
+/// Produce a [`Value`][`crate::Value`] using
+/// JSON/[SNBT](https://minecraft.fandom.com/wiki/NBT_format#SNBT_format)-like
+/// syntax.
+///
+/// Example:
+/// ```rust
+/// use fastnbt::nbt;
+/// let _ = nbt!({
+///     "key1": "value1",
+///     "key2": 42,
+///     "key3": [4, 2],
+/// });
+/// ```
+///
+/// Unlike SNBT, key/field names for compounds need quoted strings. `"key1"`
+/// above could not be simplified to just `key1`.
+///
+/// NBT Arrays are supported with
+/// [SNBT](https://minecraft.fandom.com/wiki/NBT_format#SNBT_format) syntax:
+///
+/// ```rust
+/// # use fastnbt::nbt;
+/// let _ = nbt!({
+///     "bytes": [B; 1, 2, 3],
+///     "ints": [I; 1, 2, 3],
+///     "longs": [L; 1, 2, 3],
+/// });
+/// ```
+///
+#[macro_export(local_inner_macros)]
 macro_rules! nbt {
+    // Hide distracting implementation details from the generated rustdoc.
+    ($($nbt:tt)+) => {
+        nbt_internal!($($nbt)+)
+    };
+}
+
+#[macro_export(local_inner_macros)]
+#[doc(hidden)]
+macro_rules! nbt_internal {
     // Done with trailing comma.
     (@array [$($elems:expr,)*]) => {
-        vec![$($elems,)*]
+        nbt_internal_vec![$($elems,)*]
     };
 
     // Done without trailing comma.
     (@array [$($elems:expr),*]) => {
-        vec![$($elems),*]
+        nbt_internal_vec![$($elems),*]
     };
 
     // Next element is an array.
@@ -73,12 +111,12 @@ macro_rules! nbt {
 
     // Done with trailing comma.
     (@int_array [$($elems:expr,)*]) => {
-        vec![$($elems,)*]
+        nbt_internal_vec![$($elems,)*]
     };
 
     // Done without trailing comma.
     (@int_array [$($elems:expr),*]) => {
-        vec![$($elems),*]
+        nbt_internal_vec![$($elems),*]
     };
 
     // Next element is an expression followed by comma.
@@ -198,19 +236,19 @@ macro_rules! nbt {
     //////////////////////////////////////////////////////////////////////////
 
     ([B;]) => {
-        $crate::Value::ByteArray($crate::ByteArray::new(vec![]))
+        $crate::Value::ByteArray($crate::ByteArray::new(nbt_internal_vec![]))
     };
 
     ([I;]) => {
-        $crate::Value::IntArray($crate::IntArray::new(vec![]))
+        $crate::Value::IntArray($crate::IntArray::new(nbt_internal_vec![]))
     };
 
     ([L;]) => {
-        $crate::Value::LongArray($crate::LongArray::new(vec![]))
+        $crate::Value::LongArray($crate::LongArray::new(nbt_internal_vec![]))
     };
 
     ([]) => {
-        $crate::Value::List(vec![])
+        $crate::Value::List(nbt_internal_vec![])
     };
 
     ([B; $($tt:tt)+ ]) => {
@@ -257,4 +295,15 @@ macro_rules! nbt_unexpected {
 #[doc(hidden)]
 macro_rules! nbt_expect_expr_comma {
     ($e:expr , $($tt:tt)*) => {};
+}
+
+// The json_internal macro above cannot invoke vec directly because it uses
+// local_inner_macros. A vec invocation there would resolve to $crate::vec.
+// Instead invoke vec here outside of local_inner_macros.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! nbt_internal_vec {
+    ($($content:tt)*) => {
+        vec![$($content)*]
+    };
 }

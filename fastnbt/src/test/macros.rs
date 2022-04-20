@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Value, ByteArray, IntArray, LongArray};
+use crate::{ByteArray, IntArray, LongArray, Value};
 
 #[test]
 fn nbt() {
@@ -60,7 +60,10 @@ fn nbt() {
         Value::Compound(HashMap::from([
             ("key1".to_owned(), Value::String("value1".to_owned())),
             ("key2".to_owned(), Value::Int(42)),
-            ("key3".to_owned(), Value::List(vec![Value::Int(4), Value::Int(2)])),
+            (
+                "key3".to_owned(),
+                Value::List(vec![Value::Int(4), Value::Int(2)])
+            ),
         ]))
     );
 
