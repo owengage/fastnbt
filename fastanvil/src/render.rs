@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek, Write},
 };
 
-use crate::{Block, CCoord, Chunk, HeightMode, JavaChunk, RCoord, RegionLoader};
+use crate::{Block, BlockArchetype, CCoord, Chunk, HeightMode, JavaChunk, RCoord, RegionLoader};
 
 use super::biome::Biome;
 
@@ -80,13 +80,13 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
             let current_block = chunk.block(x, y, z);
 
             if let Some(current_block) = current_block {
-                match current_block {
-                    block if is_airy(block) => {
+                match current_block.archetype {
+                    BlockArchetype::Airy => {
                         y -= 1;
                     }
                     // TODO: Can potentially optimize this for ocean floor using
                     // heightmaps.
-                    block if is_watery(block) => {
+                    BlockArchetype::Watery => {
                         let mut block_colour = self.palette.pick(current_block, current_biome);
                         let water_depth = water_depth(x, y, z, chunk, y_min);
                         let alpha = water_depth_to_alpha(water_depth);
@@ -109,24 +109,6 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 
         colour
     }
-}
-
-/// Blocks that are considered as if they are water when determining colour.
-fn is_watery(block: &Block) -> bool {
-    matches!(
-        block.name(),
-        "minecraft:water"
-            | "minecraft:bubble_column"
-            | "minecraft:kelp"
-            | "minecraft:kelp_plant"
-            | "minecraft:sea_grass"
-            | "minecraft:tall_seagrass"
-    )
-}
-
-/// Blocks that are considered as if they are air when determining colour.
-fn is_airy(block: &Block) -> bool {
-    matches!(block.name(), "minecraft:air" | "minecraft:cave_air")
 }
 
 /// Convert `water_depth` meters of water to an approximate opacity
@@ -162,7 +144,7 @@ fn water_depth<C: Chunk + ?Sized>(
             None => return depth,
         };
 
-        if is_watery(block) {
+        if block.archetype == BlockArchetype::Watery {
             depth += 1;
         } else {
             return depth;

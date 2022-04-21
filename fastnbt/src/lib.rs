@@ -21,9 +21,9 @@
 //!
 //! There are three array types in NBT. To capture these, use [`ByteArray`],
 //! [`IntArray`], and [`LongArray`]. In order to preserve the information from
-//! the original NBT, these NBT types do not (de)serialize straight from/into serde
-//! sequences like `Vec`. Without these types, it is not possible to tell if
-//! some data came from a NBT List or an NBT Array.
+//! the original NBT, these NBT types do not (de)serialize straight from/into
+//! serde sequences like `Vec`. Without these types, it is not possible to tell
+//! if some data came from a NBT List or an NBT Array.
 //!
 //! A limitation of these array types is that they cannot be used with serde's
 //! untagged enums. If this is important to you please open an issue.

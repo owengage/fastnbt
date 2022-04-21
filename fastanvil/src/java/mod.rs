@@ -24,14 +24,12 @@ use crate::{biome::Biome, Chunk, HeightMode};
 pub static AIR: Lazy<Block> = Lazy::new(|| Block {
     name: "minecraft:air".to_owned(),
     encoded: "minecraft:air|".to_owned(),
-    snowy: false,
-    properties: Default::default(),
+    archetype: BlockArchetype::Airy,
 });
 pub static SNOW_BLOCK: Lazy<Block> = Lazy::new(|| Block {
     name: "minecraft:snow_block".to_owned(),
     encoded: "minecraft:snow_block|".to_owned(),
-    snowy: true,
-    properties: Default::default(),
+    archetype: BlockArchetype::Snowy,
 });
 
 /// A Minecraft chunk.

@@ -150,12 +150,18 @@ impl<T: Debug> Default for BiomeData<T> {
 
 /// Number of bits that will be used per block in block_states data for blocks.
 fn blockstates_bits_per_block(palette_len: usize) -> usize {
-    std::cmp::max((palette_len as f64).log2().ceil() as usize, 4)
+    std::cmp::max(4, min_bits_for_n_states(palette_len)) as usize
+    // std::cmp::max((palette_len as f64).log2().ceil() as usize, 4)
 }
 
 /// Number of bits that will be used per block in block_states data for biomes.
 fn biomes_bits_per_block(palette_len: usize) -> usize {
-    std::cmp::max((palette_len as f64).log2().ceil() as usize, 1)
+    std::cmp::max(1, min_bits_for_n_states(palette_len)) as usize
+    // std::cmp::max((palette_len as f64).log2().ceil() as usize, 1)
+}
+
+pub(crate) fn min_bits_for_n_states(palette_len: usize) -> usize {
+    (usize::BITS - (palette_len - 1).leading_zeros()) as usize
 }
 
 /// Iterator over block state data. Each value is the index into the relevant palette.
