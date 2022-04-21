@@ -425,6 +425,12 @@ impl<'de> InputHelper<'de> {
         Ok(s)
     }
 
+    fn ignore_size_prefixed_string(&mut self) -> Result<()> {
+        let len = self.0.read_u16::<BigEndian>()? as usize;
+        self.0 = &self.0[len..];
+        Ok(())
+    }
+
     fn consume_size_prefixed_bytes(&mut self) -> Result<&'de [u8]> {
         let len = self.0.read_u16::<BigEndian>()? as usize;
         let str_data = self.subslice(0..len)?;
@@ -477,7 +483,7 @@ impl<'de> InputHelper<'de> {
                 self.consume_double()?;
             }
             Tag::String => {
-                self.consume_size_prefixed_string()?;
+                self.ignore_size_prefixed_string()?;
             }
             Tag::ByteArray => {
                 let size = self.consume_list_size()?;
@@ -501,7 +507,8 @@ impl<'de> InputHelper<'de> {
                         break;
                     }
 
-                    self.consume_name()?;
+                    // consume the name.
+                    self.ignore_size_prefixed_string()?;
                     self.ignore_value(tag)?;
                 }
             }
