@@ -12,11 +12,17 @@ https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
 [Latest Version]: https://img.shields.io/crates/v/fastnbt.svg
 [crates.io]: https://crates.io/crates/fastnbt
 
-`fastnbt` is a serde serializer and deserializer for *Minecraft: Java Edition's*
-NBT format, including `Value` type and `nbt!` macro.
+[`fastnbt`](https://crates.io/crates/fastnbt)
+([docs](https://docs.rs/fastnbt/latest/fastnbt/index.html)) is a [serde](https://serde.rs/)
+serializer and deserializer for *Minecraft: Java Edition's* NBT format,
+including [`Value`](https://docs.rs/fastnbt/latest/fastnbt/enum.Value.html) type
+and [`nbt!`](https://docs.rs/fastnbt/latest/fastnbt/macro.nbt.html) macro.
 
-`fastanvil` allows rendering maps of worlds, and a
-`Region` for using the Region file format.
+[`fastanvil`](https://crates.io/crates/fastanvil)
+([docs](https://docs.rs/fastanvil/latest/fastanvil/index.html)) allows rendering
+maps of worlds, and a
+[`Region`](https://docs.rs/fastanvil/latest/fastanvil/struct.Region.html) for
+using the Region file format.
 
 An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
 Supports 1.18 down to 1.15 inclusive.
@@ -28,12 +34,13 @@ Demo of Hermitcraft season 8 and more at [owengage.com/anvil](https://owengage.c
 ![alt rendered map](demo.png)  
 
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
-your CPU. See [fastnbt's README](fastnbt/README.md) for performance comparison.
+your CPU.
 
 # Examples
 
-A bunch of examples can be found in `fastnbt/examples`, `fastanvil/examples` and
-`tools/src`. Some examples are recreated below.
+A bunch of examples can be found in
+[`fastnbt/examples`](https://github.com/owengage/fastnbt/tree/master/fastnbt/examples),
+[`fastanvil/examples`](https://github.com/owengage/fastnbt/tree/master/fastanvil/examples) and [`tools/src`](https://github.com/owengage/fastnbt/tree/master/tools/src/bin). Some examples are recreated below.
 
 # Example: editing level.dat
 
