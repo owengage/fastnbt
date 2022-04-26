@@ -181,9 +181,19 @@ fn i128_from_invalid_int_array() {
         .int_array_payload(&[1, 2, 3])
         .tag(Tag::End)
         .build();
-
     let v: Result<V> = from_bytes(payload.as_slice());
+    assert!(v.is_err());
 
+    // Although number of bytes is correct, won't be accepted
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::ByteArray)
+        .name("_i")
+        .int_payload(16)
+        .int_array_payload(&[1; 16])
+        .tag(Tag::End)
+        .build();
+    let v: Result<V> = from_bytes(payload.as_slice());
     assert!(v.is_err());
 }
 
