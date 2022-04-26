@@ -1,3 +1,6 @@
+mod ser;
+mod de;
+
 use std::collections::HashMap;
 
 use crate::{from_bytes, to_bytes, Tag, Value};

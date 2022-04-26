@@ -279,9 +279,9 @@ macro_rules! nbt_internal {
         })
     };
 
-    // Any value of T where fastnbt::Value: From<T>
+    // Any Serialize type: numbers, strings, struct literals, variables etc.
     ($other:expr) => {
-        $crate::to_value($other)
+        $crate::to_value(&$other).unwrap()
     };
 }
 
