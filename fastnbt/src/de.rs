@@ -225,7 +225,7 @@ use crate::{DeOpts, Tag};
 use byteorder::{BigEndian, ReadBytesExt};
 
 use serde::de::Unexpected;
-use serde::{de, forward_to_deserialize_any};
+use serde::{de, forward_to_deserialize_any, serde_if_integer128};
 
 /// Deserializer for NBT data. See the [`de`] module for more information.
 ///
@@ -392,6 +392,34 @@ where
         // should never get here.
         Tag::End => Err(Error::bespoke(
             "unexpected end tag, was expecting payload of a value".into(),
+        )),
+    }
+}
+
+fn get_i128_value<'de>(de: &mut Deserializer<'de>) -> Result<i128> {
+    let tag = match de.layers.last() {
+        Some(Layer::Compound { current_tag, .. }) => current_tag.as_ref().ok_or_else(|| {
+            Error::bespoke("deserialize i128: did not know value's tag".to_string())
+        }),
+        Some(Layer::List { element_tag, .. }) => Ok(element_tag),
+        None => Err(Error::bespoke(
+            "deserialize i128: not in compound or list".to_string(),
+        )),
+    }?;
+
+    match tag {
+        Tag::IntArray => {
+            let size = de.input.consume_list_size()?;
+            let bs = de.input.consume_bytes_usize(try_size(size, 4)?)?;
+            match bs.try_into() {
+                Ok(bs) => Ok(i128::from_be_bytes(bs)),
+                Err(_) => Err(Error::bespoke(
+                    format!("deserialize i128: expected IntArray of length 4 with 16 bytes, found {} bytes", bs.len()),
+                ))
+            }
+        },
+        _ => Err(Error::bespoke(
+            "deserialize i128: expected IntArray value".to_string(),
         )),
     }
 }
@@ -624,6 +652,24 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             _ => Err(Error::bespoke(
                 "deserialize bool: expected integral value".to_string(),
             )),
+        }
+    }
+
+    serde_if_integer128! {
+        #[inline]
+        fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value>
+        where
+            V: de::Visitor<'de>,
+        {
+            visitor.visit_i128(get_i128_value(self)?)
+        }
+
+        #[inline]
+        fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value>
+        where
+            V: de::Visitor<'de>,
+        {
+            visitor.visit_u128(get_i128_value(self)? as u128)
         }
     }
 

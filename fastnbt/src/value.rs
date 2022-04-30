@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{
     de::{DeserializeSeed, Visitor},
-    Deserialize, Serialize,
+    serde_if_integer128, Deserialize, Serialize,
 };
 
 use crate::{ByteArray, IntArray, LongArray};
@@ -514,7 +514,35 @@ impl From<&bool> for Value {
     }
 }
 
+macro_rules! from_128bit {
+    ($($type:ty),+) => {
+        $(
+            impl From<$type> for Value {
+                fn from(val: $type) -> Self {
+                    Self::IntArray(IntArray::new(vec![
+                        (val >> 96) as i32,
+                        (val >> 64) as i32,
+                        (val >> 32) as i32,
+                        val as i32,
+                    ]))
+                }
+            }
+
+            impl From<&$type> for Value {
+                fn from(val: &$type) -> Self {
+                    Value::from(*val)
+                }
+            }
+        )+
+    };
+}
+serde_if_integer128! {
+    from_128bit!(i128, u128);
+}
+
 pub fn to_value<T>(value: T) -> Value
-where Value: From<T> {
+where
+    Value: From<T>,
+{
     Value::from(value)
 }
