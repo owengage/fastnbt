@@ -3,12 +3,12 @@ use std::io::Write;
 use byteorder::{BigEndian, WriteBytesExt};
 use serde::{
     ser::{self, Impossible, SerializeTuple},
-    Serialize,
+    serde_if_integer128, Serialize,
 };
 
 use crate::{
     error::{Error, Result},
-    Tag,
+    IntArray, Tag,
 };
 
 use super::{
@@ -90,6 +90,21 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
         self.try_write_header(Tag::Long)?;
         self.writer.write_i64::<BigEndian>(v)?;
         Ok(())
+    }
+
+    serde_if_integer128! {
+        fn serialize_i128(self, v: i128) -> Result<()> {
+            IntArray::new(vec![
+                (v >> 96) as i32,
+                (v >> 64) as i32,
+                (v >> 32) as i32,
+                v as i32,
+            ]).serialize(self)
+        }
+
+        fn serialize_u128(self, v: u128) -> Result<()> {
+            self.serialize_i128(v as i128)
+        }
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
