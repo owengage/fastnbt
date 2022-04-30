@@ -1,4 +1,4 @@
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{NativeEndian, ReadBytesExt};
 use serde::ser::Impossible;
 
 use crate::{error::Error, ByteArray, IntArray, LongArray, Tag, Value};
@@ -80,12 +80,12 @@ impl<'a> serde::Serializer for ArraySerializer<'a> {
             Tag::ByteArray => Ok(Value::ByteArray(ByteArray::from_bytes(v))),
             Tag::IntArray => Ok(Value::IntArray(IntArray::new(
                 v.chunks_exact(4)
-                    .map(|mut bs| bs.read_i32::<LittleEndian>())
+                    .map(|mut bs| bs.read_i32::<NativeEndian>())
                     .collect::<std::io::Result<Vec<i32>>>()?,
             ))),
             Tag::LongArray => Ok(Value::LongArray(LongArray::new(
                 v.chunks_exact(8)
-                    .map(|mut bs| bs.read_i64::<LittleEndian>())
+                    .map(|mut bs| bs.read_i64::<NativeEndian>())
                     .collect::<std::io::Result<Vec<i64>>>()?,
             ))),
             _ => unreachable!(),
