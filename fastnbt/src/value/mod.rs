@@ -164,9 +164,53 @@ impl Value {
     }
 }
 
+// ------------- From<T> impls -------------
+
+macro_rules! from {
+    ($type:ty, $variant:ident $(, $($part:tt)+)?) => {
+        impl From<$type> for Value {
+            fn from(val: $type) -> Self {
+                Self::$variant(val$($($part)+)?)
+            }
+        }
+        impl From<&$type> for Value {
+            fn from(val: &$type) -> Self {
+                Self::$variant(val.to_owned()$($($part)+)?)
+            }
+        }
+    };
+}
+from!(i8, Byte);
+from!(u8, Byte, as i8);
+from!(i16, Short);
+from!(u16, Short, as i16);
+from!(i32, Int);
+from!(u32, Int, as i32);
+from!(i64, Long);
+from!(u64, Long, as i64);
+from!(f32, Float);
+from!(f64, Double);
+from!(String, String);
+from!(&str, String, .to_owned());
+from!(ByteArray, ByteArray);
+from!(IntArray, IntArray);
+from!(LongArray, LongArray);
+
+impl From<bool> for Value {
+    fn from(val: bool) -> Self {
+        Self::Byte(if val { 1 } else { 0 })
+    }
+}
+impl From<&bool> for Value {
+    fn from(val: &bool) -> Self {
+        Self::Byte(if *val { 1 } else { 0 })
+    }
+}
+
 //
-// Partial Eq impls. Everything below is copied from serde_json,
-// https://github.com/serde-rs/json/blob/5d2cbcdd4b146e98b5aa2200de7a8ae6231bf0ba/src/value/partial_eq.rs
+// Everything below is copied from serde_json,
+// Partial Eq impls: https://github.com/serde-rs/json/blob/5d2cbcdd4b146e98b5aa2200de7a8ae6231bf0ba/src/value/partial_eq.rs
+// to/from_value(): https://github.com/serde-rs/json/blob/52a9c050f5dcc0dc3de4825b131b8ff05219cc82/src/value/mod.rs#L886-L989
 //
 // For which the license is MIT:
 //
@@ -282,47 +326,6 @@ partialeq_numeric! {
     eq_f64[f32 f64]
 }
 
-macro_rules! from {
-    ($type:ty, $variant:ident $(, $($part:tt)+)?) => {
-        impl From<$type> for Value {
-            fn from(val: $type) -> Self {
-                Self::$variant(val$($($part)+)?)
-            }
-        }
-        impl From<&$type> for Value {
-            fn from(val: &$type) -> Self {
-                Self::$variant(val.to_owned()$($($part)+)?)
-            }
-        }
-    };
-}
-from!(i8, Byte);
-from!(u8, Byte, as i8);
-from!(i16, Short);
-from!(u16, Short, as i16);
-from!(i32, Int);
-from!(u32, Int, as i32);
-from!(i64, Long);
-from!(u64, Long, as i64);
-from!(f32, Float);
-from!(f64, Double);
-from!(String, String);
-from!(&str, String, .to_owned());
-from!(ByteArray, ByteArray);
-from!(IntArray, IntArray);
-from!(LongArray, LongArray);
-
-impl From<bool> for Value {
-    fn from(val: bool) -> Self {
-        Self::Byte(if val { 1 } else { 0 })
-    }
-}
-impl From<&bool> for Value {
-    fn from(val: &bool) -> Self {
-        Self::Byte(if *val { 1 } else { 0 })
-    }
-}
-
 macro_rules! from_128bit {
     ($($type:ty),+) => {
         $(
@@ -410,6 +413,41 @@ where
     value.serialize(&mut Serializer)
 }
 
+/// Interpret a `fastnbt::Value` as an instance of type `T`.
+///
+/// # Example
+///
+/// ```
+/// use serde::Deserialize;
+/// use fastnbt::nbt;
+///
+/// #[derive(Deserialize, Debug)]
+/// struct User {
+///     fingerprint: String,
+///     location: String,
+/// }
+///
+/// fn main() {
+///     // The type of `j` is `fastnbt::Value`
+///     let j = nbt!({
+///         "fingerprint": "0xF9BA143B95FF6D82",
+///         "location": "Menlo Park, CA"
+///     });
+///
+///     let u: User = fastnbt::from_value(&j).unwrap();
+///     println!("{:#?}", u);
+/// }
+/// ```
+///
+/// # Errors
+///
+/// This conversion can fail if the structure of the Value does not match the
+/// structure expected by `T`, for example if `T` is a struct type but the Value
+/// contains something other than an NBT compound. It can also fail if the structure
+/// is correct but `T`'s implementation of `Deserialize` decides that something
+/// is wrong with the data, for example required struct fields are missing from
+/// the NBT compound or some number is too big to fit in the expected primitive
+/// type.
 pub fn from_value<'de, T>(value: &'de Value) -> Result<T, Error>
 where
     T: Deserialize<'de>,

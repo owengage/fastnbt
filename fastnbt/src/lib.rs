@@ -140,7 +140,7 @@ mod de_arrays;
 mod macros;
 
 pub use arrays::*;
-pub use value::{Value, to_value};
+pub use value::{from_value, to_value, Value};
 
 #[cfg(test)]
 mod test;
