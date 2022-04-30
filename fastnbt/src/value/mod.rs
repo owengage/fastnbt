@@ -4,11 +4,14 @@ mod ser;
 
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{error::Error, ByteArray, IntArray, LongArray};
 
 pub use self::ser::Serializer;
+
+pub(crate) const INT_ARRAY_VALUE_TOKEN: &str = "__fastnbt_int_array_from_value";
+pub(crate) const LONG_ARRAY_VALUE_TOKEN: &str = "__fastnbt_long_array_from_value";
 
 /// Value is a complete NBT value. It owns its data. Compounds and Lists are
 /// resursively deserialized. This type takes care to preserve all the
@@ -379,4 +382,11 @@ where
     T: Serialize,
 {
     value.serialize(&mut Serializer)
+}
+
+pub fn from_value<'de, T>(value: &'de Value) -> Result<T, Error>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(value)
 }
