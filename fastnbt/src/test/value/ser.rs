@@ -148,3 +148,40 @@ fn nested() {
 
     assert_eq!(expected, val);
 }
+
+#[test]
+fn no_root_compound() {
+    assert_eq!(Ok(Value::Byte(-128)), to_value(-128_i8));
+    assert_eq!(Ok(Value::Int(97)), to_value('a'));
+    assert_eq!(Ok(Value::String("string".to_string())), to_value("string"));
+    assert_eq!(
+        Ok(Value::IntArray(IntArray::new(vec![u32::MAX as i32; 4]))),
+        to_value(u128::MAX)
+    );
+    assert_eq!(
+        Ok(Value::ByteArray(ByteArray::new(vec![1, 2, 3]))),
+        to_value(ByteArray::new(vec![1, 2, 3]))
+    );
+    assert_eq!(
+        Ok(Value::IntArray(IntArray::new(vec![1, 2, 3]))),
+        to_value(IntArray::new(vec![1, 2, 3]))
+    );
+    assert_eq!(
+        Ok(Value::LongArray(LongArray::new(vec![1, 2, 3]))),
+        to_value(LongArray::new(vec![1, 2, 3]))
+    );
+    assert_eq!(
+        Ok(Value::List(vec![
+            Value::Byte(1),
+            Value::Byte(2),
+            Value::Byte(3),
+            Value::Byte(4)
+        ])),
+        to_value(vec![
+            Value::Byte(1),
+            Value::Byte(2),
+            Value::Byte(3),
+            Value::Byte(4)
+        ])
+    );
+}

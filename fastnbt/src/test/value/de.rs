@@ -123,3 +123,24 @@ fn nested() {
 
     assert_eq!(expected, val);
 }
+
+#[test]
+fn no_root_compound() {
+    assert_eq!(Ok(128_u8), from_value(&nbt!(128_u8)));
+    assert_eq!(Ok('a'), from_value(&nbt!('a')));
+    assert_eq!(Ok("string".to_string()), from_value(&nbt!("string")));
+    assert_eq!(Ok(u128::MAX), from_value(&nbt!(u128::MAX)));
+    assert_eq!(
+        Ok(ByteArray::new(vec![1, 2, 3])),
+        from_value(&nbt!([B; 1, 2, 3]))
+    );
+    assert_eq!(
+        Ok(IntArray::new(vec![1, 2, 3])),
+        from_value(&nbt!([I; 1, 2, 3]))
+    );
+    assert_eq!(
+        Ok(LongArray::new(vec![1, 2, 3])),
+        from_value(&nbt!([L; 1, 2, 3]))
+    );
+    assert_eq!(Ok(vec![1, 2, 3, 4]), from_value(&nbt!([1, 2, 3, 4])));
+}
