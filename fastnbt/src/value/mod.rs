@@ -4,7 +4,7 @@ mod ser;
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{serde_if_integer128, Deserialize, Serialize};
 
 use crate::{error::Error, ByteArray, IntArray, LongArray};
 
@@ -321,6 +321,32 @@ impl From<&bool> for Value {
     fn from(val: &bool) -> Self {
         Self::Byte(if *val { 1 } else { 0 })
     }
+}
+
+macro_rules! from_128bit {
+    ($($type:ty),+) => {
+        $(
+            impl From<$type> for Value {
+                fn from(val: $type) -> Self {
+                    Self::IntArray(IntArray::new(vec![
+                        (val >> 96) as i32,
+                        (val >> 64) as i32,
+                        (val >> 32) as i32,
+                        val as i32,
+                    ]))
+                }
+            }
+
+            impl From<&$type> for Value {
+                fn from(val: &$type) -> Self {
+                    Value::from(*val)
+                }
+            }
+        )+
+    };
+}
+serde_if_integer128! {
+    from_128bit!(i128, u128);
 }
 
 /// Convert a `T` into `fastnbt::Value` which is an enum that can represent

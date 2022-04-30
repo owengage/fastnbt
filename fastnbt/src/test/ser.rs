@@ -72,6 +72,49 @@ fn simple_numbers() {
 }
 
 #[test]
+#[cfg(not(no_integer128))]
+fn serialize_i128() {
+    #[derive(Serialize)]
+    struct V {
+        max: u128,
+        min: i128,
+        zero: i128,
+        counting: u128,
+    }
+    let v = V {
+        max: u128::MAX,
+        min: i128::MIN,
+        zero: 0,
+        counting: 1 << 96 | 2 << 64 | 3 << 32 | 4,
+    };
+    let bs = to_bytes(&v).unwrap();
+    let expected = Builder::new()
+        .start_compound("")
+        .tag(Tag::IntArray)
+        .name("max")
+        .int_payload(4)
+        // All bits are 1
+        .int_array_payload(&[u32::MAX as i32; 4])
+        .tag(Tag::IntArray)
+        .name("min")
+        .int_payload(4)
+        // Only first bit is 1
+        .int_array_payload(&[1 << 31, 0, 0, 0])
+        .tag(Tag::IntArray)
+        .name("zero")
+        .int_payload(4)
+        .int_array_payload(&[0; 4])
+        .tag(Tag::IntArray)
+        .name("counting")
+        .int_payload(4)
+        .int_array_payload(&[1, 2, 3, 4])
+        .tag(Tag::End)
+        .build();
+
+    assert_eq!(expected, bs);
+}
+
+#[test]
 fn simple_string() {
     let v = Single {
         val: "hello".to_owned(),
