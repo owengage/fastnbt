@@ -132,15 +132,15 @@ pub mod de;
 pub mod error;
 pub mod ser;
 pub mod stream;
+pub mod value;
 
 mod arrays;
 mod de_arrays;
-mod value;
 #[macro_use]
 mod macros;
 
 pub use arrays::*;
-pub use value::*;
+pub use value::{from_value, to_value, Value};
 
 #[cfg(test)]
 mod test;

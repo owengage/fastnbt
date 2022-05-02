@@ -1,11 +1,17 @@
+mod array_serializer;
+mod de;
+mod ser;
+
 use std::collections::HashMap;
 
-use serde::{
-    de::{DeserializeSeed, Visitor},
-    serde_if_integer128, Deserialize, Serialize,
-};
+use serde::{serde_if_integer128, Deserialize, Serialize};
 
-use crate::{ByteArray, IntArray, LongArray};
+use crate::{error::Error, ByteArray, IntArray, LongArray};
+
+pub use self::ser::Serializer;
+
+pub(crate) const INT_ARRAY_VALUE_TOKEN: &str = "__fastnbt_int_array_from_value";
+pub(crate) const LONG_ARRAY_VALUE_TOKEN: &str = "__fastnbt_long_array_from_value";
 
 /// Value is a complete NBT value. It owns its data. Compounds and Lists are
 /// resursively deserialized. This type takes care to preserve all the
@@ -158,206 +164,53 @@ impl Value {
     }
 }
 
-impl Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Value::Byte(v) => serializer.serialize_i8(*v),
-            Value::Short(v) => serializer.serialize_i16(*v),
-            Value::Int(v) => serializer.serialize_i32(*v),
-            Value::Long(v) => serializer.serialize_i64(*v),
-            Value::Float(v) => serializer.serialize_f32(*v),
-            Value::Double(v) => serializer.serialize_f64(*v),
-            Value::String(v) => serializer.serialize_str(v),
-            Value::ByteArray(v) => v.serialize(serializer),
-            Value::IntArray(v) => v.serialize(serializer),
-            Value::LongArray(v) => v.serialize(serializer),
-            Value::List(v) => v.serialize(serializer),
-            Value::Compound(v) => v.serialize(serializer),
-        }
-    }
-}
+// ------------- From<T> impls -------------
 
-impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct ValueVisitor;
-        impl<'de> serde::de::Visitor<'de> for ValueVisitor {
-            type Value = Value;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("valid NBT")
-            }
-
-            fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::Byte(v))
-            }
-
-            fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::Short(v))
-            }
-
-            fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::Int(v))
-            }
-
-            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::Long(v))
-            }
-
-            fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::Float(v))
-            }
-
-            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::Double(v))
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Value::String(v.to_owned()))
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                // I think I either need to do the same trick as I did for NBT
-                // Arrays and have dedicated types to this, or just accept that
-                // it's a Vec<Value> and that you can construct invalid NBT with
-                // it (by adding values of different type).
-
-                // Feel like the case of list of lists will break me if I try
-                // the dedicated type.
-                let mut v = Vec::<Value>::with_capacity(seq.size_hint().unwrap_or(0));
-
-                while let Some(el) = seq.next_element()? {
-                    v.push(el);
-                }
-
-                Ok(Value::List(v))
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::MapAccess<'de>,
-            {
-                match map.next_key_seed(KeyClassifier)? {
-                    Some(KeyClass::Compound(first_key)) => {
-                        let mut compound = HashMap::new();
-
-                        compound.insert(first_key, map.next_value()?);
-                        while let Some((key, value)) = map.next_entry()? {
-                            compound.insert(key, value);
-                        }
-
-                        Ok(Value::Compound(compound))
-                    }
-                    Some(KeyClass::ByteArray) => {
-                        let data = map.next_value::<&[u8]>()?;
-                        Ok(Value::ByteArray(ByteArray::from_bytes(data)))
-                    }
-                    Some(KeyClass::IntArray) => {
-                        let data = map.next_value::<&[u8]>()?;
-                        IntArray::from_bytes(data)
-                            .map(Value::IntArray)
-                            .map_err(|_| serde::de::Error::custom("could not read int array"))
-                    }
-                    Some(KeyClass::LongArray) => {
-                        let data = map.next_value::<&[u8]>()?;
-                        LongArray::from_bytes(data)
-                            .map(Value::LongArray)
-                            .map_err(|_| serde::de::Error::custom("could not read long array"))
-                    }
-                    // No keys just means an empty compound.
-                    None => Ok(Value::Compound(Default::default())),
-                }
+macro_rules! from {
+    ($type:ty, $variant:ident $(, $($part:tt)+)?) => {
+        impl From<$type> for Value {
+            fn from(val: $type) -> Self {
+                Self::$variant(val$($($part)+)?)
             }
         }
-
-        deserializer.deserialize_any(ValueVisitor)
-    }
-}
-
-struct KeyClassifier;
-
-enum KeyClass {
-    Compound(String),
-    ByteArray,
-    IntArray,
-    LongArray,
-}
-
-impl<'de> DeserializeSeed<'de> for KeyClassifier {
-    type Value = KeyClass;
-
-    fn deserialize<D>(self, deserializer: D) -> Result<KeyClass, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_str(self)
-    }
-}
-
-impl<'de> Visitor<'de> for KeyClassifier {
-    type Value = KeyClass;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("an nbt field string")
-    }
-
-    fn visit_string<E>(self, s: String) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        match s.as_str() {
-            crate::BYTE_ARRAY_TOKEN => Ok(KeyClass::ByteArray),
-            crate::INT_ARRAY_TOKEN => Ok(KeyClass::IntArray),
-            crate::LONG_ARRAY_TOKEN => Ok(KeyClass::LongArray),
-            _ => Ok(KeyClass::Compound(s)),
+        impl From<&$type> for Value {
+            fn from(val: &$type) -> Self {
+                Self::$variant(val.to_owned()$($($part)+)?)
+            }
         }
-    }
+    };
+}
+from!(i8, Byte);
+from!(u8, Byte, as i8);
+from!(i16, Short);
+from!(u16, Short, as i16);
+from!(i32, Int);
+from!(u32, Int, as i32);
+from!(i64, Long);
+from!(u64, Long, as i64);
+from!(f32, Float);
+from!(f64, Double);
+from!(String, String);
+from!(&str, String, .to_owned());
+from!(ByteArray, ByteArray);
+from!(IntArray, IntArray);
+from!(LongArray, LongArray);
 
-    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        match s {
-            crate::BYTE_ARRAY_TOKEN => Ok(KeyClass::ByteArray),
-            crate::INT_ARRAY_TOKEN => Ok(KeyClass::IntArray),
-            crate::LONG_ARRAY_TOKEN => Ok(KeyClass::LongArray),
-            _ => Ok(KeyClass::Compound(s.to_string())),
-        }
+impl From<bool> for Value {
+    fn from(val: bool) -> Self {
+        Self::Byte(if val { 1 } else { 0 })
+    }
+}
+impl From<&bool> for Value {
+    fn from(val: &bool) -> Self {
+        Self::Byte(if *val { 1 } else { 0 })
     }
 }
 
 //
-// Partial Eq impls. Everything below is copied from serde_json,
-// https://github.com/serde-rs/json/blob/5d2cbcdd4b146e98b5aa2200de7a8ae6231bf0ba/src/value/partial_eq.rs
+// Everything below is copied from serde_json,
+// Partial Eq impls: https://github.com/serde-rs/json/blob/5d2cbcdd4b146e98b5aa2200de7a8ae6231bf0ba/src/value/partial_eq.rs
+// to/from_value(): https://github.com/serde-rs/json/blob/52a9c050f5dcc0dc3de4825b131b8ff05219cc82/src/value/mod.rs#L886-L989
 //
 // For which the license is MIT:
 //
@@ -473,47 +326,6 @@ partialeq_numeric! {
     eq_f64[f32 f64]
 }
 
-macro_rules! from {
-    ($type:ty, $variant:ident $(, $($part:tt)+)?) => {
-        impl From<$type> for Value {
-            fn from(val: $type) -> Self {
-                Self::$variant(val$($($part)+)?)
-            }
-        }
-        impl From<&$type> for Value {
-            fn from(val: &$type) -> Self {
-                Self::$variant(val.to_owned()$($($part)+)?)
-            }
-        }
-    };
-}
-from!(i8, Byte);
-from!(u8, Byte, as i8);
-from!(i16, Short);
-from!(u16, Short, as i16);
-from!(i32, Int);
-from!(u32, Int, as i32);
-from!(i64, Long);
-from!(u64, Long, as i64);
-from!(f32, Float);
-from!(f64, Double);
-from!(String, String);
-from!(&str, String, .to_owned());
-from!(ByteArray, ByteArray);
-from!(IntArray, IntArray);
-from!(LongArray, LongArray);
-
-impl From<bool> for Value {
-    fn from(val: bool) -> Self {
-        Self::Byte(if val { 1 } else { 0 })
-    }
-}
-impl From<&bool> for Value {
-    fn from(val: &bool) -> Self {
-        Self::Byte(if *val { 1 } else { 0 })
-    }
-}
-
 macro_rules! from_128bit {
     ($($type:ty),+) => {
         $(
@@ -540,9 +352,105 @@ serde_if_integer128! {
     from_128bit!(i128, u128);
 }
 
-pub fn to_value<T>(value: T) -> Value
+/// Convert a `T` into `fastnbt::Value` which is an enum that can represent
+/// any valid NBT data.
+///
+/// # Example
+///
+/// ```
+/// use serde::Serialize;
+/// use fastnbt::nbt;
+///
+/// use std::error::Error;
+///
+/// #[derive(Serialize)]
+/// struct User {
+///     fingerprint: String,
+///     location: String,
+/// }
+///
+/// fn compare_nbt_values() -> Result<(), Box<dyn Error>> {
+///     let u = User {
+///         fingerprint: "0xF9BA143B95FF6D82".to_owned(),
+///         location: "Menlo Park, CA".to_owned(),
+///     };
+///
+///     // The type of `expected` is `fastnbt::Value`
+///     let expected = nbt!({
+///         "fingerprint": "0xF9BA143B95FF6D82",
+///         "location": "Menlo Park, CA",
+///     });
+///
+///     let v = fastnbt::to_value(u).unwrap();
+///     assert_eq!(v, expected);
+///
+///     Ok(())
+/// }
+/// #
+/// # compare_nbt_values().unwrap();
+/// ```
+///
+/// # Errors
+///
+/// This conversion can fail if `T`'s implementation of `Serialize` decides to
+/// fail, or if `T` contains a map with non-string keys.
+///
+/// ```
+/// use std::collections::BTreeMap;
+///
+/// fn main() {
+///     // The keys in this map are vectors, not strings.
+///     let mut map = BTreeMap::new();
+///     map.insert(vec![32, 64], "x86");
+///
+///     println!("{}", fastnbt::to_value(map).unwrap_err());
+/// }
+/// ```
+pub fn to_value<T>(value: T) -> Result<Value, Error>
 where
-    Value: From<T>,
+    T: Serialize,
 {
-    Value::from(value)
+    value.serialize(&mut Serializer)
+}
+
+/// Interpret a `fastnbt::Value` as an instance of type `T`.
+///
+/// # Example
+///
+/// ```
+/// use serde::Deserialize;
+/// use fastnbt::nbt;
+///
+/// #[derive(Deserialize, Debug)]
+/// struct User {
+///     fingerprint: String,
+///     location: String,
+/// }
+///
+/// fn main() {
+///     // The type of `j` is `fastnbt::Value`
+///     let j = nbt!({
+///         "fingerprint": "0xF9BA143B95FF6D82",
+///         "location": "Menlo Park, CA"
+///     });
+///
+///     let u: User = fastnbt::from_value(&j).unwrap();
+///     println!("{:#?}", u);
+/// }
+/// ```
+///
+/// # Errors
+///
+/// This conversion can fail if the structure of the Value does not match the
+/// structure expected by `T`, for example if `T` is a struct type but the Value
+/// contains something other than an NBT compound. It can also fail if the structure
+/// is correct but `T`'s implementation of `Deserialize` decides that something
+/// is wrong with the data, for example required struct fields are missing from
+/// the NBT compound or some number is too big to fit in the expected primitive
+/// type.
+pub fn from_value<'de, T>(value: &'de Value) -> Result<T, Error>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(value)
 }
