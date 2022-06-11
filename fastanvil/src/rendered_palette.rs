@@ -78,9 +78,8 @@ impl Palette for RenderedPalette {
                     };
                 }
                 "water" | "bubble_column" => return self.pick_water(biome),
-                "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves" => {
-                    return self.pick_foliage(biome)
-                }
+                "oak_leaves" | "jungle_leaves" | "acacia_leaves" | "dark_oak_leaves"
+                | "mangrove_leaves" => return self.pick_foliage(biome),
                 "birch_leaves" => {
                     return [0x80, 0xa7, 0x55, 255]; // game hardcodes this
                 }

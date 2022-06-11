@@ -25,7 +25,7 @@ maps of worlds, and a
 using the Region file format.
 
 An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
-Supports 1.18 down to 1.15 inclusive.
+Supports 1.19 down to 1.15 inclusive.
 
 # Demos
 

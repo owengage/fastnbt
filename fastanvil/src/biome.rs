@@ -109,6 +109,8 @@ pub enum Biome {
     WindsweptHills,
     WindsweptSavanna,
     WoodedBadlands,
+    MangroveSwamp,
+    DeepDark,
     Unknown,
 }
 
@@ -183,6 +185,8 @@ impl<'de> Deserialize<'de> for Biome {
                 "windswept_hills" => WindsweptHills,
                 "windswept_savanna" => WindsweptSavanna,
                 "wooded_badlands" => WoodedBadlands,
+                "mangrove_swamp" => MangroveSwamp,
+                "deep_dark" => DeepDark,
                 _ => Unknown,
             }),
             None => Ok(Unknown),
@@ -305,6 +309,8 @@ impl Biome {
             WindsweptHills => climate(0.2, 0.3),
             WindsweptSavanna => climate(1.1, 0.0),
             WoodedBadlands => climate(2.0, 0.0),
+            MangroveSwamp => climate(0.8, 0.9),
+            DeepDark => climate(0.8, 0.5),
             Unknown => climate(0.0, 0.0),
         }
     }
