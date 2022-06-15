@@ -7,6 +7,13 @@
 //! is a valid way to serialize it, please open an issue.
 //!
 //! The examples directory contains some examples.
+//!
+//! # 128 bit integers and UUIDs
+//!
+//! UUIDs tend to be stored in NBT using 4-long IntArrays. When serializing
+//! `i128` or `u128`, an IntArray of length 4 will be produced. This is stored
+//! as big endian i.e. the most significant bit (and int) is first.
+//!
 mod array_serializer;
 mod name_serializer;
 mod serializer;

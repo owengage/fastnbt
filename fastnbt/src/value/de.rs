@@ -572,7 +572,6 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
     where
         V: Visitor<'de>,
     {
-        drop(self);
         visitor.visit_unit()
     }
 

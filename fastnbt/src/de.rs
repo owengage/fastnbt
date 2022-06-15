@@ -56,13 +56,19 @@
 //! underyling data and decodes when needed. Please open an issue if this is
 //! important to you.
 //!
-//! ## Representation of NBT arrays
+//! # Representation of NBT arrays
 //!
 //! In order for [`Value`][`crate::Value`] to preserve all NBT information, the
 //! deserializer "[maps into serde's data
 //! model](https://serde.rs/data-model.html#mapping-into-the-data-model)". This
 //! means that in order to deserialize NBT array types, you must use the types
 //! provided in this crate, eg [LongArray][`crate::LongArray`].
+//!
+//! # 128 bit integers and UUIDs
+//!
+//! UUIDs tend to be stored in NBT using 4-long IntArrays. When deserializing
+//! `i128` or `u128`, IntArray with length 4 are accepted. This is parsed
+//! as big endian i.e. the most significant bit (and int) is first.
 //!
 //! # Other quirks
 //!
@@ -413,11 +419,12 @@ fn get_i128_value<'de>(de: &mut Deserializer<'de>) -> Result<i128> {
             let bs = de.input.consume_bytes_usize(try_size(size, 4)?)?;
             match bs.try_into() {
                 Ok(bs) => Ok(i128::from_be_bytes(bs)),
-                Err(_) => Err(Error::bespoke(
-                    format!("deserialize i128: expected IntArray of length 4 with 16 bytes, found {} bytes", bs.len()),
-                ))
+                Err(_) => Err(Error::bespoke(format!(
+                    "deserialize i128: expected IntArray of length 4 with 16 bytes, found {} bytes",
+                    bs.len()
+                ))),
             }
-        },
+        }
         _ => Err(Error::bespoke(
             "deserialize i128: expected IntArray value".to_string(),
         )),
