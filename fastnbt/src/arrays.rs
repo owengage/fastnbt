@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use byteorder::{BigEndian, ByteOrder, NativeEndian, ReadBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
@@ -102,6 +102,12 @@ impl Deref for ByteArray {
     }
 }
 
+impl DerefMut for ByteArray {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
 /// NBT IntArray that owns its data. This type preserves the exact NBT type
 /// when (de)serializing. This dereferences into a i32 slice, so should be usable
 /// basically anywhere a slice should be.
@@ -198,6 +204,12 @@ impl Deref for IntArray {
     }
 }
 
+impl DerefMut for IntArray {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
 /// NBT LongArray that owns its data. This type preserves the exact NBT type
 /// when (de)serializing. This dereferences into a i64 slice, so should be usable
 /// basically anywhere a slice should be.
@@ -290,5 +302,11 @@ impl Deref for LongArray {
 
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+impl DerefMut for LongArray {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }
