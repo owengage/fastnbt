@@ -358,7 +358,7 @@ pub struct ChunkData {
 
 impl<'a, S> Iterator for RegionIter<'a, S>
 where
-    S: Read + Write + Seek,
+    S: Read + Seek,
 {
     type Item = Result<ChunkData>;
 
