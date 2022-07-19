@@ -939,7 +939,8 @@ impl<'a, 'de> de::MapAccess<'de> for CompoundAccess<'a, 'de> {
         let tag = self.de.input.consume_tag()?;
 
         if tag == Tag::End {
-            self.de.layers.pop();
+            // self.de.layers.pop();
+            while matches!(self.de.layers.pop().unwrap(), Layer::List { .. }) {}
             return Ok(None);
         }
 
@@ -1003,6 +1004,8 @@ impl<'a, 'de> de::SeqAccess<'de> for ListAccess<'a, 'de> {
                     let val = seed.deserialize(&mut *self.de)?;
                     Ok(Some(val))
                 } else {
+                    // This doesn't occur for fixed length sequences such as
+                    // tuples and arrays (eg [i32;3]).
                     self.de.layers.pop();
                     Ok(None)
                 }

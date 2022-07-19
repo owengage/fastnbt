@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
-use crate::{from_bytes, Value};
+use crate::{from_bytes, to_bytes, Value};
 use crate::{ByteArray, IntArray, LongArray, Tag};
 
 use super::builder::Builder;
@@ -162,7 +162,7 @@ fn i128_from_int_array() {
     assert_eq!(v.min, i128::MIN);
     assert_eq!(v.zero, 0);
     // Calculated with: 1 << 96 | 2 << 64 | 3 << 32 | 4
-    assert_eq!(v.counting, 79228162551157825753847955460); 
+    assert_eq!(v.counting, 79228162551157825753847955460);
 }
 
 #[test]
@@ -1430,4 +1430,69 @@ fn tuple_struct() {
 
     let v: Single<Rgb> = from_bytes(&input).unwrap();
     assert!(matches!(v.val, Rgb(1, 2, 3)));
+}
+
+#[test]
+fn nested_tuple_list() {
+    // https://github.com/owengage/fastnbt/issues/63
+
+    // Reason for problem described here:
+    // https://github.com/serde-rs/serde/issues/1557
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    struct IntTuple {
+        value: (i32, i32, i32),
+    }
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    struct IntTupleList {
+        list: Vec<IntTuple>,
+    }
+
+    // let built = Builder::new()
+    //     .start_compound("")
+    //     .start_list("list", Tag::Compound, 1)
+    //     .start_anon_compound()
+    //     .start_list("value", Tag::Int, 3)
+    //     .int_payload(1)
+    //     .int_payload(2)
+    //     .int_payload(3)
+    //     .end_anon_compound()
+    //     .end_compound()
+    //     .build();
+
+    let nbt_list = nbt!({
+        "list": [{
+            "value": [1, 2, 3],
+        }],
+    });
+
+    let v: IntTupleList = from_bytes(&to_bytes(&nbt_list).unwrap()).unwrap();
+    // let v: IntTupleList = from_bytes(&built).unwrap();
+    assert_eq!(v.list[0].value, (1, 2, 3))
+}
+
+#[test]
+fn pathological_tuples() {
+    // Reason for problem described here:
+    // https://github.com/serde-rs/serde/issues/1557
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    struct IntTuple {
+        value: ((i32, i32, i32), (i32, i32)),
+    }
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    struct IntTupleList {
+        list: Vec<IntTuple>,
+    }
+
+    let nbt_list = nbt!({
+        "list": [{
+            "value": [[1, 2, 3],[4,5]]
+        }],
+    });
+
+    let v: IntTupleList = from_bytes(&to_bytes(&nbt_list).unwrap()).unwrap();
+    assert_eq!(v.list[0].value, ((1, 2, 3), (4, 5)))
 }
