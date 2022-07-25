@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Range};
+use std::{borrow::Cow, io::Read, ops::Range};
 
 use byteorder::{BigEndian, ReadBytesExt};
 
@@ -92,3 +92,40 @@ impl<'de> Input<'de> for Slice<'de> {
 //     self.0 = &self.0[len..];
 //     Ok(s)
 // }
+
+pub(crate) struct Reader<R: Read> {
+    pub reader: R,
+}
+
+impl<'de, R: Read> private::Sealed for Reader<R> {}
+
+impl<'de, R: Read> Input<'de> for Reader<R> {
+    fn consume_byte(&mut self) -> Result<u8> {
+        Ok(self.reader.read_u8()?)
+    }
+
+    fn ignore_str(&mut self) -> Result<()> {
+        let len = self.reader.read_u16::<BigEndian>()? as usize;
+        let mut buf = vec![0; len]; // TODO: try a scratch space to reduce allocs?
+        Ok(self.reader.read_exact(&mut buf)?)
+    }
+
+    fn consume_str<'s>(&'s mut self, scratch: &'s mut Vec<u8>) -> Result<Reference<'de, 's, str>> {
+        let len = self.reader.read_u16::<BigEndian>()? as usize;
+        scratch.clear();
+        scratch.resize(len, 0);
+        self.reader.read_exact(scratch)?;
+
+        let str = cesu8::from_java_cesu8(scratch).map_err(|_| Error::nonunicode_string(scratch))?;
+
+        Ok(match str {
+            Cow::Borrowed(_) => {
+                Reference::Copied(unsafe { std::str::from_utf8_unchecked(scratch) })
+            }
+            Cow::Owned(s) => {
+                *scratch = s.into_bytes();
+                Reference::Copied(unsafe { std::str::from_utf8_unchecked(scratch) })
+            }
+        })
+    }
+}

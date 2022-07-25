@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{io::Read, marker::PhantomData};
 
 use serde::{de, forward_to_deserialize_any, Deserialize};
 
@@ -45,6 +45,21 @@ impl<'a> Deserializer<input::Slice<'a>> {
     /// Creates a JSON deserializer from a `&[u8]`.
     pub fn from_bytes(bytes: &'a [u8]) -> Self {
         Deserializer::new(input::Slice { data: bytes })
+    }
+}
+
+pub fn from_reader<'de, T>(bytes: impl Read) -> Result<T>
+where
+    T: de::Deserialize<'de>,
+{
+    let mut deserializer = Deserializer::from_reader(bytes);
+    de::Deserialize::deserialize(&mut deserializer)
+}
+
+impl<R: Read> Deserializer<input::Reader<R>> {
+    /// Creates a JSON deserializer from a `&[u8]`.
+    pub fn from_reader(reader: R) -> Self {
+        Deserializer::new(input::Reader { reader })
     }
 }
 
