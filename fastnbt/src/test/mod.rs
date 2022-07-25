@@ -10,14 +10,14 @@ mod de;
 #[allow(clippy::float_cmp)]
 mod value;
 
-mod builder;
+pub mod builder;
 mod de_arrays;
 mod fuzz;
+mod macros;
 mod minecraft_chunk;
 mod resources;
 mod ser;
 mod stream;
-mod macros;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Single<T: Serialize> {

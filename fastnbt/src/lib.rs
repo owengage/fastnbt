@@ -129,6 +129,7 @@ use serde::{de as serde_de, Deserialize, Serialize};
 
 pub mod borrow;
 pub mod de;
+pub mod de2;
 pub mod error;
 pub mod ser;
 pub mod stream;
