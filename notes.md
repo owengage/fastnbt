@@ -1,5 +1,11 @@
 # Notes
 
+# de2
+
+* NBT lists of byte, short, int, long can be deserialized as simply &'a [u8] if
+  desired.
+* newtype structs treated as underlying value. eg `struct Inner(u8)` same as `u8`.
+
 # v2
 
 [x] get owned NBT arrays working, also within Value.
