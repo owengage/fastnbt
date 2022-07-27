@@ -7,14 +7,20 @@ use crate::{
     Tag,
 };
 
-use super::try_size;
-
 mod private {
     // Only this crate can implement this trait. Other traits can inherit from
     // Sealed in order to prevent other crates from creating implementations.
     pub trait Sealed {}
 }
 
+fn try_size(size: i32, multiplier: usize) -> Result<usize> {
+    let size: usize = size
+        .try_into()
+        .map_err(|_| Error::bespoke("size was negative".to_string()))?;
+
+    size.checked_mul(multiplier)
+        .ok_or_else(|| Error::bespoke("size too large".to_string()))
+}
 pub enum Reference<'b, 'c, T>
 where
     T: ?Sized + 'static,

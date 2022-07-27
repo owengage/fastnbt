@@ -11,7 +11,6 @@ mod de;
 mod value;
 
 pub mod builder;
-mod de_arrays;
 mod fuzz;
 mod macros;
 mod minecraft_chunk;

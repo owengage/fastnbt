@@ -4,7 +4,16 @@
 
 * NBT lists of byte, short, int, long can be deserialized as simply &'a [u8] if
   desired.
-* newtype structs treated as underlying value. eg `struct Inner(u8)` same as `u8`.
+* newtype structs treated as underlying value. eg `struct Inner(u8)` same as
+  `u8`.
+
+  [] run fuzzer
+  [] update docs about read trait
+  [] handle all the todos!
+  [] tests for untagged enums with arrays
+  [] document untagged enum?
+  [x] document Cow<str>
+  [] string as &[u8]?
 
 # v2
 

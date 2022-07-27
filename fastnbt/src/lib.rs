@@ -19,17 +19,14 @@
 //!
 //! # Byte, Int and Long array types
 //!
-//! There are three array types in NBT. To capture these, use [`ByteArray`],
-//! [`IntArray`], and [`LongArray`]. In order to preserve the information from
-//! the original NBT, these NBT types do not (de)serialize straight from/into
-//! serde sequences like `Vec`. Without these types, it is not possible to tell
-//! if some data came from a NBT List or an NBT Array.
-//!
-//! A limitation of these array types is that they cannot be used with serde's
-//! untagged enums. If this is important to you please open an issue.
+//! The NBT format has 4 sequence types: lists, byte arrays, int arrays and long
+//! arrays. To preserve the distinction between NBT lists and arrays, NBT array
+//! data cannot be (de)serialized into sequences like `Vec`. To capture arrays,
+//! use [`ByteArray`], [`IntArray`], and [`LongArray`]. An actual NBT list can
+//! be captured by a `Vec` or other suitable container.
 //!
 //! Use these in your own data structures. They all implement
-//! [`Deref`][`std::ops::Deref`] for dereferencing into a slice`.
+//! [`Deref`][`std::ops::Deref`] for dereferencing into a slice.
 //!
 //! For versions that borrow their data, see [`borrow`].
 //!
@@ -117,11 +114,11 @@
 //!# }
 //! ```
 //!
-//! # `Read` based parser
+//! # Stream based parser
 //!
-//! A lower level parser also exists in the `stream` module that only requires
-//! the `Read` trait on the input. This parser however doesn't support
-//! deserializing to Rust objects directly.
+//! A lower level parser also exists in the [`stream`] module for use cases not
+//! requiring deserialization into Rust objects. You can use [`from_reader`] for
+//! full deserialization.
 //!
 
 use ser::{Serializer, State};
@@ -129,14 +126,13 @@ use serde::{de as serde_de, Deserialize, Serialize};
 
 pub mod borrow;
 pub mod de;
-pub mod de2;
 pub mod error;
 pub mod ser;
 pub mod stream;
 pub mod value;
 
 mod arrays;
-mod de_arrays;
+mod input;
 #[macro_use]
 mod macros;
 
@@ -150,7 +146,11 @@ use crate::{
     de::Deserializer,
     error::{Error, Result},
 };
-use std::{convert::TryFrom, fmt::Display, io::Write};
+use std::{
+    convert::TryFrom,
+    fmt::Display,
+    io::{Read, Write},
+};
 
 /// An NBT tag. This does not carry the value or the name of the data.
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -299,13 +299,39 @@ pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
 /// # Ok(())
 /// # }
 /// ```
-///
-/// [`de`]: ./index.html
 pub fn from_bytes<'a, T>(input: &'a [u8]) -> Result<T>
 where
     T: serde_de::Deserialize<'a>,
 {
     from_bytes_with_opts(input, Default::default())
+}
+
+/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
+/// information.
+///
+/// ```no_run
+/// # use fastnbt::Value;
+/// # use flate2::read::GzDecoder;
+/// # use std::io;
+/// # use std::io::Read;
+/// # use fastnbt::error::Result;
+/// # fn main() -> Result<()> {
+/// # let some_reader = io::stdin();
+/// let mut decoder = GzDecoder::new(some_reader);
+/// let mut buf = vec![];
+/// decoder.read_to_end(&mut buf).unwrap();
+///
+/// let val: Value = fastnbt::from_bytes(buf.as_slice())?;
+/// # Ok(())
+/// # }
+/// ```
+pub fn from_reader<'de, R, T>(bytes: R) -> Result<T>
+where
+    T: serde_de::Deserialize<'de>,
+    R: Read,
+{
+    let mut deserializer = Deserializer::from_reader(bytes, Default::default());
+    serde_de::Deserialize::deserialize(&mut deserializer)
 }
 
 /// Options for customozing deserialization.

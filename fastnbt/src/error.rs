@@ -62,6 +62,10 @@ impl Error {
         Error("eof: unexpectedly ran out of input".to_owned())
     }
 
+    pub(crate) fn array_as_seq() -> Error {
+        Error("expected NBT Array, found seq: use ByteArray, IntArray or LongArray types".into())
+    }
+
     pub(crate) fn bespoke(msg: String) -> Error {
         Error(msg)
     }
