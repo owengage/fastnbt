@@ -15,9 +15,14 @@ use super::{
     array_serializer::ArraySerializer, name_serializer::NameSerializer, write_nbt::WriteNbt,
 };
 
+enum DelayedMapHeader {
+    List { len: usize }, // header for a list, so element tag and list size.
+    MapEntry { outer_name: Vec<u8> }, // header for a compound, so tag, name of compound.
+    Root, // root compound, special because it isn't allowed to be an array type. Must be compound.
+}
+
 pub struct Serializer<W: Write> {
     pub(crate) writer: W,
-    pub(crate) seen_root: bool,
 }
 
 impl<'a, W: Write> Serializer<W> {
@@ -233,15 +238,15 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        if !self.seen_root {
-            u8::from(Tag::Compound).serialize(&mut *self)?;
-            "".serialize(&mut *self)?;
-            self.seen_root = true;
-        }
+        // u8::from(Tag::Compound).serialize(&mut *self)?;
+        // "".serialize(&mut *self)?;
 
         Ok(SerializerMap {
             ser: self,
-            first: true,
+            header: Some(DelayedMapHeader::Root),
+            trailer: None,
+            // first: true,
+            // compound_name: vec![],
             // name: "", // will be blank for root, but what about inner?
         })
     }
@@ -263,7 +268,10 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
 
 pub struct SerializerMap<'a, W: Write> {
     ser: &'a mut Serializer<W>,
-    first: bool,
+    header: Option<DelayedMapHeader>,
+    trailer: Option<Tag>,
+    // compound_name: Vec<u8>,
+    // first: bool,
 }
 
 impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
@@ -286,7 +294,10 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
     }
 
     fn end(self) -> Result<()> {
-        self.ser.writer.write_tag(Tag::End)
+        if let Some(tag) = self.trailer {
+            self.ser.writer.write_tag(tag)?;
+        }
+        Ok(())
     }
 
     fn serialize_entry<K: ?Sized, V: ?Sized>(&mut self, key: &K, value: &V) -> Result<()>
@@ -298,41 +309,57 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
         let mut name = Vec::new();
         key.serialize(&mut NameSerializer { name: &mut name })?;
 
-        match std::str::from_utf8(&name) {
-            Ok(BYTE_ARRAY_TOKEN) => {
-                return value.serialize(ArraySerializer {
-                    ser: self.ser,
-                    tag: Tag::ByteArray,
-                });
-            }
-            Ok(INT_ARRAY_TOKEN) => {
-                return value.serialize(ArraySerializer {
-                    ser: self.ser,
-                    tag: Tag::IntArray,
-                })
-            }
-            Ok(LONG_ARRAY_TOKEN) => {
-                return value.serialize(ArraySerializer {
-                    ser: self.ser,
-                    tag: Tag::LongArray,
-                })
-            }
-            _ => {}
+        let outer_tag = match std::str::from_utf8(&name) {
+            Ok(BYTE_ARRAY_TOKEN) => Tag::ByteArray,
+            Ok(INT_ARRAY_TOKEN) => Tag::IntArray,
+            Ok(LONG_ARRAY_TOKEN) => Tag::LongArray,
+            _ => Tag::Compound,
         };
 
-        // TODO
+        match self.header.take() {
+            Some(DelayedMapHeader::Root) => {
+                if outer_tag != Tag::Compound {
+                    // TODO: Test case for this.
+                    return Err(Error::no_root_compound());
+                }
+                self.ser.writer.write_tag(Tag::Compound)?;
+                self.ser.writer.write_size_prefixed_str("")?;
+            }
+            Some(DelayedMapHeader::MapEntry { ref outer_name }) => {
+                self.ser.writer.write_tag(outer_tag)?;
+                self.ser
+                    .writer
+                    .write_u16::<BigEndian>(outer_name.len() as u16)?;
+                self.ser.writer.write_all(outer_name)?;
+            }
+            Some(DelayedMapHeader::List { len }) => {
+                self.ser.writer.write_tag(outer_tag)?;
+                self.ser.writer.write_len(len)?;
+            }
+            None => {}
+        }
 
-        // At this point, we still need to write the tag and name of the current
-        // field, but we can't know the tag to write until we start serializing
-        // the value. We need to store these up somewhere and write them in one
-        // go. I think a new serializer type should be created here while passed
-        // the name. Once a serialize call is made for the value it writes the
-        // appropriate tag, then name, then calls the core serializer to write
-        // the value.
-        value.serialize(&mut DelayedEntry {
-            ser: &mut *self.ser,
-            name,
-        })
+        match std::str::from_utf8(&name) {
+            Ok(BYTE_ARRAY_TOKEN) => value.serialize(ArraySerializer {
+                ser: self.ser,
+                tag: Tag::ByteArray,
+            }),
+            Ok(INT_ARRAY_TOKEN) => value.serialize(ArraySerializer {
+                ser: self.ser,
+                tag: Tag::IntArray,
+            }),
+            Ok(LONG_ARRAY_TOKEN) => value.serialize(ArraySerializer {
+                ser: self.ser,
+                tag: Tag::LongArray,
+            }),
+            _ => {
+                self.trailer = Some(Tag::End);
+                value.serialize(&mut DelayedEntry {
+                    ser: &mut *self.ser,
+                    name,
+                })
+            }
+        }
     }
 }
 
@@ -349,8 +376,7 @@ impl<'a, W: Write> serde::ser::SerializeStruct for SerializerMap<'a, W> {
     }
 
     fn end(self) -> Result<()> {
-        self.ser.writer.write_tag(Tag::End)?;
-        Ok(())
+        ser::SerializeMap::end(self)
     }
 }
 
@@ -657,10 +683,15 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedEntry<'a, W> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.write_header(Tag::Compound)?;
+        // self.write_header(Tag::Compound)?;
         Ok(SerializerMap {
             ser: self.ser,
-            first: false,
+            header: Some(DelayedMapHeader::MapEntry {
+                outer_name: self.name.clone(),
+            }),
+            trailer: None,
+            // first: false,
+            // compound_name: self.name.clone(),
         })
     }
 
@@ -901,10 +932,15 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedList<'a, W> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.write_header(Tag::Compound)?;
+        // self.write_header(Tag::Compound)?;
         Ok(SerializerMap {
             ser: self.ser,
-            first: false,
+            header: self
+                .first
+                .then_some(DelayedMapHeader::List { len: self.len }),
+            trailer: None,
+            // first: false,
+            // compound_name: vec![],
         })
     }
 

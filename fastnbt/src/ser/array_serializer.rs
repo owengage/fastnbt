@@ -89,7 +89,7 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
                 self.ser.writer.write_len(len)?;
 
                 for chunk in v.chunks(stride) {
-                    let el = NativeEndian::read_i32(chunk);
+                    let el = BigEndian::read_i32(chunk);
                     self.ser.writer.write_i32::<BigEndian>(el)?;
                 }
             }
@@ -99,7 +99,7 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
                 self.ser.writer.write_len(len)?;
 
                 for chunk in v.chunks(stride) {
-                    let el = NativeEndian::read_i64(chunk);
+                    let el = BigEndian::read_i64(chunk);
                     self.ser.writer.write_i64::<BigEndian>(el)?;
                 }
             }

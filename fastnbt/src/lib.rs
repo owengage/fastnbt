@@ -259,7 +259,6 @@ pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     let mut result = vec![];
     let mut serializer = Serializer {
         writer: &mut result,
-        seen_root: false,
     };
     v.serialize(&mut serializer)?;
     Ok(result)
@@ -268,10 +267,7 @@ pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
 /// Serialize some `T` into NBT data. See the [`ser`] module for more
 /// information.
 pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
-    let mut serializer = Serializer {
-        writer,
-        seen_root: false,
-    };
+    let mut serializer = Serializer { writer };
     v.serialize(&mut serializer)?;
     Ok(())
 }

@@ -120,21 +120,15 @@ impl<'a> Serialize for ByteArray<'a> {
     where
         S: serde::Serializer,
     {
-        // We can't know anything about NBT here, since we might be serializing
-        // to a different format. But we can create a hidden inner type to
-        // signal the serializer.
         #[derive(Serialize)]
-        #[allow(non_camel_case_types)]
-        enum Inner<'a> {
-            __fastnbt_byte_array(&'a Bytes),
+        struct Inner<'a> {
+            __fastnbt_byte_array: &'a Bytes,
         }
 
-        // Alignment of i64 is >= alignment of bytes so this should always work.
-        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
-
-        let array = Inner::__fastnbt_byte_array(Bytes::new(data));
-
-        array.serialize(serializer)
+        Inner {
+            __fastnbt_byte_array: Bytes::new(self.data),
+        }
+        .serialize(serializer)
     }
 }
 
@@ -143,7 +137,13 @@ impl<'a> Serialize for ByteArray<'a> {
 /// format are an example of this data type.
 #[derive(Debug, Clone, Copy)]
 pub struct IntArray<'a> {
-    data: &'a [u8],
+    data: ArrayRef<'a, i32>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ArrayRef<'a, T> {
+    NativeEndian(&'a [T]),
+    BigEndian(&'a [u8]),
 }
 
 impl<'a> IntArray<'a> {
@@ -153,12 +153,15 @@ impl<'a> IntArray<'a> {
     }
 
     pub fn new(data: &'a [i32]) -> Self {
-        let (_, data, _) = unsafe { data.align_to::<u8>() };
-        Self { data }
+        Self {
+            data: ArrayRef::NativeEndian(data),
+        }
     }
 
     pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
-        Self { data }
+        Self {
+            data: ArrayRef::BigEndian(data),
+        }
     }
 }
 
@@ -201,7 +204,14 @@ impl<'a> Iterator for IntIter<'a> {
     type Item = i32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.data.read_i32::<BigEndian>().ok()
+        match self.0.data {
+            ArrayRef::BigEndian(ref mut data) => data.read_i32::<BigEndian>().ok(),
+            ArrayRef::NativeEndian(ref mut data) => {
+                let ret = data.first()?;
+                *data = &data[1..];
+                Some(*ret)
+            }
+        }
     }
 }
 
@@ -210,21 +220,23 @@ impl<'a> Serialize for IntArray<'a> {
     where
         S: serde::Serializer,
     {
-        // We can't know anything about NBT here, since we might be serializing
-        // to a different format. But we can create a hidden inner type to
-        // signal the serializer.
         #[derive(Serialize)]
-        #[allow(non_camel_case_types)]
-        enum Inner<'a> {
-            __fastnbt_int_array(&'a Bytes),
+        struct Inner<'a> {
+            __fastnbt_int_array: &'a Bytes,
         }
 
-        // Alignment of i64 is >= alignment of bytes so this should always work.
-        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+        let mut tmp = vec![];
 
-        let array = Inner::__fastnbt_int_array(Bytes::new(data));
-
-        array.serialize(serializer)
+        Inner {
+            __fastnbt_int_array: match self.data {
+                ArrayRef::BigEndian(data) => Bytes::new(data),
+                ArrayRef::NativeEndian(data) => {
+                    tmp.extend(data.iter().flat_map(|i| i.to_be_bytes()));
+                    Bytes::new(&tmp)
+                }
+            },
+        }
+        .serialize(serializer)
     }
 }
 
@@ -233,7 +245,7 @@ impl<'a> Serialize for IntArray<'a> {
 /// (storage of all the blocks in a chunk) are an exmple of when this is used.
 #[derive(Debug, Clone, Copy)]
 pub struct LongArray<'a> {
-    data: &'a [u8],
+    data: ArrayRef<'a, i64>,
 }
 
 impl<'a> LongArray<'a> {
@@ -243,12 +255,15 @@ impl<'a> LongArray<'a> {
     }
 
     pub fn new(data: &'a [i64]) -> Self {
-        let (_, data, _) = unsafe { data.align_to::<u8>() };
-        Self { data }
+        Self {
+            data: ArrayRef::NativeEndian(data),
+        }
     }
 
     pub(crate) fn from_bytes(data: &'a [u8]) -> Self {
-        Self { data }
+        Self {
+            data: ArrayRef::BigEndian(data),
+        }
     }
 }
 
@@ -291,7 +306,14 @@ impl<'a> Iterator for LongIter<'a> {
     type Item = i64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.data.read_i64::<BigEndian>().ok()
+        match self.0.data {
+            ArrayRef::BigEndian(ref mut data) => data.read_i64::<BigEndian>().ok(),
+            ArrayRef::NativeEndian(ref mut data) => {
+                let ret = data.first()?;
+                *data = &data[1..];
+                Some(*ret)
+            }
+        }
     }
 }
 
@@ -300,21 +322,23 @@ impl<'a> Serialize for LongArray<'a> {
     where
         S: serde::Serializer,
     {
-        // We can't know anything about NBT here, since we might be serializing
-        // to a different format. But we can create a hidden inner type to
-        // signal the serializer.
         #[derive(Serialize)]
-        #[allow(non_camel_case_types)]
-        enum Inner<'a> {
-            __fastnbt_long_array(&'a Bytes),
+        struct Inner<'a> {
+            __fastnbt_long_array: &'a Bytes,
         }
 
-        // Alignment of i64 is >= alignment of bytes so this should always work.
-        let (_, data, _) = unsafe { self.data.align_to::<u8>() };
+        let mut tmp = vec![];
 
-        let array = Inner::__fastnbt_long_array(Bytes::new(data));
-
-        array.serialize(serializer)
+        Inner {
+            __fastnbt_long_array: match self.data {
+                ArrayRef::BigEndian(data) => Bytes::new(data),
+                ArrayRef::NativeEndian(data) => {
+                    tmp.extend(data.iter().flat_map(|i| i.to_be_bytes()));
+                    Bytes::new(&tmp)
+                }
+            },
+        }
+        .serialize(serializer)
     }
 }
 
