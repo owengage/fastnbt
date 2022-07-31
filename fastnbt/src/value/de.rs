@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use byteorder::BigEndian;
 use serde::{
     de::{
-        value::{BorrowedBytesDeserializer, BorrowedStrDeserializer},
+        value::{BorrowedBytesDeserializer, BorrowedStrDeserializer, BytesDeserializer},
         DeserializeSeed, EnumAccess, Expected, IntoDeserializer, MapAccess, SeqAccess, Unexpected,
         VariantAccess, Visitor,
     },
@@ -117,13 +117,13 @@ impl<'de> Deserialize<'de> for Value {
                     }
                     Some(KeyClass::IntArray) => {
                         let data = map.next_value::<&[u8]>()?;
-                        IntArray::from_bytes::<BigEndian>(data)
+                        IntArray::from_bytes(data)
                             .map(Value::IntArray)
                             .map_err(|_| serde::de::Error::custom("could not read int array"))
                     }
                     Some(KeyClass::LongArray) => {
                         let data = map.next_value::<&[u8]>()?;
-                        LongArray::from_bytes::<BigEndian>(data)
+                        LongArray::from_bytes(data)
                             .map(Value::LongArray)
                             .map_err(|_| serde::de::Error::custom("could not read long array"))
                     }
@@ -292,9 +292,9 @@ fn get_i128_value<'de>(de: &'de Value) -> Result<i128, Error> {
                     .fold(0, |acc, bit| acc << 1 | bit as i128))
             }
         }
-        _ => Err(Error::bespoke(
-            "deserialize i128: expected IntArray value".to_string(),
-        )),
+        v => Err(Error::bespoke(format!(
+            "deserialize i128: expected IntArray value {v:?}"
+        ))),
     }
 }
 
@@ -412,27 +412,13 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
     #[inline]
     fn deserialize_newtype_struct<V>(
         self,
-        name: &'static str,
+        _name: &'static str,
         visitor: V,
     ) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
-        match name {
-            crate::BYTE_ARRAY_TOKEN => visitor.visit_map(ArrayAccess {
-                token: name,
-                value: self,
-            }),
-            crate::INT_ARRAY_TOKEN => visitor.visit_map(ArrayAccess {
-                token: INT_ARRAY_VALUE_TOKEN,
-                value: self,
-            }),
-            crate::LONG_ARRAY_TOKEN => visitor.visit_map(ArrayAccess {
-                token: LONG_ARRAY_VALUE_TOKEN,
-                value: self,
-            }),
-            _ => return visitor.visit_newtype_struct(self),
-        }
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Error>
@@ -539,10 +525,7 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
     where
         V: Visitor<'de>,
     {
-        match self {
-            Value::Compound(v) => visit_compound(v, visitor),
-            _ => Err(self.invalid_type(&visitor)),
-        }
+        self.deserialize_any(visitor)
     }
 
     fn deserialize_struct<V>(
@@ -619,7 +602,7 @@ impl<'de> MapAccess<'de> for ArrayAccess<'de> {
             Value::LongArray(v) => v.to_bytes(),
             _ => unreachable!(),
         };
-        let dz = BorrowedBytesDeserializer::new(data);
+        let dz = BytesDeserializer::new(&data);
         seed.deserialize(dz)
     }
 }

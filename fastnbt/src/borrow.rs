@@ -101,7 +101,7 @@ impl<'a, 'de: 'a> Deserialize<'de> for ByteArray<'a> {
                 }
             }
         }
-        deserializer.deserialize_newtype_struct(BYTE_ARRAY_TOKEN, InnerVisitor(PhantomData))
+        deserializer.deserialize_map(InnerVisitor(PhantomData))
     }
 }
 
@@ -191,7 +191,7 @@ impl<'a, 'de: 'a> Deserialize<'de> for IntArray<'a> {
                 }
             }
         }
-        deserializer.deserialize_newtype_struct(INT_ARRAY_TOKEN, InnerVisitor(PhantomData))
+        deserializer.deserialize_map(InnerVisitor(PhantomData))
     }
 }
 
@@ -281,7 +281,7 @@ impl<'a, 'de: 'a> Deserialize<'de> for LongArray<'a> {
                 }
             }
         }
-        deserializer.deserialize_newtype_struct(LONG_ARRAY_TOKEN, InnerVisitor(PhantomData))
+        deserializer.deserialize_map(InnerVisitor(PhantomData))
     }
 }
 

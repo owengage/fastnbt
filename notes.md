@@ -15,6 +15,9 @@
   [x] document Cow<str>
   [] string as &[u8]?
 
+2022-07-30
+Serializer work, see serialize_element comment!
+
 # v2
 
 [x] get owned NBT arrays working, also within Value.

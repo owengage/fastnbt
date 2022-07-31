@@ -472,19 +472,22 @@ where
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
                 }
-                self.deserialize_newtype_struct(crate::BYTE_ARRAY_TOKEN, v)
+                let len = self.de.input.consume_i32()? as usize;
+                v.visit_map(ArrayWrapperAccess::bytes(self.de, len)?)
             }
             Tag::IntArray => {
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
                 }
-                self.deserialize_newtype_struct(crate::INT_ARRAY_TOKEN, v)
+                let len = self.de.input.consume_i32()? as usize;
+                v.visit_map(ArrayWrapperAccess::ints(self.de, len)?)
             }
             Tag::LongArray => {
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
                 }
-                self.deserialize_newtype_struct(crate::LONG_ARRAY_TOKEN, v)
+                let len = self.de.input.consume_i32()? as usize;
+                v.visit_map(ArrayWrapperAccess::longs(self.de, len)?)
             }
         }
     }
@@ -569,36 +572,6 @@ where
         self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        let target_tag = match name {
-            crate::BYTE_ARRAY_TOKEN => Tag::ByteArray,
-            crate::INT_ARRAY_TOKEN => Tag::IntArray,
-            crate::LONG_ARRAY_TOKEN => Tag::LongArray,
-            _ => return visitor.visit_newtype_struct(self),
-        };
-
-        let data_tag = self.tag;
-
-        if target_tag == data_tag {
-            let len = self.de.input.consume_i32()? as usize;
-            match target_tag {
-                Tag::ByteArray => visitor.visit_map(ArrayWrapperAccess::bytes(self.de, len)?),
-                Tag::IntArray => visitor.visit_map(ArrayWrapperAccess::ints(self.de, len)?),
-                Tag::LongArray => visitor.visit_map(ArrayWrapperAccess::longs(self.de, len)?),
-                // We know that `target_tag` is one of the above because we just
-                // created it.
-                _ => unreachable!(),
-            }
-        } else {
-            Err(Error::bespoke(format!(
-                "NBT contained {data_tag}, expected {target_tag}"
-            )))
-        }
-    }
-
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
@@ -658,6 +631,13 @@ where
             Tag::Long => visitor.visit_bool(self.de.input.consume_i64()? != 0),
             _ => self.deserialize_any(visitor),
         }
+    }
+
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
     }
 }
 

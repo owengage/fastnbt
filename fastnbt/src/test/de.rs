@@ -1625,3 +1625,22 @@ fn untagged_enum_with_arrays() {
     let v: V = from_all(&payload);
     assert_eq!(v.arr, Array::Int(IntArray::new(vec![1, 2, 3])));
 }
+
+#[test]
+fn tuple_struct_with_long_array() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    pub struct PackedBits(pub LongArray);
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct V {
+        bits: PackedBits,
+    }
+    let payload = Builder::new()
+        .start_compound("object")
+        .long_array("bits", &[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let v: V = from_all(&payload);
+    // assert_eq!(v.arr, Array::Int(IntArray::new(vec![1, 2, 3])));
+}

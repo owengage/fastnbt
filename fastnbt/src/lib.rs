@@ -121,7 +121,7 @@
 //! full deserialization.
 //!
 
-use ser::{Serializer, State};
+use ser::Serializer;
 use serde::{de as serde_de, Deserialize, Serialize};
 
 pub mod borrow;
@@ -259,9 +259,7 @@ pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
     let mut result = vec![];
     let mut serializer = Serializer {
         writer: &mut result,
-        state: State::Compound {
-            current_field: String::new(),
-        },
+        seen_root: false,
     };
     v.serialize(&mut serializer)?;
     Ok(result)
@@ -272,9 +270,7 @@ pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
 pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
     let mut serializer = Serializer {
         writer,
-        state: State::Compound {
-            current_field: String::new(),
-        },
+        seen_root: false,
     };
     v.serialize(&mut serializer)?;
     Ok(())

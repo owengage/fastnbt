@@ -72,7 +72,6 @@ fn simple_numbers() {
 }
 
 #[test]
-#[cfg(not(no_integer128))]
 fn serialize_i128() {
     #[derive(Serialize)]
     struct V {
@@ -196,6 +195,35 @@ fn list_of_compounds() {
         .end_compound()
         .int("val", 3)
         .end_compound()
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn list_of_list_of_bytes() {
+    #[derive(Serialize)]
+    struct V {
+        list: [[u8; 1]; 3],
+    }
+    let v = V {
+        list: [[1], [2], [3]],
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("list", Tag::List, 3) // we're missing the element tag and size here.
+        // First list
+        .start_anon_list(Tag::Byte, 1)
+        .byte_payload(1)
+        // second
+        .start_anon_list(Tag::Byte, 1)
+        .byte_payload(2)
+        // third
+        .start_anon_list(Tag::Byte, 1)
+        .byte_payload(3)
+        // end outer compound
         .end_compound()
         .build();
 

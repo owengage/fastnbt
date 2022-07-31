@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use byteorder::{BigEndian, ByteOrder, NativeEndian, ReadBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
-use serde_bytes::Bytes;
+use serde_bytes::{ByteBuf, Bytes};
 
 use crate::value::{INT_ARRAY_VALUE_TOKEN, LONG_ARRAY_VALUE_TOKEN};
 
@@ -17,6 +17,23 @@ pub(crate) const LONG_ARRAY_TOKEN: &str = "__fastnbt_long_array";
 #[cfg_attr(feature = "arbitrary1", derive(arbitrary::Arbitrary))]
 pub struct ByteArray {
     data: Vec<i8>,
+}
+
+impl Serialize for ByteArray {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Inner {
+            __fastnbt_byte_array: ByteBuf,
+        }
+
+        Inner {
+            __fastnbt_byte_array: ByteBuf::from(self.to_bytes()),
+        }
+        .serialize(serializer)
+    }
 }
 
 impl<'de> Deserialize<'de> for ByteArray {
@@ -39,37 +56,16 @@ impl<'de> Deserialize<'de> for ByteArray {
                 let token = map.next_key::<&str>()?.ok_or_else(|| {
                     serde::de::Error::custom("expected NBT byte array token, but got empty map")
                 })?;
-                let data = map.next_value::<&[u8]>()?;
+                let data = map.next_value::<ByteBuf>()?;
 
                 if token == BYTE_ARRAY_TOKEN {
-                    Ok(ByteArray::from_bytes(data))
+                    Ok(ByteArray::from_buf(data.into_vec()))
                 } else {
                     Err(serde::de::Error::custom("expected NBT byte array token"))
                 }
             }
         }
-        deserializer.deserialize_newtype_struct(BYTE_ARRAY_TOKEN, InnerVisitor)
-    }
-}
-
-impl Serialize for ByteArray {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // We can't know anything about NBT here, since we might be serializing
-        // to a different format. But we can create a hidden inner type to
-        // signal the serializer.
-        #[derive(Serialize)]
-        #[allow(non_camel_case_types)]
-        enum Inner<'a> {
-            __fastnbt_byte_array(&'a Bytes),
-        }
-
-        let data = self.to_bytes();
-        let array = Inner::__fastnbt_byte_array(Bytes::new(data));
-
-        array.serialize(serializer)
+        deserializer.deserialize_map(InnerVisitor)
     }
 }
 
@@ -88,9 +84,20 @@ impl ByteArray {
         }
     }
 
-    pub(crate) fn to_bytes(&self) -> &[u8] {
-        // Safe to treat [i8] as [u8].
-        unsafe { &*(self.data.as_slice() as *const [i8] as *const [u8]) }
+    /// Produce a ByteArray from raw data.
+    pub(crate) fn from_buf(data: Vec<u8>) -> Self {
+        // TODO: Remove copy.
+        let data = data.as_slice();
+
+        // Safe to treat [u8] as [i8].
+        let data = unsafe { &*(data as *const [u8] as *const [i8]) };
+        ByteArray {
+            data: data.to_owned(),
+        }
+    }
+
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
+        self.data.iter().flat_map(|i| i.to_be_bytes()).collect()
     }
 }
 
@@ -123,20 +130,35 @@ impl IntArray {
         Self { data }
     }
 
-    /// Produce a IntArray from raw data.
-    pub(crate) fn from_bytes<Ord: ByteOrder>(data: &[u8]) -> std::io::Result<Self> {
+    /// Produce a IntArray from raw data. This data should be big endian!
+    pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
         let data = data
             .chunks_exact(4)
-            .map(|mut bs| bs.read_i32::<Ord>())
+            .map(|mut bs| bs.read_i32::<BigEndian>())
             .collect::<std::io::Result<Vec<i32>>>()?;
 
         Ok(IntArray { data })
     }
 
-    pub(crate) fn to_bytes(&self) -> &[u8] {
-        // Alignment of i32 is >= alignment of bytes so this should always work.
-        let (_, data, _) = unsafe { self.data.as_slice().align_to::<u8>() };
-        data
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
+        self.data.iter().flat_map(|i| i.to_be_bytes()).collect()
+    }
+}
+
+impl Serialize for IntArray {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Inner {
+            __fastnbt_int_array: ByteBuf,
+        }
+
+        Inner {
+            __fastnbt_int_array: ByteBuf::from(self.to_bytes()),
+        }
+        .serialize(serializer)
     }
 }
 
@@ -160,39 +182,16 @@ impl<'de> Deserialize<'de> for IntArray {
                 let token = map.next_key::<&str>()?.ok_or_else(|| {
                     serde::de::Error::custom("expected NBT int array token, but got empty map")
                 })?;
-                let data = map.next_value::<&[u8]>()?;
+                let data = map.next_value::<ByteBuf>()?;
 
                 match token {
-                    INT_ARRAY_TOKEN => IntArray::from_bytes::<BigEndian>(data)
-                        .map_err(|_| serde::de::Error::custom("could not read i32 for int array")),
-                    INT_ARRAY_VALUE_TOKEN => IntArray::from_bytes::<NativeEndian>(data)
+                    INT_ARRAY_TOKEN => IntArray::from_bytes(&data)
                         .map_err(|_| serde::de::Error::custom("could not read i32 for int array")),
                     _ => Err(serde::de::Error::custom("expected NBT int array token")),
                 }
             }
         }
-        deserializer.deserialize_newtype_struct(INT_ARRAY_TOKEN, InnerVisitor)
-    }
-}
-
-impl Serialize for IntArray {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // We can't know anything about NBT here, since we might be serializing
-        // to a different format. But we can create a hidden inner type to
-        // signal the serializer.
-        #[derive(Serialize)]
-        #[allow(non_camel_case_types)]
-        enum Inner<'a> {
-            __fastnbt_int_array(&'a Bytes),
-        }
-
-        let data = self.to_bytes();
-        let array = Inner::__fastnbt_int_array(Bytes::new(data));
-
-        array.serialize(serializer)
+        deserializer.deserialize_map(InnerVisitor)
     }
 }
 
@@ -225,19 +224,34 @@ impl LongArray {
         Self { data }
     }
 
-    pub(crate) fn from_bytes<Ord: ByteOrder>(data: &[u8]) -> std::io::Result<Self> {
+    pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
         let data = data
             .chunks_exact(8)
-            .map(|mut bs| bs.read_i64::<Ord>())
+            .map(|mut bs| bs.read_i64::<BigEndian>())
             .collect::<std::io::Result<Vec<i64>>>()?;
 
         Ok(LongArray { data })
     }
 
-    pub(crate) fn to_bytes(&self) -> &[u8] {
-        // Alignment of i64 is >= alignment of bytes so this should always work.
-        let (_, data, _) = unsafe { self.data.as_slice().align_to::<u8>() };
-        data
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
+        self.data.iter().flat_map(|i| i.to_be_bytes()).collect()
+    }
+}
+
+impl Serialize for LongArray {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Inner {
+            __fastnbt_long_array: ByteBuf,
+        }
+
+        Inner {
+            __fastnbt_long_array: ByteBuf::from(self.to_bytes()),
+        }
+        .serialize(serializer)
     }
 }
 
@@ -261,39 +275,16 @@ impl<'de> Deserialize<'de> for LongArray {
                 let token = map.next_key::<&str>()?.ok_or_else(|| {
                     serde::de::Error::custom("expected NBT long array token, but got empty map")
                 })?;
-                let data = map.next_value::<&[u8]>()?;
+                let data = map.next_value::<ByteBuf>()?;
 
                 match token {
-                    LONG_ARRAY_TOKEN => LongArray::from_bytes::<BigEndian>(data)
-                        .map_err(|_| serde::de::Error::custom("could not read i64 for long array")),
-                    LONG_ARRAY_VALUE_TOKEN => LongArray::from_bytes::<NativeEndian>(data)
+                    LONG_ARRAY_TOKEN => LongArray::from_bytes(&data)
                         .map_err(|_| serde::de::Error::custom("could not read i64 for long array")),
                     _ => Err(serde::de::Error::custom("expected NBT long array token")),
                 }
             }
         }
-        deserializer.deserialize_newtype_struct(LONG_ARRAY_TOKEN, InnerVisitor)
-    }
-}
-
-impl Serialize for LongArray {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // We can't know anything about NBT here, since we might be serializing
-        // to a different format. But we can create a hidden inner type to
-        // signal the serializer.
-        #[derive(Serialize)]
-        #[allow(non_camel_case_types)]
-        enum Inner<'a> {
-            __fastnbt_long_array(&'a Bytes),
-        }
-
-        let data = self.to_bytes();
-        let array = Inner::__fastnbt_long_array(Bytes::new(data));
-
-        array.serialize(serializer)
+        deserializer.deserialize_map(InnerVisitor)
     }
 }
 

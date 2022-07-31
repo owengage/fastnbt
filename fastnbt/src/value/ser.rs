@@ -5,7 +5,8 @@ use serde::{ser::Impossible, serde_if_integer128, Serialize};
 
 use crate::{
     error::{Error, Result},
-    IntArray, Tag, Value,
+    ByteArray, IntArray, LongArray, Tag, Value, BYTE_ARRAY_TOKEN, INT_ARRAY_TOKEN,
+    LONG_ARRAY_TOKEN,
 };
 
 use super::array_serializer::ArraySerializer;
@@ -123,16 +124,22 @@ impl<'a> serde::Serializer for &'a mut Serializer {
 
     serde_if_integer128! {
         fn serialize_i128(self, v: i128) -> Result<Value> {
-            IntArray::new(vec![
+            let v = v as u128;
+            Ok(Value::IntArray(IntArray::new(vec![
                 (v >> 96) as i32,
                 (v >> 64) as i32,
                 (v >> 32) as i32,
                 v as i32,
-            ]).serialize(self)
+            ])))
         }
 
         fn serialize_u128(self, v: u128) -> Result<Value> {
-            self.serialize_i128(v as i128)
+            Ok(Value::IntArray(IntArray::new(vec![
+                (v >> 96) as i32,
+                (v >> 64) as i32,
+                (v >> 32) as i32,
+                v as i32,
+            ])))
         }
     }
 
@@ -419,12 +426,31 @@ impl serde::ser::SerializeMap for SerializeMap {
         // Panic because this indicates a bug in the program rather than an
         // expected failure.
         let key = key.expect("serialize_value called before serialize_key");
+
         self.map.insert(key, crate::to_value(&value)?);
         Ok(())
     }
 
     fn end(self) -> Result<Value> {
-        Ok(Value::Compound(self.map))
+        if self.map.len() == 1 {
+            let (key, val) = self.map.iter().next().unwrap();
+            let data = || match val {
+                Value::List(bs) => bs
+                    .iter()
+                    .map(|v| v.as_i64().unwrap() as u8)
+                    .collect::<Vec<u8>>(),
+                _ => panic!(),
+            };
+
+            Ok(match key.as_str() {
+                BYTE_ARRAY_TOKEN => Value::ByteArray(ByteArray::from_bytes(&data())),
+                INT_ARRAY_TOKEN => Value::IntArray(IntArray::from_bytes(&data())?),
+                LONG_ARRAY_TOKEN => Value::LongArray(LongArray::from_bytes(&data())?),
+                _ => Value::Compound(self.map),
+            })
+        } else {
+            Ok(Value::Compound(self.map))
+        }
     }
 }
 
