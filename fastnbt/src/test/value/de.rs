@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use serde::Deserialize;
 
-use crate::{to_value, value::from_value, ByteArray, IntArray, LongArray};
+use crate::{value::from_value, ByteArray, IntArray, LongArray};
 
 #[test]
 fn simple_types() {

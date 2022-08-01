@@ -5,7 +5,7 @@ use crate::{
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
     to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_bytes::Bytes;
 
 use super::builder::Builder;
@@ -89,24 +89,12 @@ fn serialize_i128() {
     let bs = to_bytes(&v).unwrap();
     let expected = Builder::new()
         .start_compound("")
-        .tag(Tag::IntArray)
-        .name("max")
-        .int_payload(4)
         // All bits are 1
-        .int_array_payload(&[u32::MAX as i32; 4])
-        .tag(Tag::IntArray)
-        .name("min")
-        .int_payload(4)
+        .int_array("max", &[u32::MAX as i32; 4])
         // Only first bit is 1
-        .int_array_payload(&[1 << 31, 0, 0, 0])
-        .tag(Tag::IntArray)
-        .name("zero")
-        .int_payload(4)
-        .int_array_payload(&[0; 4])
-        .tag(Tag::IntArray)
-        .name("counting")
-        .int_payload(4)
-        .int_array_payload(&[1, 2, 3, 4])
+        .int_array("min", &[1 << 31, 0, 0, 0])
+        .int_array("zero", &[0; 4])
+        .int_array("counting", &[1, 2, 3, 4])
         .tag(Tag::End)
         .build();
 
@@ -671,6 +659,7 @@ fn round_trip() {
     // the same.
     let chunk: Value = from_bytes(CHUNK_RAW_WITH_ENTITIES).unwrap();
     let bytes = to_bytes(&chunk).unwrap();
+
     let roundtrip_chunk: Value = from_bytes(&bytes).unwrap();
     assert_eq!(roundtrip_chunk, chunk);
 }
@@ -764,4 +753,44 @@ fn basic_newtype_variant_enum() {
     let actual = to_bytes(&v).unwrap();
 
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn reduced_roundtrip_bug() {
+    // When you have an empty compound, MapSerialize doesn't call
+    // serialize_entry at all, which makes sense. This would be fine except we
+    // delay writing the tag and name of the compound until the first key-value
+    // entry is being written. This delay is because NBT arrays are modelled in
+    // serde as maps with a special key-value entry, and we don't want to
+    // serialize the compound tag if it turns out to be a NBT array instead.
+    //
+    // This however means that if an empty compound is serialized, that
+    // serialize_entry doesn't get called and we end up not writing the compound
+    // tag or name as a result. The fix is to detect in the end() call that we
+    // haven't written the header, and write it.
+
+    let payload = Builder::new()
+        .start_compound("")
+        .start_list("aaa", Tag::Compound, 1)
+        .start_anon_compound()
+        .end_anon_compound()
+        .end_compound()
+        .build();
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Empty {}
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct V {
+        aaa: Vec<Empty>,
+    }
+
+    // Chunk looks fine as judged by println
+    let v: V = from_bytes(&payload).unwrap();
+
+    // This potentially broken?
+    let bs = to_bytes(&v).unwrap();
+
+    let roundtrip: V = from_bytes(&bs).unwrap();
+    assert_eq!(roundtrip, v);
 }

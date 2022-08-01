@@ -244,7 +244,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
         Ok(SerializerMap {
             ser: self,
             header: Some(DelayedMapHeader::Root),
-            trailer: None,
+            trailer: Some(Tag::End),
             // first: true,
             // compound_name: vec![],
             // name: "", // will be blank for root, but what about inner?
@@ -274,6 +274,34 @@ pub struct SerializerMap<'a, W: Write> {
     // first: bool,
 }
 
+impl<'a, W: Write> SerializerMap<'a, W> {
+    fn write_header(&mut self, actual_tag: Tag) -> Result<()> {
+        match self.header.take() {
+            Some(DelayedMapHeader::Root) => {
+                if actual_tag != Tag::Compound {
+                    // TODO: Test case for this.
+                    return Err(Error::no_root_compound());
+                }
+                self.ser.writer.write_tag(Tag::Compound)?;
+                self.ser.writer.write_size_prefixed_str("")?;
+            }
+            Some(DelayedMapHeader::MapEntry { ref outer_name }) => {
+                self.ser.writer.write_tag(actual_tag)?;
+                self.ser
+                    .writer
+                    .write_u16::<BigEndian>(outer_name.len() as u16)?;
+                self.ser.writer.write_all(outer_name)?;
+            }
+            Some(DelayedMapHeader::List { len }) => {
+                self.ser.writer.write_tag(actual_tag)?;
+                self.ser.writer.write_len(len)?;
+            }
+            None => {}
+        };
+        Ok(())
+    }
+}
+
 impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
     type Ok = ();
 
@@ -293,8 +321,14 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
         unimplemented!()
     }
 
-    fn end(self) -> Result<()> {
+    fn end(mut self) -> Result<()> {
         if let Some(tag) = self.trailer {
+            if self.header.is_some() {
+                // if we still have a header, that means that we haven't seen a
+                // single key, so it must be an empty compound, we need to write
+                // the bytes we have delayed then close off the compound.
+                self.write_header(Tag::Compound)?;
+            }
             self.ser.writer.write_tag(tag)?;
         }
         Ok(())
@@ -316,49 +350,34 @@ impl<'ser, 'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
             _ => Tag::Compound,
         };
 
-        match self.header.take() {
-            Some(DelayedMapHeader::Root) => {
-                if outer_tag != Tag::Compound {
-                    // TODO: Test case for this.
-                    return Err(Error::no_root_compound());
-                }
-                self.ser.writer.write_tag(Tag::Compound)?;
-                self.ser.writer.write_size_prefixed_str("")?;
-            }
-            Some(DelayedMapHeader::MapEntry { ref outer_name }) => {
-                self.ser.writer.write_tag(outer_tag)?;
-                self.ser
-                    .writer
-                    .write_u16::<BigEndian>(outer_name.len() as u16)?;
-                self.ser.writer.write_all(outer_name)?;
-            }
-            Some(DelayedMapHeader::List { len }) => {
-                self.ser.writer.write_tag(outer_tag)?;
-                self.ser.writer.write_len(len)?;
-            }
-            None => {}
-        }
+        self.write_header(outer_tag)?;
 
         match std::str::from_utf8(&name) {
-            Ok(BYTE_ARRAY_TOKEN) => value.serialize(ArraySerializer {
-                ser: self.ser,
-                tag: Tag::ByteArray,
-            }),
-            Ok(INT_ARRAY_TOKEN) => value.serialize(ArraySerializer {
-                ser: self.ser,
-                tag: Tag::IntArray,
-            }),
-            Ok(LONG_ARRAY_TOKEN) => value.serialize(ArraySerializer {
-                ser: self.ser,
-                tag: Tag::LongArray,
-            }),
-            _ => {
-                self.trailer = Some(Tag::End);
-                value.serialize(&mut DelayedEntry {
-                    ser: &mut *self.ser,
-                    name,
+            Ok(BYTE_ARRAY_TOKEN) => {
+                self.trailer = None;
+                value.serialize(ArraySerializer {
+                    ser: self.ser,
+                    tag: Tag::ByteArray,
                 })
             }
+            Ok(INT_ARRAY_TOKEN) => {
+                self.trailer = None;
+                value.serialize(ArraySerializer {
+                    ser: self.ser,
+                    tag: Tag::IntArray,
+                })
+            }
+            Ok(LONG_ARRAY_TOKEN) => {
+                self.trailer = None;
+                value.serialize(ArraySerializer {
+                    ser: self.ser,
+                    tag: Tag::LongArray,
+                })
+            }
+            _ => value.serialize(&mut DelayedEntry {
+                ser: &mut *self.ser,
+                name,
+            }),
         }
     }
 }
@@ -516,18 +535,17 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedEntry<'a, W> {
     }
 
     fn serialize_i128(self, v: i128) -> Result<()> {
-        self.write_header(Tag::IntArray)?;
-        IntArray::new(vec![
-            (v >> 96) as i32,
-            (v >> 64) as i32,
-            (v >> 32) as i32,
-            v as i32,
-        ])
-        .serialize(self)
+        self.serialize_u128(v as u128)
     }
 
     fn serialize_u128(self, v: u128) -> Result<()> {
-        self.serialize_i128(v as i128)
+        self.write_header(Tag::IntArray)?;
+        self.ser.writer.write_len(4)?;
+        self.ser.writer.write_u32::<BigEndian>((v >> 96) as u32)?;
+        self.ser.writer.write_u32::<BigEndian>((v >> 64) as u32)?;
+        self.ser.writer.write_u32::<BigEndian>((v >> 32) as u32)?;
+        self.ser.writer.write_u32::<BigEndian>(v as u32)?;
+        Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
@@ -578,7 +596,11 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedEntry<'a, W> {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        todo!()
+        self.write_header(Tag::List)?;
+        self.ser.writer.write_tag(Tag::Byte)?;
+        self.ser.writer.write_len(v.len())?;
+        self.ser.writer.write_all(v)?;
+        Ok(())
     }
 
     fn serialize_none(self) -> Result<()> {
@@ -607,6 +629,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedEntry<'a, W> {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<()> {
+        self.write_header(Tag::String)?;
         self.ser.writer.write_size_prefixed_str(variant)
     }
 
@@ -689,7 +712,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedEntry<'a, W> {
             header: Some(DelayedMapHeader::MapEntry {
                 outer_name: self.name.clone(),
             }),
-            trailer: None,
+            trailer: Some(Tag::End),
             // first: false,
             // compound_name: self.name.clone(),
         })
@@ -766,7 +789,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedList<'a, W> {
     }
 
     fn serialize_i128(self, v: i128) -> Result<()> {
-        self.write_header(Tag::IntArray)?;
+        // self.write_header(Tag::IntArray)?;
         IntArray::new(vec![
             (v >> 96) as i32,
             (v >> 64) as i32,
@@ -931,16 +954,13 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut DelayedList<'a, W> {
         self.serialize_seq(Some(len))
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        // self.write_header(Tag::Compound)?;
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializerMap {
             ser: self.ser,
             header: self
                 .first
                 .then_some(DelayedMapHeader::List { len: self.len }),
-            trailer: None,
-            // first: false,
-            // compound_name: vec![],
+            trailer: Some(Tag::End),
         })
     }
 

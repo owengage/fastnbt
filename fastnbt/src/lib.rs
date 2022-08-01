@@ -350,7 +350,7 @@ impl DeOpts {
 impl Default for DeOpts {
     fn default() -> Self {
         Self {
-            max_seq_len: 100_000,
+            max_seq_len: 10_000_0, // arbitrary high limit.
         }
     }
 }
