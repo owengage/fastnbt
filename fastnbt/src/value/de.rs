@@ -1,9 +1,8 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use byteorder::BigEndian;
 use serde::{
     de::{
-        value::{BorrowedBytesDeserializer, BorrowedStrDeserializer, BytesDeserializer},
+        value::{BorrowedStrDeserializer, BytesDeserializer},
         DeserializeSeed, EnumAccess, Expected, IntoDeserializer, MapAccess, SeqAccess, Unexpected,
         VariantAccess, Visitor,
     },
@@ -11,8 +10,6 @@ use serde::{
 };
 
 use crate::{error::Error, ByteArray, IntArray, LongArray, Value};
-
-use super::{INT_ARRAY_VALUE_TOKEN, LONG_ARRAY_VALUE_TOKEN};
 
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -275,7 +272,7 @@ where
     }
 }
 
-fn get_i128_value<'de>(de: &'de Value) -> Result<i128, Error> {
+fn get_i128_value(de: &Value) -> Result<i128, Error> {
     match de {
         Value::IntArray(v) => {
             if v.len() != 4 {
@@ -286,8 +283,7 @@ fn get_i128_value<'de>(de: &'de Value) -> Result<i128, Error> {
             } else {
                 Ok(v.iter()
                     .rev()
-                    .map(|n| (0..32).map(move |bit| n >> bit & 1))
-                    .flatten()
+                    .flat_map(|n| (0..32).map(move |bit| n >> bit & 1))
                     .rev()
                     .fold(0, |acc, bit| acc << 1 | bit as i128))
             }
@@ -378,7 +374,7 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
     {
         let (variant, value) = match self {
             Value::Compound(value) => {
-                let mut iter = value.into_iter();
+                let mut iter = value.iter();
                 let (variant, value) = match iter.next() {
                     Some(v) => v,
                     None => {
@@ -745,7 +741,7 @@ struct MapDeserializer<'de> {
 impl<'de> MapDeserializer<'de> {
     fn new(map: &'de HashMap<String, Value>) -> Self {
         MapDeserializer {
-            iter: map.into_iter(),
+            iter: map.iter(),
             value: None,
         }
     }

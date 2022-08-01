@@ -10,9 +10,6 @@ use crate::{error::Error, ByteArray, IntArray, LongArray};
 
 pub use self::ser::Serializer;
 
-pub(crate) const INT_ARRAY_VALUE_TOKEN: &str = "__fastnbt_int_array_from_value";
-pub(crate) const LONG_ARRAY_VALUE_TOKEN: &str = "__fastnbt_long_array_from_value";
-
 /// Value is a complete NBT value. It owns its data. Compounds and Lists are
 /// resursively deserialized. This type takes care to preserve all the
 /// information from the original NBT, with the exception of the name of the
@@ -398,13 +395,11 @@ serde_if_integer128! {
 /// ```
 /// use std::collections::BTreeMap;
 ///
-/// fn main() {
-///     // The keys in this map are vectors, not strings.
-///     let mut map = BTreeMap::new();
-///     map.insert(vec![32, 64], "x86");
+/// // The keys in this map are vectors, not strings.
+/// let mut map = BTreeMap::new();
+/// map.insert(vec![32, 64], "x86");
 ///
-///     println!("{}", fastnbt::to_value(map).unwrap_err());
-/// }
+/// println!("{}", fastnbt::to_value(map).unwrap_err());
 /// ```
 pub fn to_value<T>(value: T) -> Result<Value, Error>
 where
@@ -427,16 +422,14 @@ where
 ///     location: String,
 /// }
 ///
-/// fn main() {
-///     // The type of `j` is `fastnbt::Value`
-///     let j = nbt!({
-///         "fingerprint": "0xF9BA143B95FF6D82",
-///         "location": "Menlo Park, CA"
-///     });
+/// // The type of `j` is `fastnbt::Value`
+/// let j = nbt!({
+///     "fingerprint": "0xF9BA143B95FF6D82",
+///     "location": "Menlo Park, CA"
+/// });
 ///
-///     let u: User = fastnbt::from_value(&j).unwrap();
-///     println!("{:#?}", u);
-/// }
+/// let u: User = fastnbt::from_value(&j).unwrap();
+/// println!("{:#?}", u);
 /// ```
 ///
 /// # Errors

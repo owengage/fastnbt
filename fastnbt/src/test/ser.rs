@@ -6,7 +6,7 @@ use crate::{
     to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
 };
 use serde::{Deserialize, Serialize};
-use serde_bytes::Bytes;
+use serde_bytes::{ByteBuf, Bytes};
 
 use super::builder::Builder;
 
@@ -793,4 +793,107 @@ fn reduced_roundtrip_bug() {
 
     let roundtrip: V = from_bytes(&bs).unwrap();
     assert_eq!(roundtrip, v);
+}
+
+#[test]
+fn empty_compound_root() {
+    #[derive(Serialize)]
+    struct Empty {}
+
+    #[derive(Serialize)]
+    struct Wrapper(Empty);
+
+    let payload = Builder::new().start_compound("").end_compound().build();
+    let bs1 = to_bytes(&Empty {}).unwrap();
+    let bs2 = to_bytes(&Wrapper(Empty {})).unwrap();
+    assert_eq!(payload, bs1);
+    assert_eq!(payload, bs2);
+}
+
+#[test]
+fn no_root() {
+    assert!(to_bytes(&123_u8).is_err());
+    assert!(to_bytes(&123_u16).is_err());
+    assert!(to_bytes(&123_u32).is_err());
+    assert!(to_bytes(&123_u64).is_err());
+    assert!(to_bytes(&123_u128).is_err());
+    assert!(to_bytes(&123_i8).is_err());
+    assert!(to_bytes(&123_i16).is_err());
+    assert!(to_bytes(&123_i32).is_err());
+    assert!(to_bytes(&123_i64).is_err());
+    assert!(to_bytes(&123_i128).is_err());
+    assert!(to_bytes(&true).is_err());
+    assert!(to_bytes(&"hello").is_err());
+    assert!(to_bytes(&vec![1]).is_err());
+
+    assert!(to_bytes(&HashMap::<&str, ()>::new()).is_ok());
+}
+
+#[test]
+fn list_of_bytebuf() {
+    #[derive(Serialize)]
+    struct V {
+        list: [ByteBuf; 1],
+    }
+
+    let v = V {
+        list: [ByteBuf::from([1, 2, 3])],
+    };
+    let actual = to_bytes(&v).unwrap();
+    let expected = Builder::new()
+        .start_compound("")
+        .start_list("list", Tag::List, 1)
+        .start_anon_list(Tag::Byte, 3)
+        .byte_payload(1)
+        .byte_payload(2)
+        .byte_payload(3)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn list_with_none_errors() {
+    #[derive(Serialize)]
+    struct V {
+        list: [Option<u8>; 1],
+    }
+    let v = V { list: [None] };
+    assert!(to_bytes(&v).is_err());
+}
+
+#[test]
+fn unit_errors() {
+    #[derive(Serialize)]
+    struct V {
+        unit: (),
+    }
+    #[derive(Serialize)]
+    struct VS {
+        unit: [(); 1],
+    }
+    let v = V { unit: () };
+    let vs = VS { unit: [()] };
+    assert!(to_bytes(&v).is_err());
+    assert!(to_bytes(&vs).is_err());
+}
+
+#[test]
+fn unit_struct_errors() {
+    #[derive(Serialize)]
+    struct Unit;
+
+    #[derive(Serialize)]
+    struct V {
+        unit: Unit,
+    }
+    #[derive(Serialize)]
+    struct VS {
+        unit: [Unit; 1],
+    }
+    let v = V { unit: Unit };
+    let vs = VS { unit: [Unit] };
+    assert!(to_bytes(&v).is_err());
+    assert!(to_bytes(&vs).is_err());
 }

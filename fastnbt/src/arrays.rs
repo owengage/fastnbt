@@ -1,10 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
-use byteorder::{BigEndian, ByteOrder, NativeEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
-use serde_bytes::{ByteBuf, Bytes};
-
-use crate::value::{INT_ARRAY_VALUE_TOKEN, LONG_ARRAY_VALUE_TOKEN};
+use serde_bytes::ByteBuf;
 
 pub(crate) const BYTE_ARRAY_TOKEN: &str = "__fastnbt_byte_array";
 pub(crate) const INT_ARRAY_TOKEN: &str = "__fastnbt_int_array";

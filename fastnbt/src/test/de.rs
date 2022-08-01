@@ -1642,5 +1642,5 @@ fn tuple_struct_with_long_array() {
         .build();
 
     let v: V = from_all(&payload);
-    // assert_eq!(v.arr, Array::Int(IntArray::new(vec![1, 2, 3])));
+    assert_eq!(v.bits, PackedBits(LongArray::new(vec![1, 2, 3])));
 }
