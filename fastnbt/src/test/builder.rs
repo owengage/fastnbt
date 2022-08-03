@@ -156,7 +156,7 @@ impl Builder {
         self
     }
 
-    pub fn raw_len(mut self, len: usize) -> Self {
+    pub fn raw_str_len(mut self, len: usize) -> Self {
         let len: u16 = len.try_into().expect("test given length beyond u16");
         let len_bytes = &len.to_be_bytes();
         self.payload.extend_from_slice(len_bytes);

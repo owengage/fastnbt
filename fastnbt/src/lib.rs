@@ -310,10 +310,7 @@ where
 /// # fn main() -> Result<()> {
 /// # let some_reader = io::stdin();
 /// let mut decoder = GzDecoder::new(some_reader);
-/// let mut buf = vec![];
-/// decoder.read_to_end(&mut buf).unwrap();
-///
-/// let val: Value = fastnbt::from_bytes(buf.as_slice())?;
+/// let val: Value = fastnbt::from_reader(decoder)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -326,7 +323,7 @@ where
     serde_de::Deserialize::deserialize(&mut deserializer)
 }
 
-/// Options for customozing deserialization.
+/// Options for customizing deserialization.
 pub struct DeOpts {
     /// Maximum number of bytes a list or array can be.
     max_seq_len: usize,

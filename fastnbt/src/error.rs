@@ -66,6 +66,10 @@ impl Error {
         Error("expected NBT Array, found seq: use ByteArray, IntArray or LongArray types".into())
     }
 
+    pub(crate) fn array_as_other() -> Error {
+        Error("expected NBT Array: use ByteArray, IntArray or LongArray types".into())
+    }
+
     pub(crate) fn bespoke(msg: String) -> Error {
         Error(msg)
     }

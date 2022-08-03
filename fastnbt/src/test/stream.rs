@@ -129,7 +129,7 @@ fn cesu8_string_in_nbt() -> Result<()> {
     let payload = Builder::new()
         .tag(Tag::String)
         .name("cesu8")
-        .raw_len(modified_unicode_str.len())
+        .raw_str_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .build();
 
@@ -150,7 +150,7 @@ fn invalid_unicode_can_carry_on() -> Result<()> {
     let payload = Builder::new()
         .tag(Tag::String)
         .name("invalid")
-        .raw_len(bs.len())
+        .raw_str_len(bs.len())
         .raw_bytes(&bs)
         .string("available", "yes")
         .build();

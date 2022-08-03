@@ -1021,7 +1021,7 @@ fn cesu8_string_in_nbt() {
         .start_compound("")
         .tag(Tag::String)
         .name("hello")
-        .raw_len(modified_unicode_str.len())
+        .raw_str_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .end_compound()
         .build();
@@ -1042,7 +1042,7 @@ fn cannot_borrow_cesu8_if_diff_repr() {
         .start_compound("")
         .tag(Tag::String)
         .name("_name")
-        .raw_len(modified_unicode_str.len())
+        .raw_str_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .end_compound()
         .build();
@@ -1064,7 +1064,7 @@ fn can_borrow_cesu8_if_same_repr() {
         .start_compound("")
         .tag(Tag::String)
         .name("name")
-        .raw_len(modified_unicode_str.len())
+        .raw_str_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .end_compound()
         .build();
@@ -1089,7 +1089,7 @@ fn can_cow_cesu8() {
         .start_compound("")
         .tag(Tag::String)
         .name("owned")
-        .raw_len(modified_unicode_str.len())
+        .raw_str_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .string("borrowed", "abc")
         .end_compound()

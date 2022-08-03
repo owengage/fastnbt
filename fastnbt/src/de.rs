@@ -2,7 +2,7 @@
 //! would expect of a typical serde deserializer, such as deserializing into:
 //! * Rust structs.
 //! * containers like `HashMap` and `Vec`.
-//! * an arbitrary [`Value`](../enum.Value.html).
+//! * an arbitrary [`Value`][`crate::Value`].
 //! * enums. For NBT typically you want either internally or untagged enums.
 //!
 //! This deserializer supports [`from_bytes`][`crate::from_bytes`] for zero-copy
@@ -82,8 +82,8 @@
 //!   ignores the value but ensures that it existed.
 //! * You cannot deserialize into anything other than a `struct` or similar
 //!   container eg `HashMap`. This is due to a misalignment between the NBT
-//!   format and Rust's types. Attempting to will give a `NoRootCompound` error.
-//!   This means you can never do `let s: String = from_bytes(...)`.
+//!   format and Rust's types. Attempting to will give an error about no root
+//!   compound. This means you can never do `let s: String = from_bytes(...)`.
 //!
 //! # Example Minecraft types
 //!
@@ -371,6 +371,18 @@ struct MapKey<'a, In> {
     de: &'a mut Deserializer<In>,
 }
 
+fn arr_check(key: &str) -> Result<&str> {
+    if key.starts_with("__")
+        && (key == BYTE_ARRAY_TOKEN || key == INT_ARRAY_TOKEN || key == LONG_ARRAY_TOKEN)
+    {
+        Err(Error::bespoke(
+            "compound using special fastnbt array tokens".to_string(),
+        ))
+    } else {
+        Ok(key)
+    }
+}
+
 impl<'de, 'a, R> de::Deserializer<'de> for MapKey<'a, R>
 where
     R: Input<'de>,
@@ -382,8 +394,8 @@ where
         V: de::Visitor<'de>,
     {
         match self.de.input.consume_str(&mut self.de.scratch)? {
-            Reference::Borrowed(s) => visitor.visit_borrowed_str(s),
-            Reference::Copied(s) => visitor.visit_str(s),
+            Reference::Borrowed(s) => visitor.visit_borrowed_str(arr_check(s)?),
+            Reference::Copied(s) => visitor.visit_str(arr_check(s)?),
         }
     }
 
@@ -496,13 +508,15 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let consume_visit = |de: &mut Deserializer<In>, len, el_size| match de
-            .input
-            .consume_bytes(len * el_size, &mut de.scratch)?
-        {
-            Reference::Borrowed(bs) => visitor.visit_borrowed_bytes(bs),
-            Reference::Copied(bs) => visitor.visit_bytes(bs),
-        };
+        let consume_visit =
+            |de: &mut Deserializer<In>, len: usize, el_size| match de.input.consume_bytes(
+                len.checked_mul(el_size)
+                    .ok_or_else(|| Error::bespoke("overflow deserializing bytes".to_string()))?,
+                &mut de.scratch,
+            )? {
+                Reference::Borrowed(bs) => visitor.visit_borrowed_bytes(bs),
+                Reference::Copied(bs) => visitor.visit_bytes(bs),
+            };
 
         match self.tag {
             Tag::String => {

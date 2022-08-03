@@ -704,7 +704,7 @@ fn cesu_bytes() {
         .start_compound("")
         .tag(Tag::String)
         .name(symbol)
-        .raw_len(modified_unicode_str.len())
+        .raw_str_len(modified_unicode_str.len())
         .raw_bytes(&modified_unicode_str)
         .end_compound()
         .build();
