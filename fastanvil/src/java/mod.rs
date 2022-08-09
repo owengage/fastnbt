@@ -18,6 +18,7 @@ pub use section_data::*;
 pub use section_tower::*;
 
 use once_cell::sync::Lazy;
+use serde::Deserialize;
 
 use crate::{biome::Biome, Chunk, HeightMode};
 
@@ -33,7 +34,8 @@ pub static SNOW_BLOCK: Lazy<Block> = Lazy::new(|| Block {
 });
 
 /// A Minecraft chunk.
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
 pub enum JavaChunk {
     Post18(CurrentJavaChunk),
     Pre18(pre18::JavaChunk),

@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{self, Cursor, Read, Seek, SeekFrom, Take, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::read::ZlibEncoder;
@@ -67,6 +67,32 @@ where
         // we add an offset representing the end of sectors that are in use.
         tmp.offsets.push(max_offset + max_offsets_sector_count);
         Ok(tmp)
+    }
+
+    pub fn read_chunk_with(&mut self, x: usize, z: usize) -> Result<Option<Box<dyn Read + '_>>> {
+        let scheme = if let Some(scheme) = self.compression_scheme(x, z)? {
+            scheme
+        } else {
+            return Ok(None);
+        };
+
+        let reader = if let Some(reader) = self.compressed_reader(x, z)? {
+            reader
+        } else {
+            return Ok(None);
+        };
+
+        match scheme {
+            CompressionScheme::Zlib => {
+                let decoder = Box::new(flate2::read::ZlibDecoder::new(reader));
+                Ok(Some(decoder))
+            }
+            CompressionScheme::Gzip => {
+                let decoder = Box::new(flate2::read::GzDecoder::new(reader));
+                Ok(Some(decoder))
+            }
+            CompressionScheme::Uncompressed => Ok(Some(Box::new(reader))),
+        }
     }
 
     /// Read the chunk located at the chunk coordindates x, z. These should
@@ -141,6 +167,29 @@ where
             io::copy(&mut adapted, writer)?;
 
             Ok(true)
+        }
+    }
+
+    fn compressed_reader(&mut self, x: usize, z: usize) -> Result<Option<Take<&mut S>>> {
+        if x >= 32 || z >= 32 {
+            return Err(Error::InvalidOffset(x as isize, z as isize));
+        }
+
+        let loc = self.location(x, z)?;
+
+        if loc.offset == 0 && loc.sectors == 0 {
+            Ok(None)
+        } else {
+            self.stream
+                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+
+            let mut buf = [0u8; 5];
+            self.stream.read_exact(&mut buf)?;
+            let metadata = ChunkMeta::new(&buf)?;
+
+            let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
+
+            Ok(Some(adapted))
         }
     }
 

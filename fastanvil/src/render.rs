@@ -237,10 +237,10 @@ where
     if let Some(mut r) = loader.region(x, RCoord(z.0 - 1)) {
         for (x, entry) in cache.iter_mut().enumerate() {
             *entry = r
-                .read_chunk(x, 31)
+                .read_chunk_with(x, 31)
                 .ok()
                 .flatten()
-                .and_then(|b| JavaChunk::from_bytes(&b).ok())
+                .and_then(|b| fastnbt::from_reader(b).ok())
         }
     }
 
@@ -250,10 +250,10 @@ where
 
             // TODO: actually let this fail rather than flatten the result.
             let chunk_data = region
-                .read_chunk(x, z)
+                .read_chunk_with(x, z)
                 .ok()
                 .flatten()
-                .and_then(|chunk| JavaChunk::from_bytes(&chunk).ok())
+                .and_then(|chunk| fastnbt::from_reader(chunk).ok())
                 .map(|chunk| {
                     // Get the chunk at the same x coordinate from the cache. This
                     // should be the chunk that is directly above the current. We
