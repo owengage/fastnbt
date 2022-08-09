@@ -1644,3 +1644,15 @@ fn tuple_struct_with_long_array() {
     let v: V = from_all(&payload);
     assert_eq!(v.bits, PackedBits(LongArray::new(vec![1, 2, 3])));
 }
+
+#[test]
+fn negative_seq_lens() {
+    let payload = Builder::new()
+        .start_compound("")
+        .start_list("list", Tag::Byte, -1)
+        .raw_bytes(&[0; 1024])
+        .end_compound()
+        .build();
+
+    assert!(from_bytes::<Value>(&payload).is_err());
+}

@@ -134,6 +134,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializerMap {
             ser: self,
+            key: None,
             header: Some(DelayedHeader::Root),
             trailer: Some(Tag::End),
         })
@@ -156,6 +157,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
 
 pub struct SerializerMap<'a, W: Write> {
     ser: &'a mut Serializer<W>,
+    key: Option<Vec<u8>>,
     header: Option<DelayedHeader>,
     trailer: Option<Tag>,
     // compound_name: Vec<u8>,
@@ -190,41 +192,24 @@ impl<'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
 
     type Error = Error;
 
-    fn serialize_key<T: ?Sized>(&mut self, _key: &T) -> Result<()>
+    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<()>
     where
         T: serde::Serialize,
-    {
-        unimplemented!()
-    }
-
-    fn serialize_value<T: ?Sized>(&mut self, _value: &T) -> Result<()>
-    where
-        T: serde::Serialize,
-    {
-        unimplemented!()
-    }
-
-    fn end(mut self) -> Result<()> {
-        if let Some(tag) = self.trailer {
-            if let Some(header) = self.header.take() {
-                // if we still have a header, that means that we haven't seen a
-                // single key, so it must be an empty compound, we need to write
-                // the bytes we have delayed then close off the compound.
-                write_header(&mut self.ser.writer, header, Tag::Compound)?;
-            }
-            self.ser.writer.write_tag(tag)?;
-        }
-        Ok(())
-    }
-
-    fn serialize_entry<K: ?Sized, V: ?Sized>(&mut self, key: &K, value: &V) -> Result<()>
-    where
-        K: Serialize,
-        V: Serialize,
     {
         // Get the name ahead of time.
         let mut name = Vec::new();
         key.serialize(&mut NameSerializer { name: &mut name })?;
+        self.key = Some(name);
+        Ok(())
+    }
+
+    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    where
+        T: serde::Serialize,
+    {
+        let name = self.key.take().ok_or_else(|| {
+            Error::bespoke("serialize_value called before serialize_key".to_string())
+        })?;
 
         let outer_tag = match std::str::from_utf8(&name) {
             Ok(BYTE_ARRAY_TOKEN) => Tag::ByteArray,
@@ -265,6 +250,19 @@ impl<'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
                 is_list: false,
             }),
         }
+    }
+
+    fn end(mut self) -> Result<()> {
+        if let Some(tag) = self.trailer {
+            if let Some(header) = self.header.take() {
+                // if we still have a header, that means that we haven't seen a
+                // single key, so it must be an empty compound, we need to write
+                // the bytes we have delayed then close off the compound.
+                write_header(&mut self.ser.writer, header, Tag::Compound)?;
+            }
+            self.ser.writer.write_tag(tag)?;
+        }
+        Ok(())
     }
 }
 
@@ -600,6 +598,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Delayed<'a, W> {
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializerMap {
             ser: self.ser,
+            key: None,
             header: self.header.take(),
             trailer: Some(Tag::End),
         })

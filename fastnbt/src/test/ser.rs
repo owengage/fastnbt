@@ -5,7 +5,7 @@ use crate::{
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
     to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
 };
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_bytes::{ByteBuf, Bytes};
 
 use super::builder::Builder;
@@ -896,4 +896,24 @@ fn unit_struct_errors() {
     let vs = VS { unit: [Unit] };
     assert!(to_bytes(&v).is_err());
     assert!(to_bytes(&vs).is_err());
+}
+
+#[test]
+fn serialize_key_and_value() {
+    struct Dummy;
+    impl Serialize for Dummy {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut map = serializer.serialize_map(None)?;
+            map.serialize_key("test")?;
+            map.serialize_value("value")?;
+            map.end()
+        }
+    }
+
+    let bs = to_bytes(&Dummy).unwrap();
+    let actual = to_bytes(&nbt!({"test":"value"})).unwrap();
+    assert_eq!(actual, bs);
 }

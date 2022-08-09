@@ -51,34 +51,15 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     only_bytes!(serialize_unit_struct, &'static str);
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-        match self.tag {
-            Tag::ByteArray => {
-                self.ser.writer.write_len(v.len())?;
-                self.ser.writer.write_all(v)?;
-            }
-            Tag::IntArray => {
-                let stride = 4;
-                let len = v.len() / stride;
-                self.ser.writer.write_len(len)?;
-
-                for chunk in v.chunks(stride) {
-                    let el = BigEndian::read_i32(chunk);
-                    self.ser.writer.write_i32::<BigEndian>(el)?;
-                }
-            }
-            Tag::LongArray => {
-                let stride = 8;
-                let len = v.len() / stride;
-                self.ser.writer.write_len(len)?;
-
-                for chunk in v.chunks(stride) {
-                    let el = BigEndian::read_i64(chunk);
-                    self.ser.writer.write_i64::<BigEndian>(el)?;
-                }
-            }
+        let stride = match self.tag {
+            Tag::ByteArray => 1,
+            Tag::IntArray => 4,
+            Tag::LongArray => 8,
             _ => panic!(),
         };
-
+        let len = v.len() / stride;
+        self.ser.writer.write_len(len)?;
+        self.ser.writer.write_all(v)?;
         Ok(())
     }
 
