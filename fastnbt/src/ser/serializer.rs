@@ -390,7 +390,8 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Delayed<'a, W> {
 
     fn serialize_bool(self, v: bool) -> Result<()> {
         self.write_header(Tag::Byte)?;
-        self.ser.serialize_bool(v)
+        self.ser.writer.write_i8(v as i8)?;
+        Ok(())
     }
 
     fn serialize_i8(self, v: i8) -> Result<()> {

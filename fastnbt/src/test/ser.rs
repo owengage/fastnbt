@@ -1,14 +1,14 @@
-use std::{collections::HashMap, iter::FromIterator};
+use std::{collections::HashMap, io::Read, iter::FromIterator};
 
 use crate::{
-    borrow, from_bytes,
+    borrow, from_bytes, from_reader,
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
     to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
 };
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_bytes::{ByteBuf, Bytes};
 
-use super::builder::Builder;
+use super::{builder::Builder, resources};
 
 #[test]
 fn simple_byte() {
@@ -916,4 +916,205 @@ fn serialize_key_and_value() {
     let bs = to_bytes(&Dummy).unwrap();
     let actual = to_bytes(&nbt!({"test":"value"})).unwrap();
     assert_eq!(actual, bs);
+}
+
+#[test]
+fn issue_64() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(rename = "CamelCase")]
+    pub struct PlayerData {
+        #[serde(rename = "PersistentId")]
+        persistant_id: Option<i32>,
+        #[serde(rename = "playerGameType")]
+        game_type: i32,
+        abilities: PlayerAbilityData,
+        #[serde(rename = "Score")]
+        score: Option<i32>,
+
+        #[serde(rename = "Dimension")]
+        dimension: i32,
+        #[serde(rename = "OnGround")]
+        on_ground: bool,
+        #[serde(rename = "FallDistance")]
+        fall_distance: f32,
+        #[serde(rename = "Motion")]
+        motion: Vec<f64>, // [f64; 3]
+        #[serde(rename = "Pos")]
+        position: Vec<f64>, // [f64; 3]
+        #[serde(rename = "Rotation")]
+        rotation: Vec<f32>, // [f32; 2]
+
+        #[serde(rename = "SpawnX")]
+        spawn_x: i32,
+        #[serde(rename = "SpawnY")]
+        spawn_y: i32,
+        #[serde(rename = "SpawnZ")]
+        spawn_z: i32,
+        #[serde(rename = "SpawnForced")]
+        spawn_forced: Option<bool>,
+
+        #[serde(rename = "PortalCooldown")]
+        portal_cooldown: Option<i32>,
+        #[serde(rename = "Invulnerable")]
+        invulnerable: Option<bool>,
+
+        #[serde(rename = "AttackTime")]
+        attack_time: Option<i16>,
+        #[serde(rename = "HurtTime")]
+        hurt_time: i16,
+        #[serde(rename = "HurtByTimestamp")]
+        hurt_by: Option<i32>,
+        #[serde(rename = "DeathTime")]
+        death_time: i16,
+        #[serde(rename = "Sleeping")]
+        sleeping: bool,
+        #[serde(rename = "SleepTimer")]
+        sleep_timer: i16,
+
+        #[serde(rename = "Health")]
+        health: i16,
+        #[serde(rename = "HealF")]
+        heal: Option<f32>,
+        #[serde(rename = "foodLevel")]
+        food_level: i32,
+        #[serde(rename = "foodTickTimer")]
+        food_tick_timer: i32,
+        #[serde(rename = "foodSaturationLevel")]
+        food_saturation_level: f32,
+        #[serde(rename = "foodExhaustionLevel")]
+        food_exhaustion_level: f32,
+
+        #[serde(rename = "Fire")]
+        fire: i16,
+        #[serde(rename = "Air")]
+        air: i16,
+
+        #[serde(rename = "XpP")]
+        xp_p: f32,
+        #[serde(rename = "XpLevel")]
+        xp_level: i32,
+        #[serde(rename = "XpTotal")]
+        xp_total: i32,
+        #[serde(rename = "XpSeed")]
+        xp_seed: Option<i32>,
+
+        #[serde(rename = "Inventory")]
+        inventory: Vec<InventoryEntry>,
+        #[serde(rename = "EnderItems")]
+        ender_items: Vec<i8>,
+
+        #[serde(rename = "SelectedItemSlot")]
+        selected_item_slot: Option<i32>,
+        #[serde(rename = "SelectedItem")]
+        selected_item: Option<InventoryEntry>,
+        #[serde(rename = "UUIDLeast")]
+        uuid_least: Option<i64>,
+        #[serde(rename = "UUIDMost")]
+        uuid_most: Option<i64>,
+        #[serde(rename = "AbsorptionAmount")]
+        absorbtion_amount: Option<f32>,
+        #[serde(rename = "Attributes")]
+        attributes: Option<Vec<AttributeEntry>>,
+        #[serde(rename = "ActiveEffects")]
+        active_effects: Option<Vec<ActiveEffect>>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct PlayerAbilityData {
+        invulnerable: bool,
+        instabuild: bool,
+        flying: bool,
+        #[serde(rename = "flySpeed")]
+        fly_speed: f32,
+        #[serde(rename = "walkSpeed")]
+        walk_speed: f32,
+        #[serde(rename = "mayBuild")]
+        may_build: bool,
+        #[serde(rename = "mayfly")]
+        may_fly: bool,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct InventoryEntry {
+        id: String,
+        #[serde(rename = "Slot")]
+        slot: Option<i8>,
+        #[serde(rename = "Count")]
+        count: i8,
+        #[serde(rename = "Damage")]
+        damage: i16,
+        #[serde(rename = "tag")]
+        info: Option<InventoryEntryInfo>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct InventoryEntryInfo {
+        display: Option<InventoryEntryDisplay>,
+        #[serde(rename = "RepairCost")]
+        repair_cost: Option<i32>,
+        #[serde(rename = "ench")]
+        enchantments: Vec<Enchantment>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct InventoryEntryDisplay {
+        #[serde(rename = "Name")]
+        name: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct Enchantment {
+        id: i16,
+        #[serde(rename = "lvl")]
+        level: i16,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct EnderItemsEntry {
+        id: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct AttributeEntry {
+        #[serde(rename = "Name")]
+        name: String,
+        #[serde(rename = "Base")]
+        base: f64,
+        #[serde(rename = "Modifiers")]
+        modifiers: Option<Vec<AttributeModifier>>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    pub struct AttributeModifier {
+        #[serde(rename = "Name")]
+        name: String,
+        #[serde(rename = "Amount")]
+        amount: f64,
+        #[serde(rename = "Operation")]
+        operation: i32,
+        #[serde(rename = "UUIDLeast")]
+        uuid_least: i64,
+        #[serde(rename = "UUIDMost")]
+        uuid_most: i64,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(rename = "CamelCase")]
+    pub struct ActiveEffect {
+        id: i8,
+        base: i32,
+        ambient: bool,
+        amplifier: bool,
+        show_particles: bool,
+    }
+
+    let mut dec = flate2::read::GzDecoder::new(resources::SIMPLE_PLAYER);
+    let mut payload = vec![];
+    dec.read_to_end(&mut payload).unwrap();
+
+    let v: PlayerData = from_bytes(&payload).unwrap();
+    let bs = to_bytes(&v).unwrap();
+    let v_trip: PlayerData = from_bytes(&bs).unwrap();
+
+    assert_eq!(v, v_trip);
 }
