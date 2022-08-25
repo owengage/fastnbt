@@ -1,6 +1,10 @@
 use std::ops::Range;
 
 use fastnbt::{error::Result, from_bytes};
+/// TODO: At least 1.2, find first supported version
+/// 1.2 to 1.12
+pub mod pre13;
+/// 1.13 to 1.17
 pub mod pre18;
 
 mod block;
@@ -37,6 +41,7 @@ pub static SNOW_BLOCK: Lazy<Block> = Lazy::new(|| Block {
 pub enum JavaChunk {
     Post18(CurrentJavaChunk),
     Pre18(pre18::JavaChunk),
+    Pre13(pre13::JavaChunk),
 }
 
 impl JavaChunk {
@@ -45,7 +50,10 @@ impl JavaChunk {
 
         match chunk {
             Ok(chunk) => Ok(Self::Post18(chunk)),
-            Err(_) => Ok(Self::Pre18(from_bytes::<pre18::JavaChunk>(data)?)),
+            Err(_) => match from_bytes::<pre18::JavaChunk>(data) {
+                Ok(chunk) => Ok(Self::Pre18(chunk)),
+                Err(_) => Ok(Self::Pre13(from_bytes::<pre13::JavaChunk>(data)?)),
+            },
         }
     }
 }
@@ -56,6 +64,7 @@ impl Chunk for JavaChunk {
         match self {
             JavaChunk::Post18(c) => c.status(),
             JavaChunk::Pre18(c) => c.status(),
+            JavaChunk::Pre13(c) => c.status(),
         }
     }
 
@@ -63,6 +72,7 @@ impl Chunk for JavaChunk {
         match self {
             JavaChunk::Post18(c) => c.surface_height(x, z, mode),
             JavaChunk::Pre18(c) => c.surface_height(x, z, mode),
+            JavaChunk::Pre13(c) => c.surface_height(x, z, mode),
         }
     }
 
@@ -70,6 +80,7 @@ impl Chunk for JavaChunk {
         match self {
             JavaChunk::Post18(c) => c.biome(x, y, z),
             JavaChunk::Pre18(c) => c.biome(x, y, z),
+            JavaChunk::Pre13(c) => c.biome(x, y, z),
         }
     }
 
@@ -77,6 +88,7 @@ impl Chunk for JavaChunk {
         match self {
             JavaChunk::Post18(c) => c.block(x, y, z),
             JavaChunk::Pre18(c) => c.block(x, y, z),
+            JavaChunk::Pre13(c) => c.block(x, y, z),
         }
     }
 
@@ -84,6 +96,7 @@ impl Chunk for JavaChunk {
         match self {
             JavaChunk::Post18(c) => c.y_range(),
             JavaChunk::Pre18(c) => c.y_range(),
+            JavaChunk::Pre13(c) => c.y_range(),
         }
     }
 }
