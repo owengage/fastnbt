@@ -1,7 +1,8 @@
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::{
-    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, CHUNK_HEADER_SIZE, SECTOR_SIZE,
+    test::HashPalette, Chunk, ChunkLocation, CompressionScheme::Uncompressed, Error, JavaChunk,
+    Region, RenderedPalette, TopShadeRenderer, CHUNK_HEADER_SIZE, SECTOR_SIZE,
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {

@@ -5,28 +5,14 @@ use std::{
 
 use crate::{biome::Biome, Block, Chunk, HeightMode, JavaChunk, Palette, Rgba, TopShadeRenderer};
 
+use super::HashPalette;
+
 // const CHUNK_1_12: &[u8] = include_bytes!("../../resources/1.12.chunk");
 const CHUNK_1_17_0: &[u8] = include_bytes!("../../resources/1.17.0.chunk");
 const CHUNK_1_17_1: &[u8] = include_bytes!("../../resources/1.17.1.chunk");
 const CHUNK_21W44A_1: &[u8] = include_bytes!("../../resources/21w44a-test1.nbt");
 const CHUNK_CUSTOM_HEIGHTS_1_17_1: &[u8] =
     include_bytes!("../../resources/1.17.1-custom-heights.chunk");
-
-/// A palette that colours blocks based on the hash of their full description.
-/// Will produce gibberish looking maps but is great for testing rendering isn't
-/// changing.
-struct HashPalette;
-
-impl Palette for HashPalette {
-    fn pick(&self, block: &Block, _: Option<Biome>) -> Rgba {
-        // Call methods just to exercise all the code.
-        block.name();
-        block.snowy();
-        let hash = calculate_hash(block.encoded_description());
-        let bytes = hash.to_be_bytes();
-        [bytes[0], bytes[1], bytes[2], 255]
-    }
-}
 
 fn exercise_render(chunk: &dyn Chunk) -> [[u8; 4]; 256] {
     let palette = HashPalette;
@@ -1104,10 +1090,4 @@ fn chunk_custom_heights_1_17_1() {
 
     let chunk = JavaChunk::from_bytes(CHUNK_CUSTOM_HEIGHTS_1_17_1).unwrap();
     assert_eq!(expected, exercise_render(&chunk));
-}
-
-fn calculate_hash<T: Hash + ?Sized>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
 }

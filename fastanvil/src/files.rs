@@ -2,6 +2,7 @@ use crate::{JavaChunk, LoaderError};
 use crate::{LoaderResult, Region};
 use crate::{RCoord, RegionLoader};
 use std::fs::File;
+use std::io::ErrorKind;
 use std::marker::PhantomData;
 use std::{
     fs,
@@ -23,12 +24,21 @@ impl RegionFileLoader {
 }
 
 impl RegionLoader<File> for RegionFileLoader {
-    fn region(&self, x: RCoord, z: RCoord) -> Option<Region<File>> {
+    fn region(&self, x: RCoord, z: RCoord) -> LoaderResult<Option<Region<File>>> {
         let path = self.region_dir.join(format!("r.{}.{}.mca", x.0, z.0));
-        let file = std::fs::File::open(path).ok()?;
-        let region = Region::from_stream(file).ok()?; // TODO: Really need to return Result not option.
+        let file = match std::fs::File::open(path) {
+            Ok(file) => file,
+            Err(e) => {
+                if e.kind() == ErrorKind::NotFound {
+                    return Ok(None);
+                } else {
+                    return Err(LoaderError(e.to_string()));
+                }
+            }
+        };
+        let region = Region::from_stream(file).map_err(|e| LoaderError(e.to_string()))?;
 
-        Some(region)
+        Ok(Some(region))
     }
 
     fn list(&self) -> LoaderResult<Vec<(RCoord, RCoord)>> {

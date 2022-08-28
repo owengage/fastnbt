@@ -62,8 +62,8 @@ pub trait RegionLoader<S>
 where
     S: Seek + Read + Write,
 {
-    /// Get a particular region. Returns None if region does not exist.
-    fn region(&self, x: RCoord, z: RCoord) -> Option<Region<S>>;
+    /// Get a particular region. Returns Ok(None) if region does not exist.
+    fn region(&self, x: RCoord, z: RCoord) -> LoaderResult<Option<Region<S>>>;
 
     /// List the regions that this loader can return. Implmentations need to
     /// provide this so that callers can efficiently find regions to process.

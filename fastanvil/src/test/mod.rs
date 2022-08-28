@@ -1,4 +1,9 @@
+use std::{collections::hash_map::DefaultHasher, hash::Hasher};
+
 use fastnbt::{nbt, LongArray, Value};
+
+use crate::{biome::Biome, Block, Palette, Rgba};
+use std::hash::Hash;
 
 mod region;
 mod rogue_chunks;
@@ -11,4 +16,26 @@ fn nbt_macro_use() {
     // this checks that the fastnbt macro is accessible from an other crate.
     let val = nbt!([L;1,2,3]);
     assert_eq!(val, Value::LongArray(LongArray::new(vec![1, 2, 3])));
+}
+
+/// A palette that colours blocks based on the hash of their full description.
+/// Will produce gibberish looking maps but is great for testing rendering isn't
+/// changing.
+pub struct HashPalette;
+
+impl Palette for HashPalette {
+    fn pick(&self, block: &Block, _: Option<Biome>) -> Rgba {
+        // Call methods just to exercise all the code.
+        block.name();
+        block.snowy();
+        let hash = calculate_hash(block.encoded_description());
+        let bytes = hash.to_be_bytes();
+        [bytes[0], bytes[1], bytes[2], 255]
+    }
+}
+
+fn calculate_hash<T: Hash + ?Sized>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
 }

@@ -3,7 +3,12 @@ use std::{
     io::{Read, Seek, Write},
 };
 
-use crate::{Block, BlockArchetype, CCoord, Chunk, HeightMode, JavaChunk, RCoord, RegionLoader};
+use log::info;
+
+use crate::{
+    Block, BlockArchetype, CCoord, Chunk, HeightMode, JavaChunk, LoaderError, LoaderResult, RCoord,
+    RegionLoader,
+};
 
 use super::biome::Biome;
 
@@ -31,7 +36,9 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
     pub fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
-        if chunk.status() != "full" && chunk.status() != "spawn" {
+        let status = chunk.status();
+        const OK_STATUSES: [&str; 4] = ["full", "spawn", "postprocessed", "fullchunk"];
+        if !OK_STATUSES.contains(&status.as_str()) {
             // Chunks that have been fully generated will have a 'full' status.
             // Skip chunks that don't; the way they render is unpredictable.
             return data;
@@ -217,24 +224,22 @@ pub fn render_region<P: Palette, S>(
     z: RCoord,
     loader: &dyn RegionLoader<S>,
     renderer: TopShadeRenderer<P>,
-) -> RegionMap<Rgba>
+) -> LoaderResult<Option<RegionMap<Rgba>>>
 where
     S: Seek + Read + Write,
 {
     let mut map = RegionMap::new(x, z, [0u8; 4]);
 
-    let mut region = match loader.region(x, z) {
+    let mut region = match loader.region(x, z)? {
         Some(r) => r,
-        None => return map,
+        None => return Ok(None),
     };
 
     let mut cache: [Option<JavaChunk>; 32] = Default::default();
 
-    // TODO: actually let this fail rather than flatten the result.
-
     // Cache the last row of chunks from the above region to allow top-shading
     // on region boundaries.
-    if let Some(mut r) = loader.region(x, RCoord(z.0 - 1)) {
+    if let Some(mut r) = loader.region(x, RCoord(z.0 - 1))? {
         for (x, entry) in cache.iter_mut().enumerate() {
             *entry = r
                 .read_chunk(x, 31)
@@ -248,40 +253,41 @@ where
         for (x, cache) in cache.iter_mut().enumerate() {
             let data = map.chunk_mut(CCoord(x as isize), CCoord(z as isize));
 
-            // TODO: actually let this fail rather than flatten the result.
             let chunk_data = region
                 .read_chunk(x, z)
-                .ok()
-                .flatten()
-                .and_then(|chunk| JavaChunk::from_bytes(&chunk).ok())
-                .map(|chunk| {
-                    // Get the chunk at the same x coordinate from the cache. This
-                    // should be the chunk that is directly above the current. We
-                    // know this because once we have processed this chunk we put it
-                    // in the cache in the same place. So the next time we get the
-                    // current one will be when we're processing directly below us.
-                    //
-                    // Thanks to the default None value this works fine for the
-                    // first row or for any missing chunks.
-                    let north = cache.as_ref();
+                .map_err(|e| LoaderError(e.to_string()))?;
+            let chunk_data = match chunk_data {
+                Some(data) => data,
+                None => {
+                    // If there's no chunk here, we still need to set the cache
+                    // otherwise the chunks below this will top-shade with an
+                    // incorrect chunk.
+                    *cache = None;
+                    continue;
+                }
+            };
 
-                    let res = renderer.render(&chunk, north);
-                    *cache = Some(chunk);
-                    res
-                });
+            let chunk =
+                JavaChunk::from_bytes(&chunk_data).map_err(|e| LoaderError(e.to_string()))?;
 
-            if let Some(d) = chunk_data {
-                data[..].clone_from_slice(&d);
-            } else {
-                // In the case where we failed to load this chunk for whatever
-                // reason, we treat it as a blank part of the map. This means
-                // the cache needs to reflect this.
-                *cache = None;
-            }
+            // Get the chunk at the same x coordinate from the cache. This
+            // should be the chunk that is directly above the current. We
+            // know this because once we have processed this chunk we put it
+            // in the cache in the same place. So the next time we get the
+            // current one will be when we're processing directly below us.
+            //
+            // Thanks to the default None value this works fine for the
+            // first row or for any missing chunks.
+            let north = cache.as_ref();
+
+            let res = renderer.render(&chunk, north);
+            *cache = Some(chunk);
+
+            data[..].clone_from_slice(&res);
         }
     }
 
-    map
+    Ok(Some(map))
 }
 
 /// Apply top-shading to the given colour based on the relative height of the

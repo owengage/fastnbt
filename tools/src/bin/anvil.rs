@@ -5,7 +5,7 @@ use fastanvil::{render_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, T
 
 use fastanvil::RegionFileLoader;
 use flate2::read::GzDecoder;
-use log::{error, info};
+use log::{error, info, warn};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -145,16 +145,27 @@ fn render(args: &ArgMatches) -> Result<()> {
 
     let region_maps: Vec<_> = coords
         .into_par_iter()
-        .filter_map(|coord| {
+        .filter_map(|(x, z)| {
             let loader = RegionFileLoader::new(world.join(subpath));
-
-            let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
                 let map = render_region(x, z, &loader, drawer);
-                info!("processed r.{}.{}.mca", x.0, z.0);
-                Some(map)
+                match map {
+                    Ok(Some(map)) => {
+                        info!("processed r.{}.{}.mca", x.0, z.0);
+                        Some(map)
+                    }
+                    Ok(None) => {
+                        warn!("missing r.{}.{}.mca", x.0, z.0);
+                        None
+                    }
+                    Err(e) => {
+                        error!("processing r.{}.{}.mca: {}", x.0, z.0, e);
+                        info!("skipping r.{}.{}.mca due to error", x.0, z.0);
+                        None
+                    }
+                }
             } else {
                 None
             }
@@ -235,21 +246,31 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 
     let regions_processed = coords
         .into_par_iter()
-        .map(|coord| {
+        .filter_map(|(x, z)| {
             let loader = RegionFileLoader::new(world.join(subpath));
-
-            let (x, z) = coord;
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
                 let map = render_region(x, z, &loader, drawer);
-                info!("processed r.{}.{}.mca", x.0, z.0);
-                Some(map)
+                match map {
+                    Ok(Some(map)) => {
+                        info!("processed r.{}.{}.mca", x.0, z.0);
+                        Some(map)
+                    }
+                    Ok(None) => {
+                        warn!("missing r.{}.{}.mca", x.0, z.0);
+                        None
+                    }
+                    Err(e) => {
+                        error!("processing r.{}.{}.mca: {}", x.0, z.0, e);
+                        info!("skipping r.{}.{}.mca due to error", x.0, z.0);
+                        None
+                    }
+                }
             } else {
                 None
             }
         })
-        .filter_map(|region| region)
         .map(|region| {
             let mut img = image::ImageBuffer::new(region_len as u32, region_len as u32);
 
