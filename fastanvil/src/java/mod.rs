@@ -1,7 +1,6 @@
 use std::ops::Range;
 
 use fastnbt::{error::Result, from_bytes};
-/// TODO: At least 1.2, find first supported version
 /// 1.2 to 1.12
 pub mod pre13;
 /// 1.13 to 1.17
