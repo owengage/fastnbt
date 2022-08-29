@@ -117,9 +117,7 @@ impl Palette for RenderedPalette {
         match col {
             Some(c) => *c,
             None => {
-                debug!("could not draw {}", block.name());
-                debug!("description {}", block.encoded_description());
-
+                debug!("could not draw {}", block.encoded_description());
                 missing_colour
             }
         }

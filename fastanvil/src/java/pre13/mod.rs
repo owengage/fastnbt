@@ -263,7 +263,7 @@ impl Pre13Section {
         if let Some(add) = &self.add {
             let mut add_id = add[idx / 2] as u8;
             if idx % 2 == 0 {
-                add_id = add_id & 0x0F;
+                add_id &= 0x0F;
             } else {
                 add_id = (add_id & 0xF0) >> 4;
             }
@@ -273,7 +273,7 @@ impl Pre13Section {
         let block_data = {
             let mut add_id = self.data[idx / 2] as u8;
             if idx % 2 == 0 {
-                add_id = add_id & 0x0F;
+                add_id &= 0x0F;
             } else {
                 add_id = (add_id & 0xF0) >> 4;
             }

@@ -1,23 +1,152 @@
-use crate::{Block, BlockArchetype};
+use crate::{java::block, Block, BlockArchetype};
 
 /// Initialize a `Block` from the given `block_id` and `data_value`.
-pub fn init_default_block(block_id: u16, _data_value: u8) -> Block {
+pub fn init_default_block(block_id: u16, data_value: u8) -> Block {
     assert!(
         block_id < 256,
         "init_default_block function only supports block ids in the 0..=255 range"
     );
     let block_name = block_name(block_id as u8);
-    let block_name = format!("minecraft:{}", block_name);
-    // TODO: add properties
-    // This may be hard because the property name depends on the block id and on the
-    // block_data, so that function will be very complex.
-    let encoded = format!("{}|", block_name);
 
-    Block {
-        name: block_name,
-        encoded,
-        // TODO: use same logic as Block from BlockRaw
-        archetype: BlockArchetype::Normal,
+    modern_block(block_name, data_value)
+}
+
+fn modern_block(block_name: &'static str, data_value: u8) -> Block {
+    let encoded = format!("{}|", block_name);
+    let ns = |s| format!("minecraft:{s}"); // add namespace
+
+    // This function will get very large and complicated, need some way to break
+    // it down. Could definitely use some macros for things like the wood/leaf types.
+
+    match block_name {
+        "leaves" => {
+            let leaf = data_value & 0b0011;
+            let leaf = match leaf {
+                0 => "oak_leaves",
+                1 => "spruce_leaves",
+                2 => "birch_leaves",
+                3 => "jungle_leaves",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(leaf),
+                encoded,
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "leaves2" => {
+            let leaf = data_value & 0b0011;
+            let leaf = match leaf {
+                0 => "acacia_leaves",
+                1 => "dark_oak_leaves",
+                2 | 3 => "invalid_leaves",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(leaf),
+                encoded,
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "log" => {
+            let log = data_value & 0b0011;
+            let axis = data_value & 0b1100;
+            let axis = match axis {
+                0 => "y",
+                1 => "x",
+                2 => "z",
+                3 => "z", // this actually represents all bark.
+                _ => unreachable!(),
+            };
+            let log = match log {
+                0 => "oak_log",
+                1 => "spruce_log",
+                2 => "birch_log",
+                3 => "jungle_log",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(log),
+                encoded: format!("minecraft:{log}|axis={axis}"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "log2" => {
+            let log = data_value & 0b0011;
+            let axis = data_value & 0b1100;
+            let axis = match axis {
+                0 => "y",
+                1 => "x",
+                2 => "z",
+                3 => "z", // this actually represents all bark.
+                _ => unreachable!(),
+            };
+            let log = match log {
+                0 => "acacia_log",
+                1 => "dark_oak_log",
+                2 | 3 => "invalid_log",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(log),
+                encoded: format!("minecraft:{log}|axis={axis}"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "snow_layer" => {
+            let layers = (data_value & 0b0111) + 1;
+            Block {
+                name: ns("snow"),
+                encoded: format!("minecraft:snow|layers={layers}"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "stained_hardened_clay" => {
+            let col = match data_value & 0b1111 {
+                0 => "white",
+                1 => "orange",
+                2 => "magenta",
+                3 => "light_blue",
+                4 => "yellow",
+                5 => "lime",
+                6 => "pink",
+                7 => "gray",
+                8 => "light_gray",
+                9 => "cyan",
+                10 => "purple",
+                11 => "blue",
+                12 => "brown",
+                13 => "green",
+                14 => "red",
+                15 => "black",
+                _ => unreachable!(),
+            };
+            Block {
+                name: format!("minecraft:{col}_terracotta"),
+                encoded: format!("minecraft:{col}_terracotta|"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "hardened_clay" => Block {
+            name: ns("terracotta"),
+            encoded,
+            archetype: BlockArchetype::Normal,
+        },
+        "tallgrass" => Block {
+            name: ns("tall_grass"),
+            encoded,
+            archetype: BlockArchetype::Normal,
+        },
+        "waterlily" => Block {
+            name: ns("lily_pad"),
+            encoded,
+            archetype: BlockArchetype::Normal,
+        },
+        _ => Block {
+            name: ns(block_name),
+            encoded,
+            archetype: BlockArchetype::Normal,
+        },
     }
 }
 
@@ -64,6 +193,7 @@ pub fn block_name(block_id: u8) -> &'static str {
         33 => "piston",
         34 => "piston_head",
         35 => "wool",
+        36 => "piston_extension",
         37 => "yellow_flower",
         38 => "red_flower",
         39 => "brown_mushroom",
@@ -131,7 +261,157 @@ pub fn block_name(block_id: u8) -> &'static str {
         101 => "iron_bars",
         102 => "glass_pane",
         103 => "melon_block",
-        // TODO: add more blocks
-        _ => "",
+        104 => "pumpkin_stem",
+        105 => "melon_stem",
+        106 => "vine",
+        107 => "fence_gate",
+        108 => "brick_stairs",
+        109 => "stone_brick_stairs",
+        110 => "mycelium",
+        111 => "waterlily",
+        112 => "nether_brick",
+        113 => "nether_brick_fence",
+        114 => "nether_brick_stairs",
+        115 => "nether_wart",
+        116 => "enchanting_table",
+        117 => "brewing_stand",
+        118 => "cauldron",
+        119 => "end_portal",
+        120 => "end_portal_frame",
+        121 => "end_stone",
+        122 => "dragon_egg",
+        123 => "redstone_lamp",
+        124 => "lit_redstone_lamp",
+        125 => "double_wooden_slab",
+        126 => "wooden_slab",
+        127 => "cocoa",
+        128 => "sandstone_stairs",
+        129 => "emerald_ore",
+        130 => "ender_chest",
+        131 => "tripwire_hook",
+        132 => "tripwire",
+        133 => "emerald_block",
+        134 => "spruce_stairs",
+        135 => "birch_stairs",
+        136 => "jungle_stairs",
+        137 => "command_block",
+        138 => "beacon",
+        139 => "cobblestone_wall",
+        140 => "flower_pot",
+        141 => "carrots",
+        142 => "potatoes",
+        143 => "oak_button",
+        144 => "skull",
+        145 => "anvil",
+        146 => "trapped_chest",
+        147 => "light_weighted_pressure_plate",
+        148 => "heavy_weighted_pressure_plate",
+        149 => "unpowered_comparator",
+        150 => "powered_comparator",
+        151 => "daylight_detector",
+        152 => "redstone_block",
+        153 => "quartz_ore",
+        154 => "hopper",
+        155 => "quartz_block",
+        156 => "quartz_stairs",
+        157 => "activator_rail",
+        158 => "dropper",
+        159 => "stained_hardened_clay",
+        160 => "stained_glass_pane",
+        161 => "leaves2",
+        162 => "log2",
+        163 => "acacia_stairs",
+        164 => "dark_oak_stairs",
+        165 => "slime",
+        166 => "barrier",
+        167 => "iron_trapdoor",
+        168 => "prismarine",
+        169 => "sea_lantern",
+        170 => "hay_block",
+        171 => "carpet",
+        172 => "hardened_clay",
+        173 => "coal_block",
+        174 => "packed_ice",
+        175 => "double_plant",
+        176 => "standing_banner",
+        177 => "wall_banner",
+        178 => "daylight_detector_inverted",
+        179 => "red_sandstone",
+        180 => "red_sandstone_stairs",
+        181 => "double_stone_slab2",
+        182 => "stone_slab2",
+        183 => "spruce_fence_gate",
+        184 => "birch_fence_gate",
+        185 => "jungle_fence_gate",
+        186 => "dark_oak_fence_gate",
+        187 => "acacia_fence_gate",
+        188 => "spruce_fence",
+        189 => "birch_fence",
+        190 => "jungle_fence",
+        191 => "dark_oak_fence",
+        192 => "acacia_fence",
+        193 => "spruce_door",
+        194 => "birch_door",
+        195 => "jungle_door",
+        196 => "acacia_door",
+        197 => "dark_oak_door",
+        198 => "end_rod",
+        199 => "chorus_plant",
+        200 => "chorus_flower",
+        201 => "purpur_block",
+        202 => "purpur_pillar",
+        203 => "purpur_stairs",
+        204 => "purpur_double_slab",
+        205 => "purpur_slab",
+        206 => "end_bricks",
+        207 => "beetroots",
+        208 => "grass_path",
+        209 => "end_gateway",
+        210 => "repeating_command_block",
+        211 => "chain_command_block",
+        212 => "frosted_ice",
+        213 => "magma",
+        214 => "nether_wart_block",
+        215 => "red_nether_brick",
+        216 => "bone_block",
+        217 => "structure_void",
+        218 => "observer",
+        219 => "white_shulker_box",
+        220 => "orange_shulker_box",
+        221 => "magenta_shulker_box",
+        222 => "light_blue_shulker_box",
+        223 => "yellow_shulker_box",
+        224 => "lime_shulker_box",
+        225 => "pink_shulker_box",
+        226 => "gray_shulker_box",
+        227 => "silver_shulker_box",
+        228 => "cyan_shulker_box",
+        229 => "purple_shulker_box",
+        230 => "blue_shulker_box",
+        231 => "brown_shulker_box",
+        232 => "green_shulker_box",
+        233 => "red_shulker_box",
+        234 => "black_shulker_box",
+        235 => "white_glazed_terracotta",
+        236 => "orange_glazed_terracotta",
+        237 => "magenta_glazed_terracotta",
+        238 => "light_blue_glazed_terracotta",
+        239 => "yellow_glazed_terracotta",
+        240 => "lime_glazed_terracotta",
+        241 => "pink_glazed_terracotta",
+        242 => "gray_glazed_terracotta",
+        243 => "silver_glazed_terracotta",
+        244 => "cyan_glazed_terracotta",
+        245 => "purple_glazed_terracotta",
+        246 => "blue_glazed_terracotta",
+        247 => "brown_glazed_terracotta",
+        248 => "green_glazed_terracotta",
+        249 => "red_glazed_terracotta",
+        250 => "black_glazed_terracotta",
+        251 => "concrete",
+        252 => "concrete_powder",
+        253 => "",
+        254 => "",
+        255 => "structure_block",
     }
 }
