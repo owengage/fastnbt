@@ -318,7 +318,7 @@ dependencies = [
  "bit_field",
  "byteorder",
  "criterion",
- "fastnbt",
+ "fastnbt 2.3.1",
  "flate2",
  "hematite-nbt",
  "image",
@@ -343,13 +343,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastnbt"
+version = "2.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da8cfe3db6e587f39487b01dae75222c5fa809342f6aa4b8310d17b53e666728"
+dependencies = [
+ "byteorder",
+ "cesu8",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
 name = "fastnbt-tools"
 version = "0.25.0"
 dependencies = [
  "clap",
  "env_logger",
  "fastanvil",
- "fastnbt",
+ "fastnbt 2.3.1",
  "flate2",
  "image",
  "log",
@@ -358,6 +370,16 @@ dependencies = [
  "serde",
  "serde_json",
  "tar",
+]
+
+[[package]]
+name = "fastsnbt"
+version = "0.1.0"
+dependencies = [
+ "cesu8",
+ "fastnbt 2.3.2",
+ "flate2",
+ "serde",
 ]
 
 [[package]]

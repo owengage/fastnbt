@@ -2,6 +2,7 @@
 
 members = [
     "fastnbt",
+    "fastsnbt",
     "fastanvil",
     "tools"
 ]
