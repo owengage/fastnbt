@@ -1,4 +1,4 @@
-use crate::{java::block, Block, BlockArchetype};
+use crate::{Block, BlockArchetype};
 
 /// Initialize a `Block` from the given `block_id` and `data_value`.
 pub fn init_default_block(block_id: u16, data_value: u8) -> Block {
@@ -14,6 +14,7 @@ pub fn init_default_block(block_id: u16, data_value: u8) -> Block {
 fn modern_block(block_name: &'static str, data_value: u8) -> Block {
     let encoded = format!("{}|", block_name);
     let ns = |s| format!("minecraft:{s}"); // add namespace
+    let enc0 = |s| format!("minecraft:{s}|");
 
     // This function will get very large and complicated, need some way to break
     // it down. Could definitely use some macros for things like the wood/leaf types.
@@ -30,7 +31,7 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
             };
             Block {
                 name: ns(leaf),
-                encoded,
+                encoded: enc0(leaf),
                 archetype: BlockArchetype::Normal,
             }
         }
@@ -44,7 +45,7 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
             };
             Block {
                 name: ns(leaf),
-                encoded,
+                encoded: enc0(leaf),
                 archetype: BlockArchetype::Normal,
             }
         }
