@@ -21,7 +21,7 @@ hematite-nbt = "0.5"
 
 [dev-dependencies]
 serde_json = "1.0"
-criterion = "0.3"
+criterion = "0.4"
 
 [[bench]]
 name = "chunk_parse"
