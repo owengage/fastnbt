@@ -30,6 +30,8 @@ pub trait Input<'de>: private::Sealed {
     #[doc(hidden)]
     fn discard(&mut self);
 
+    fn discard_whitespace(&mut self) -> Result<()>;
+
     fn parse_ident<'scratch>(
         &mut self,
         quote: u8,
@@ -116,6 +118,21 @@ impl<'de> Input<'de> for SliceInput<'de> {
                 }
                 None => return Err(Error::unexpected_eof()),
             }
+            self.index += 1;
+        }
+    }
+
+    fn discard_whitespace(&mut self) -> Result<()> {
+        loop {
+            let ch = self.data.get(self.index);
+            match ch {
+                Some(ch) if !ch.is_ascii_whitespace() => {
+                    return Ok(());
+                }
+                Some(_) => {}
+                None => return Err(Error::unexpected_eof()),
+            };
+
             self.index += 1;
         }
     }

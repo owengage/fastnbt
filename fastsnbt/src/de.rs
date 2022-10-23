@@ -74,6 +74,8 @@ where
     where
         V: de::Visitor<'de>,
     {
+        self.input.discard_whitespace()?;
+
         let peek = match self.input.peek()? {
             Some(c) => c,
             None => return Err(Error::unexpected_eof()),
@@ -94,7 +96,7 @@ where
 
                 Ok(value)
             }
-            b'"' => {
+            b'"' | b'\'' => {
                 self.input.discard();
                 let ident = self.input.parse_ident(peek, &mut self.scratch)?;
                 let res = match ident {
@@ -134,7 +136,17 @@ where
                     _ => return Err(Error::custom("unexpected number type")),
                 }
             }
-            _ => todo!("{:?}", char::from_u32(peek as u32)),
+            _ => {
+                // TODO: How does Minecraft handle unquoted field names?
+                // Can't have spaces if unquoted.
+                let ident = self.input.parse_ident(todo!(), &mut self.scratch)?;
+                let res = match ident {
+                    Reference::Borrowed(ident) => visitor.visit_borrowed_str(ident),
+                    Reference::Copied(ident) => visitor.visit_str(ident),
+                };
+
+                res
+            }
         };
 
         value
@@ -159,6 +171,8 @@ impl<'de, 'a, In: Input<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, In> {
     where
         K: de::DeserializeSeed<'de>,
     {
+        self.de.input.discard_whitespace()?;
+
         if self.first {
             self.first = false;
         } else {
@@ -181,6 +195,8 @@ impl<'de, 'a, In: Input<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, In> {
     where
         V: de::DeserializeSeed<'de>,
     {
+        self.de.input.discard_whitespace()?;
+
         let peek = match self.de.input.peek()? {
             Some(c) => c,
             None => return Err(Error::unexpected_eof()),
@@ -189,6 +205,8 @@ impl<'de, 'a, In: Input<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, In> {
             return Err(Error::custom("expected ':'"));
         }
         self.de.input.discard();
+
+        self.de.input.discard_whitespace()?;
 
         seed.deserialize(&mut *self.de)
     }
