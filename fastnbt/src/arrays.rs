@@ -73,6 +73,11 @@ impl ByteArray {
         Self { data }
     }
 
+    /// Move the raw data out of this ByteArray.
+    pub fn into_inner(self) -> Vec<i8> {
+        self.data
+    }
+
     /// Produce a ByteArray from raw data.
     pub(crate) fn from_bytes(data: &[u8]) -> Self {
         // Safe to treat [u8] as [i8].
@@ -126,6 +131,11 @@ impl IntArray {
     /// Create a new IntArray from the given data.
     pub fn new(data: Vec<i32>) -> Self {
         Self { data }
+    }
+
+    /// Move the raw data out of this IntArray.
+    pub fn into_inner(self) -> Vec<i32> {
+        self.data
     }
 
     /// Produce a IntArray from raw data. This data should be big endian!
@@ -220,6 +230,11 @@ impl LongArray {
     /// Create a new LongArray from the given data.
     pub fn new(data: Vec<i64>) -> Self {
         Self { data }
+    }
+
+    /// Move the raw data out of this LongArray.
+    pub fn into_inner(self) -> Vec<i64> {
+        self.data
     }
 
     pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
