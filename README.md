@@ -1,26 +1,35 @@
 # fastnbt project
-[![Latest Version]][crates.io]
-[![docs-shield]][docs]
-[![Build Status]][actions]
 
-[docs]: https://docs.rs/fastnbt/latest/fastnbt/index.html
-[docs-shield]: https://img.shields.io/docsrs/fastnbt
+![fastnbt-shield]
+[![fastnbt-version-shield]][fastnbt-crates]
+[![fastnbt-docs-shield]][fastnbt-docs]
+[![build-status-shield]][github-actions]
 
-[Build Status]:
-https://img.shields.io/github/workflow/status/owengage/fastnbt/Rust/master
-[actions]: https://github.com/owengage/fastnbt/actions?query=branch%3Amaster
-[Latest Version]: https://img.shields.io/crates/v/fastnbt.svg
-[crates.io]: https://crates.io/crates/fastnbt
+![fastanvil-shield]
+[![fastanvil-version-shield]][fastanvil-crates]
+[![fastanvil-docs-shield]][fastanvil-docs]
 
-[`fastnbt`](https://crates.io/crates/fastnbt)
-([docs](https://docs.rs/fastnbt/latest/fastnbt/index.html)) is a [serde](https://serde.rs/)
-serializer and deserializer for *Minecraft: Java Edition's* NBT format,
-including [`Value`](https://docs.rs/fastnbt/latest/fastnbt/enum.Value.html) type
-and [`nbt!`](https://docs.rs/fastnbt/latest/fastnbt/macro.nbt.html) macro.
+<!-- [![build-status-shield]][github-actions] -->
 
-[`fastanvil`](https://crates.io/crates/fastanvil)
-([docs](https://docs.rs/fastanvil/latest/fastanvil/index.html)) allows rendering
-maps of worlds, and a
+[fastnbt-shield]: https://img.shields.io/badge/%20-FastNBT-blue
+[fastnbt-version-shield]: https://img.shields.io/crates/v/fastnbt.svg
+[fastnbt-crates]: https://crates.io/crates/fastnbt
+[fastnbt-docs-shield]: https://img.shields.io/docsrs/fastnbt
+[fastnbt-docs]: https://docs.rs/fastnbt/latest/fastnbt/index.html
+[build-status-shield]: https://img.shields.io/github/actions/workflow/status/owengage/fastnbt/rust.yml?branch=master
+[github-actions]: https://github.com/owengage/fastnbt/actions?query=branch%3Amaster
+[fastanvil-shield]: https://img.shields.io/badge/%20-FastAnvil-blue
+[fastanvil-version-shield]: https://img.shields.io/crates/v/fastanvil.svg
+[fastanvil-crates]: https://crates.io/crates/fastanvil
+[fastanvil-docs-shield]: https://img.shields.io/docsrs/fastanvil
+[fastanvil-docs]: https://docs.rs/fastanvil/latest/fastanvil/index.html
+
+FastNBT is a [serde](https://serde.rs/) serializer and deserializer for
+_Minecraft: Java Edition's_ NBT format, including
+[`Value`](https://docs.rs/fastnbt/latest/fastnbt/enum.Value.html) type and
+[`nbt!`](https://docs.rs/fastnbt/latest/fastnbt/macro.nbt.html) macro.
+
+FastAnvil allows rendering maps of worlds, and a
 [`Region`](https://docs.rs/fastanvil/latest/fastanvil/struct.Region.html) for
 using the Region file format.
 
@@ -31,7 +40,7 @@ Supports 1.19 down to 1.15 inclusive.
 
 Demo of Hermitcraft season 8 and more at [owengage.com/anvil](https://owengage.com/anvil/?world=hermitcraft8)
 
-![alt rendered map](demo.png)  
+![alt rendered map](demo.png)
 
 The `anvil` binary from `fastnbt-tools` can render your world leveraging all of
 your CPU.
@@ -87,12 +96,13 @@ fn main() {
 
 # Example: print player inventory
 
- This example demonstrates printing out a players inventory and ender chest contents from the [player dat
- files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds. We
- * use serde's renaming attribute to have rustfmt conformant field names,
- * use lifetimes to save on string allocations, and 
- * use the `Value` type to deserialize a field we don't specify the exact
-   structure of.
+This example demonstrates printing out a players inventory and ender chest contents from the [player dat
+files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds. We
+
+- use serde's renaming attribute to have rustfmt conformant field names,
+- use lifetimes to save on string allocations, and
+- use the `Value` type to deserialize a field we don't specify the exact
+  structure of.
 
 ```rust
 #[derive(Deserialize, Debug)]
