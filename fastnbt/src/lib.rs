@@ -44,13 +44,13 @@
 //! }
 //!
 //!# fn main(){
-//!     let buf: &[u8] = unimplemented!("get a buffer from somewhere");
-//!     let section: Section = fastnbt::from_bytes(buf).unwrap();
-//!     let states = section.block_states.unwrap();
+//! let buf: &[u8] = unimplemented!("get a buffer from somewhere");
+//! let section: Section = fastnbt::from_bytes(buf).unwrap();
+//! let states = section.block_states.unwrap();
 //!
-//!     for long in states.iter() {
-//!         // do something
-//!     }
+//! for long in states.iter() {
+//!     // do something
+//! }
 //! # }
 //! ```
 //!

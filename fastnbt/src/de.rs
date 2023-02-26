@@ -7,9 +7,9 @@
 //!
 //! This deserializer supports [`from_bytes`][`crate::from_bytes`] for zero-copy
 //! deserialization for types like `&[u8]` and
-//! [`LongArray`][`crate::LongArray`]. There is also
-//! [`from_reader`][`crate::from_reader`] for deserializing from a general
-//! [`Read`][`std::io::Read`] object.
+//! [`borrow::LongArray`][`crate::borrow::LongArray`]. There is also
+//! [`from_reader`][`crate::from_reader`] for deserializing from types
+//! implementing [`Read`][`std::io::Read`].
 //!
 //! # Avoiding allocations
 //!
@@ -59,9 +59,11 @@
 //!
 //! In order for [`Value`][`crate::Value`] to preserve all NBT information, the
 //! deserializer "[maps into serde's data
-//! model](https://serde.rs/data-model.html#mapping-into-the-data-model)". This
-//! means that in order to deserialize NBT array types, you must use the types
-//! provided in this crate, eg [LongArray][`crate::LongArray`].
+//! model](https://serde.rs/data-model.html#mapping-into-the-data-model)". As a
+//! consequence of this, NBT array types must be (de)serialized using the
+//! types provided in this crate, eg [LongArray][`crate::LongArray`]. Sequence
+//! containers like `Vec` will (de)serialize to NBT Lists, and will fail if an
+//! NBT array is instead expected.
 //!
 //! # 128 bit integers and UUIDs
 //!
@@ -77,13 +79,15 @@
 //!   does not apply to deserializing lists of integrals to `u8` slice or
 //!   vectors.
 //! * Any integral value from NBT can be deserialized to bool. Any non-zero
-//!   value becomes `true`.
+//!   value becomes `true`. Bear in mind serializing the same type will change
+//!   the NBT structure, likely unintended.
 //! * You can deserialize a field to the unit type `()` or unit struct. This
 //!   ignores the value but ensures that it existed.
 //! * You cannot deserialize into anything other than a `struct` or similar
 //!   container eg `HashMap`. This is due to a misalignment between the NBT
 //!   format and Rust's types. Attempting to will give an error about no root
 //!   compound. This means you can never do `let s: String = from_bytes(...)`.
+//!   Serialization of a struct assumes an empty-named compound.
 //!
 //! # Example Minecraft types
 //!
@@ -152,11 +156,12 @@
 //!
 //! This example shows how to avoid some allocations. The `Section` type below
 //! contains the block states which stores the state of part of the Minecraft
-//! world. In NBT this is a complicated backed bits type stored as an array of
+//! world. In NBT this is bit-packed data stored as an array of
 //! longs (i64). We avoid allocating a vector for this by storing it as a
-//! `&[u8]` instead. We can't safely store it as `&[i64]` due to memory
-//! alignment constraints. The `fastanvil` crate has a `PackedBits` type that
-//! can handle the unpacking of these block states.
+//! [`borrow::LongArray`][`crate::borrow::LongArray`] instead, which stores it
+//! as `&[u8]` under the hood. We can't safely store it as `&[i64]` due to memory
+//! alignment constraints. The `fastanvil` crate has a `PackedBits` type that can
+//! handle the unpacking of these block states.
 //!
 //! ```rust
 //! # use serde::Deserialize;
