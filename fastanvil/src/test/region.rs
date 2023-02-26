@@ -1,8 +1,7 @@
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::{
-    test::HashPalette, Chunk, ChunkLocation, CompressionScheme::Uncompressed, Error, JavaChunk,
-    Region, RenderedPalette, TopShadeRenderer, CHUNK_HEADER_SIZE, SECTOR_SIZE,
+    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, CHUNK_HEADER_SIZE, SECTOR_SIZE,
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {
@@ -45,6 +44,19 @@ fn blank_write_chunk() {
     r.write_compressed_chunk(0, 0, Uncompressed, &[1, 2, 3])
         .unwrap();
     assert_location(&mut r, 0, 0, 2, 1);
+}
+
+#[test]
+fn write_invalid_offset_errors() {
+    let mut r = new_empty();
+    assert!(matches!(
+        r.write_compressed_chunk(32, 0, Uncompressed, &[1, 2, 3]),
+        Err(Error::InvalidOffset(..))
+    ));
+    assert!(matches!(
+        r.write_compressed_chunk(0, 32, Uncompressed, &[1, 2, 3]),
+        Err(Error::InvalidOffset(..))
+    ));
 }
 
 #[test]

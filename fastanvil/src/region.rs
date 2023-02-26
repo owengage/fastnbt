@@ -21,7 +21,10 @@ pub(crate) const REGION_HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 /// compressed chunk data.
 pub(crate) const CHUNK_HEADER_SIZE: usize = 5;
 
-/// A Minecraft Region.
+/// A Minecraft Region, allowing reading and writing of chunk data to a stream (eg a
+/// File). This does not concern itself with manipulating chunk data, users are
+/// expected to use `fastnbt` or other deserialization method to manipulate the
+/// chunk data itself.
 pub struct Region<S> {
     stream: S,
     // last offset is always the next valid place to write a chunk.
@@ -69,8 +72,10 @@ where
         Ok(tmp)
     }
 
-    /// Read the chunk located at the chunk coordindates x, z. These should
-    /// both be 0..32. The chunk data returned is uncompressed NBT.
+    /// Read the chunk located at the chunk coordindates `x`, `z`. The chunk
+    /// data returned is uncompressed NBT. `Ok(None)` means that the chunk does
+    /// not exist, which will be the case if that chunk has not generated.  If
+    /// `x` or `z` are outside `0..32`, [`Error::InvalidOffset`] is returned.
     pub fn read_chunk(&mut self, x: usize, z: usize) -> Result<Option<Vec<u8>>> {
         self.compression_scheme(x, z)?
             .map(|scheme| match scheme {
@@ -94,7 +99,11 @@ where
     }
 
     /// Get the location of the chunk in the stream.
-    pub(crate) fn location(&mut self, x: usize, z: usize) -> io::Result<ChunkLocation> {
+    pub(crate) fn location(&mut self, x: usize, z: usize) -> Result<ChunkLocation> {
+        if x >= 32 || z >= 32 {
+            return Err(Error::InvalidOffset(x as isize, z as isize));
+        }
+
         self.stream.seek(SeekFrom::Start(header_pos(x, z)))?;
 
         let mut buf = [0u8; 4];
@@ -120,10 +129,6 @@ where
         z: usize,
         writer: &mut dyn Write,
     ) -> Result<bool> {
-        if x >= 32 || z >= 32 {
-            return Err(Error::InvalidOffset(x as isize, z as isize));
-        }
-
         let loc = self.location(x, z)?;
 
         if loc.offset == 0 && loc.sectors == 0 {
@@ -214,9 +219,9 @@ where
     }
 
     /// Write the given uncompressed NBT chunk data to the chunk coordinates x,
-    /// z. The coordinates should both be 0..32. The chunk data will be
-    /// compressed with zlib by default. You can use write_compressed_chunk if
-    /// you want more control.
+    /// z. The chunk data will be compressed with zlib by default. You can use
+    /// write_compressed_chunk if you want more control. If `x` or `z` are
+    /// outside `0..32`, [`Error::InvalidOffset`] is returned.
     pub fn write_chunk(&mut self, x: usize, z: usize, uncompressed_chunk: &[u8]) -> Result<()> {
         let mut buf = vec![];
         let mut enc = ZlibEncoder::new(uncompressed_chunk, Compression::fast());
@@ -226,7 +231,8 @@ where
 
     /// Low level method. Write the given compressed chunk data to the stream.
     /// It is the callers responsibility to make sure the compression scheme
-    /// matches the compression used.
+    /// matches the compression used. If `x` or `z` are outside `0..32`,
+    /// [`Error::InvalidOffset`] is returned.
     pub fn write_compressed_chunk(
         &mut self,
         x: usize,
@@ -261,7 +267,7 @@ where
                 // we do not fit in the current gap, need to find a new home for
                 // this chunk.
                 self.offsets.remove(i); // this chunk will no longer be here.
-                let offset = *self.offsets.last().unwrap() as u64;
+                let offset = *self.offsets.last().unwrap();
 
                 // add a new offset representing the new 'end' of the current region file.
                 self.offsets.push(offset + required_sectors as u64);
