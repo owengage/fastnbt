@@ -314,12 +314,12 @@ where
 /// # Ok(())
 /// # }
 /// ```
-pub fn from_reader<'de, R, T>(bytes: R) -> Result<T>
+pub fn from_reader<'de, R, T>(reader: R) -> Result<T>
 where
     T: serde_de::Deserialize<'de>,
     R: Read,
 {
-    let mut deserializer = Deserializer::from_reader(bytes, Default::default());
+    let mut deserializer = Deserializer::from_reader(reader, Default::default());
     serde_de::Deserialize::deserialize(&mut deserializer)
 }
 
