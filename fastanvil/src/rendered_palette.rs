@@ -12,8 +12,8 @@ impl RenderedPalette {
     fn pick_grass(&self, b: Option<Biome>) -> Rgba {
         b.map(|b| {
             let climate = b.climate();
-            let t = climate.temperature.min(1.).max(0.);
-            let r = climate.rainfall.min(1.).max(0.) * t;
+            let t = climate.temperature.clamp(0., 1.);
+            let r = climate.rainfall.clamp(0., 1.) * t;
 
             let t = 255 - (t * 255.).ceil() as u32;
             let r = 255 - (r * 255.).ceil() as u32;
@@ -26,8 +26,8 @@ impl RenderedPalette {
     fn pick_foliage(&self, b: Option<Biome>) -> Rgba {
         b.map(|b| {
             let climate = b.climate();
-            let t = climate.temperature.min(1.).max(0.);
-            let r = climate.rainfall.min(1.).max(0.) * t;
+            let t = climate.temperature.clamp(0., 1.);
+            let r = climate.rainfall.clamp(0., 1.) * t;
 
             let t = 255 - (t * 255.).ceil() as u32;
             let r = 255 - (r * 255.).ceil() as u32;

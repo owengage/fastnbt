@@ -1,6 +1,5 @@
 use std::io::Write;
 
-use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use serde::ser::Impossible;
 
 use crate::{error::Error, error::Result, Tag};

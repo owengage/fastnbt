@@ -344,7 +344,7 @@ impl serde::ser::SerializeSeq for SerializeVec {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push(crate::to_value(&value)?);
+        self.vec.push(crate::to_value(value)?);
         Ok(())
     }
 
@@ -393,7 +393,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     where
         T: ?Sized + Serialize,
     {
-        self.vec.push(crate::to_value(&value)?);
+        self.vec.push(crate::to_value(value)?);
         Ok(())
     }
 
@@ -427,7 +427,7 @@ impl serde::ser::SerializeMap for SerializeMap {
         // expected failure.
         let key = key.expect("serialize_value called before serialize_key");
 
-        self.map.insert(key, crate::to_value(&value)?);
+        self.map.insert(key, crate::to_value(value)?);
         Ok(())
     }
 
@@ -656,7 +656,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     where
         T: ?Sized + Serialize,
     {
-        self.map.insert(String::from(key), crate::to_value(&value)?);
+        self.map.insert(String::from(key), crate::to_value(value)?);
         Ok(())
     }
 

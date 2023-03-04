@@ -43,10 +43,6 @@ impl Error {
         Error(format!("invalid nbt tag value: {}", tag))
     }
 
-    pub(crate) fn invalid_size(size: i32) -> Error {
-        Error(format!("invalid nbt list/array size: {}", size))
-    }
-
     pub(crate) fn no_root_compound() -> Error {
         Error("invalid nbt: no root compound".to_owned())
     }

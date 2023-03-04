@@ -122,7 +122,7 @@ impl Value {
             Value::Byte(v) => Some(v as i64),
             Value::Short(v) => Some(v as i64),
             Value::Int(v) => Some(v as i64),
-            Value::Long(v) => Some(v as i64),
+            Value::Long(v) => Some(v),
             Value::Float(v) => Some(v as i64),
             Value::Double(v) => Some(v as i64),
             _ => None,
@@ -148,7 +148,7 @@ impl Value {
             Value::Int(v) => Some(v as f64),
             Value::Long(v) => Some(v as f64),
             Value::Float(v) => Some(v as f64),
-            Value::Double(v) => Some(v as f64),
+            Value::Double(v) => Some(v),
             _ => None,
         }
     }
@@ -195,12 +195,12 @@ from!(LongArray, LongArray);
 
 impl From<bool> for Value {
     fn from(val: bool) -> Self {
-        Self::Byte(if val { 1 } else { 0 })
+        Self::Byte(i8::from(val))
     }
 }
 impl From<&bool> for Value {
     fn from(val: &bool) -> Self {
-        Self::Byte(if *val { 1 } else { 0 })
+        Self::Byte(i8::from(*val))
     }
 }
 
@@ -259,7 +259,7 @@ impl PartialEq<str> for Value {
 
 impl<'a> PartialEq<&'a str> for Value {
     fn eq(&self, other: &&str) -> bool {
-        eq_str(self, *other)
+        eq_str(self, other)
     }
 }
 
@@ -271,7 +271,7 @@ impl PartialEq<Value> for str {
 
 impl<'a> PartialEq<Value> for &'a str {
     fn eq(&self, other: &Value) -> bool {
-        eq_str(other, *self)
+        eq_str(other, self)
     }
 }
 

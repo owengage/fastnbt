@@ -471,7 +471,7 @@ where
                     ));
                 }
 
-                if remaining as usize > self.de.opts.max_seq_len {
+                if remaining > self.de.opts.max_seq_len {
                     return Err(Error::bespoke(format!(
                         "size ({}) greater than max sequence length ({})",
                         remaining, self.de.opts.max_seq_len,

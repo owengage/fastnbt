@@ -186,8 +186,8 @@ fn render(args: &ArgMatches) -> Result<()> {
         for xc in 0..32 {
             for zc in 0..32 {
                 let chunk = map.chunk(CCoord(xc), CCoord(zc));
-                let xcp = xrp * 32 + xc as isize;
-                let zcp = zrp * 32 + zc as isize;
+                let xcp = xrp * 32 + xc;
+                let zcp = zrp * 32 + zc;
 
                 for z in 0..16 {
                     for x in 0..16 {
@@ -277,8 +277,8 @@ fn tiles(args: &ArgMatches) -> Result<()> {
             for xc in 0..32 {
                 for zc in 0..32 {
                     let heightmap = region.chunk(CCoord(xc), CCoord(zc));
-                    let xcp = xc as isize;
-                    let zcp = zc as isize;
+                    let xcp = xc;
+                    let zcp = zc;
 
                     for z in 0..16 {
                         for x in 0..16 {
