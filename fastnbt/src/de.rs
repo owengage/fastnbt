@@ -658,6 +658,22 @@ where
     {
         visitor.visit_newtype_struct(self)
     }
+
+    #[inline]
+    fn deserialize_i128<V>(mut self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_i128(get_i128_value(&mut self)?)
+    }
+
+    #[inline]
+    fn deserialize_u128<V>(mut self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_u128(get_i128_value(&mut self)? as u128)
+    }
 }
 
 struct ListAccess<'a, In: 'a> {
@@ -822,5 +838,36 @@ impl<'de, 'a, In: Input<'de> + 'a> de::MapAccess<'de> for ArrayWrapperAccess<'a,
             Reference::Borrowed(bs) => seed.deserialize(BorrowedBytesDeserializer::new(bs)),
             Reference::Copied(bs) => seed.deserialize(BytesDeserializer::new(bs)),
         }
+    }
+}
+
+fn get_i128_value<'de, In>(de: &mut AnonymousValue<In>) -> Result<i128>
+where
+    In: Input<'de>,
+{
+    let tag = de.tag;
+
+    match tag {
+        Tag::IntArray => {
+            let size = de.de.input.consume_i32()? as usize;
+
+            let size = size
+                .checked_mul(4)
+                .ok_or_else(|| Error::bespoke("nbt array too large".to_string()))?;
+
+            let bs = de.de.input.consume_bytes(size, &mut de.de.scratch)?;
+            let bs = bs.as_ref();
+
+            match bs.try_into() {
+                Ok(bs) => Ok(i128::from_be_bytes(bs)),
+                Err(_) => Err(Error::bespoke(format!(
+                    "deserialize i128: expected IntArray of length 4 with 16 bytes, found {} bytes",
+                    bs.len()
+                ))),
+            }
+        }
+        _ => Err(Error::bespoke(
+            "deserialize i128: expected IntArray value".to_string(),
+        )),
     }
 }

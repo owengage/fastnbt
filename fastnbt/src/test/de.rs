@@ -1656,3 +1656,76 @@ fn negative_seq_lens() {
 
     assert!(from_bytes::<Value>(&payload).is_err());
 }
+
+#[test]
+fn i128_from_int_array() {
+    #[derive(Deserialize)]
+    struct V {
+        max: u128,
+        min: i128,
+        zero: i128,
+        counting: u128,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::IntArray)
+        .name("max")
+        .int_payload(4)
+        // All bits are 1
+        .int_array_payload(&[u32::MAX as i32; 4])
+        .tag(Tag::IntArray)
+        .name("min")
+        .int_payload(4)
+        // Only first bit is 1
+        .int_array_payload(&[1 << 31, 0, 0, 0])
+        .tag(Tag::IntArray)
+        .name("zero")
+        .int_payload(4)
+        .int_array_payload(&[0; 4])
+        .tag(Tag::IntArray)
+        .name("counting")
+        .int_payload(4)
+        .int_array_payload(&[1, 2, 3, 4])
+        .tag(Tag::End)
+        .build();
+
+    let v: V = from_bytes(payload.as_slice()).unwrap();
+
+    assert_eq!(v.max, u128::MAX);
+    assert_eq!(v.min, i128::MIN);
+    assert_eq!(v.zero, 0);
+    // Calculated with: 1 << 96 | 2 << 64 | 3 << 32 | 4
+    assert_eq!(v.counting, 79228162551157825753847955460);
+}
+
+#[test]
+fn i128_from_invalid_int_array() {
+    #[derive(Deserialize)]
+    struct V {
+        _i: i128,
+    }
+
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::IntArray)
+        .name("_i")
+        .int_payload(3)
+        .int_array_payload(&[1, 2, 3])
+        .tag(Tag::End)
+        .build();
+    let v: Result<V> = from_bytes(payload.as_slice());
+    assert!(v.is_err());
+
+    // Although number of bytes is correct, won't be accepted
+    let payload = Builder::new()
+        .start_compound("object")
+        .tag(Tag::ByteArray)
+        .name("_i")
+        .int_payload(16)
+        .int_array_payload(&[1; 16])
+        .tag(Tag::End)
+        .build();
+    let v: Result<V> = from_bytes(payload.as_slice());
+    assert!(v.is_err());
+}
