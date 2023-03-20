@@ -245,6 +245,7 @@ where
             // add a new offset representing the new 'end' of the current region file.
             self.offsets.push(offset + required_sectors as u64);
             self.set_chunk(offset, scheme, compressed_chunk)?;
+            self.pad()?;
             self.set_header(x, z, offset, required_sectors)?;
         } else {
             // chunk already exists in the region file, need to update it.
@@ -266,6 +267,7 @@ where
                 // add a new offset representing the new 'end' of the current region file.
                 self.offsets.push(offset + required_sectors as u64);
                 self.set_chunk(offset, scheme, compressed_chunk)?;
+                self.pad()?;
                 self.set_header(x, z, offset, required_sectors)?;
             }
         }
@@ -284,6 +286,14 @@ where
         ))?;
 
         self.stream.write_all(chunk)?;
+        Ok(())
+    }
+
+    fn pad(&mut self) -> Result<()> {
+        let current_end = unstable_stream_len(&mut self.stream)? as usize;
+        let padded_end = unstable_div_ceil(current_end, SECTOR_SIZE) * SECTOR_SIZE;
+        let pad_len = padded_end - current_end;
+        self.stream.write(&vec![0; pad_len])?;
         Ok(())
     }
 
@@ -386,6 +396,19 @@ pub const fn unstable_div_ceil(lhs: usize, rhs: usize) -> usize {
     } else {
         d
     }
+}
+
+fn unstable_stream_len(seek: &mut impl Seek) -> Result<u64> {
+    let old_pos = seek.stream_position()?;
+    let len = seek.seek(SeekFrom::End(0))?;
+
+    // Avoid seeking a third time when we were already at the end of the
+    // stream. The branch is usually way cheaper than a seek operation.
+    if old_pos != len {
+        seek.seek(SeekFrom::Start(old_pos))?;
+    }
+
+    Ok(len)
 }
 
 fn header_pos(x: usize, z: usize) -> u64 {
