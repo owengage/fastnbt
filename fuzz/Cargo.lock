@@ -98,13 +98,12 @@ dependencies = [
 
 [[package]]
 name = "fastanvil"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "bit_field",
  "byteorder",
  "fastnbt",
  "flate2",
- "hematite-nbt",
  "image",
  "log",
  "num_enum",
@@ -124,7 +123,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "2.2.0"
+version = "2.4.3"
 dependencies = [
  "arbitrary",
  "byteorder",
@@ -143,18 +142,6 @@ dependencies = [
  "crc32fast",
  "libc",
  "miniz_oxide",
-]
-
-[[package]]
-name = "hematite-nbt"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670d0784ee67cfb57393dc1837867d2951f9a59ca7db99a653499c854f745739"
-dependencies = [
- "byteorder",
- "cesu8",
- "flate2",
- "serde",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@
 name = "fastanvil"
 description = "Minecraft Anvil library"
 repository = "https://github.com/owengage/fastnbt"
-version = "0.26.1"
+version = "0.26.2"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
