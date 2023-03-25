@@ -1,7 +1,8 @@
-use std::io::{Cursor, Read, Seek, Write};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
-    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, CHUNK_HEADER_SIZE, SECTOR_SIZE,
+    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, Result, CHUNK_HEADER_SIZE,
+    SECTOR_SIZE,
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {
@@ -24,6 +25,19 @@ where
 fn n_sector_chunk(n: usize) -> Vec<u8> {
     assert!(n > 0);
     vec![0; (n * SECTOR_SIZE) - CHUNK_HEADER_SIZE]
+}
+
+fn unstable_stream_len(seek: &mut impl Seek) -> Result<u64> {
+    let old_pos = seek.stream_position()?;
+    let len = seek.seek(SeekFrom::End(0))?;
+
+    // Avoid seeking a third time when we were already at the end of the
+    // stream. The branch is usually way cheaper than a seek operation.
+    if old_pos != len {
+        seek.seek(SeekFrom::Start(old_pos))?;
+    }
+
+    Ok(len)
 }
 
 #[test]
@@ -198,6 +212,44 @@ fn load_from_existing_buffer() {
     let mut r = Region::from_stream(buf).unwrap();
     assert_location(&mut r, 0, 0, 2, 1);
     assert_location(&mut r, 0, 1, 3, 2);
+}
+
+#[test]
+fn deleted_chunk_doenst_exist() {
+    let mut r = new_empty();
+
+    r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+    r.write_compressed_chunk(0, 1, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+    r.write_compressed_chunk(0, 2, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+
+    r.remove_chunk(0, 1).unwrap();
+
+    assert!(matches!(r.read_chunk(0, 0), Ok(Some(_))));
+    assert!(matches!(r.read_chunk(0, 1), Ok(None)));
+    assert!(matches!(r.read_chunk(0, 2), Ok(Some(_))));
+}
+
+#[test]
+fn deleted_chunk_at_end_of_buffer_truncates_buffer() {
+    let mut r = new_empty();
+
+    r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+    r.write_compressed_chunk(0, 1, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+    r.write_compressed_chunk(0, 2, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+
+    let old_length = unstable_stream_len(&mut r.clone().into_inner().unwrap()).unwrap();
+
+    r.remove_chunk(0, 2).unwrap();
+
+    let new_length = unstable_stream_len(&mut r.into_inner().unwrap()).unwrap();
+
+    assert!(new_length < old_length)
 }
 
 // TODO: Should we always zero out space? Would likely be good for compression.

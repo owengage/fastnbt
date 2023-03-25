@@ -25,6 +25,7 @@ pub(crate) const CHUNK_HEADER_SIZE: usize = 5;
 /// File). This does not concern itself with manipulating chunk data, users are
 /// expected to use `fastnbt` or other deserialization method to manipulate the
 /// chunk data itself.
+#[derive(Clone)]
 pub struct Region<S> {
     stream: S,
     // last offset is always the next valid place to write a chunk.
@@ -292,6 +293,25 @@ where
         ))?;
 
         self.stream.write_all(chunk)?;
+        Ok(())
+    }
+
+    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
+        let loc = self.location(x, z)?;
+        // zero the region header for the chunk
+        self.set_header(x, z, 0, 0)?;
+
+        let i = self.offsets.binary_search(&loc.offset).unwrap();
+
+        // if the chunk's offset is the last the chunk is located at the end of the region and
+        // thereby the region can be truncated
+        if i + 1 >= self.offsets.len() {
+            // TODO: truncat the stream somehow
+        }
+
+        // remove the offset of the chunk
+        self.offsets.remove(i);
+
         Ok(())
     }
 
