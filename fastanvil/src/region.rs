@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fs::File;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -296,25 +297,6 @@ where
         Ok(())
     }
 
-    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
-        let loc = self.location(x, z)?;
-        // zero the region header for the chunk
-        self.set_header(x, z, 0, 0)?;
-
-        let i = self.offsets.binary_search(&loc.offset).unwrap();
-
-        // if the chunk's offset is the last the chunk is located at the end of the region and
-        // thereby the region can be truncated
-        if i + 1 >= self.offsets.len() {
-            // TODO: truncat the stream somehow
-        }
-
-        // remove the offset of the chunk
-        self.offsets.remove(i);
-
-        Ok(())
-    }
-
     fn pad(&mut self) -> Result<()> {
         let current_end = unstable_stream_len(&mut self.stream)? as usize;
         let padded_end = unstable_div_ceil(current_end, SECTOR_SIZE) * SECTOR_SIZE;
@@ -470,4 +452,51 @@ impl ChunkMeta {
             compression_scheme: scheme,
         })
     }
+}
+
+impl<S> Region<S>
+where
+    S: FileLike + Read + Write + Seek,
+{
+    /// Remove the chunk at the chunk location with the coordinates x and z. Frees up space if
+    /// possible.
+    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
+        let loc = self.location(x, z)?;
+        // zero the region header for the chunk
+        self.set_header(x, z, 0, 0)?;
+
+        let i = self.offsets.binary_search(&loc.offset).unwrap();
+        // remove the offset of the chunk
+        self.offsets.remove(i);
+
+        // if the chunk's offset is the last the chunk is located at the end of the region and
+        // thereby the region can be truncated
+        if i + 1 >= self.offsets.len() {
+            let new_len = unstable_stream_len(&mut self.stream)? - loc.sectors * SECTOR_SIZE as u64;
+            self.stream.set_len(new_len)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// FileLike is a sealed trait (users cannot implement it for their types). This
+/// allows us to add methods to this trait without breaking backwards
+/// compatibility.
+pub trait FileLike: private::Sealed {
+    fn set_len(&mut self, size: u64) -> io::Result<()>;
+}
+
+impl FileLike for File {
+    #[inline(always)]
+    fn set_len(&mut self, size: u64) -> io::Result<()> {
+        File::set_len(&self, size)
+    }
+}
+
+pub(crate) mod private {
+    use std::fs::File;
+
+    pub trait Sealed {}
+    impl Sealed for File {}
 }

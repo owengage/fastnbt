@@ -1,8 +1,8 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::{
-    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, Result, CHUNK_HEADER_SIZE,
-    SECTOR_SIZE,
+    ChunkLocation, CompressionScheme::Uncompressed, Error, FileLike, Region, Result,
+    CHUNK_HEADER_SIZE, SECTOR_SIZE,
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {
@@ -250,6 +250,17 @@ fn deleted_chunk_at_end_of_buffer_truncates_buffer() {
     let new_length = unstable_stream_len(&mut r.into_inner().unwrap()).unwrap();
 
     assert!(new_length < old_length)
+}
+
+type FakeFile = Cursor<Vec<u8>>;
+
+impl crate::region::private::Sealed for FakeFile {}
+
+impl FileLike for FakeFile {
+    fn set_len(&mut self, size: u64) -> std::io::Result<()> {
+        self.get_mut().truncate(size as usize);
+        Ok(())
+    }
 }
 
 // TODO: Should we always zero out space? Would likely be good for compression.
