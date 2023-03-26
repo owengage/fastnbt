@@ -299,7 +299,7 @@ where
         let current_end = unstable_stream_len(&mut self.stream)? as usize;
         let padded_end = unstable_div_ceil(current_end, SECTOR_SIZE) * SECTOR_SIZE;
         let pad_len = padded_end - current_end;
-        self.stream.write(&vec![0; pad_len])?;
+        self.stream.write_all(&vec![0; pad_len])?;
         Ok(())
     }
 

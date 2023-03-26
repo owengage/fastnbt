@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "fastanvil"
-version = "0.26.2"
+version = "0.26.3"
 dependencies = [
  "bit_field",
  "byteorder",
