@@ -1,8 +1,8 @@
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 use crate::{
-    ChunkLocation, CompressionScheme::Uncompressed, Error, FileLike, Region, Result,
-    CHUNK_HEADER_SIZE, SECTOR_SIZE,
+    ChunkLocation, CompressionScheme::Uncompressed, Error, Region, CHUNK_HEADER_SIZE,
+    REGION_HEADER_SIZE, SECTOR_SIZE,
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {
@@ -25,19 +25,6 @@ where
 fn n_sector_chunk(n: usize) -> Vec<u8> {
     assert!(n > 0);
     vec![0; (n * SECTOR_SIZE) - CHUNK_HEADER_SIZE]
-}
-
-fn unstable_stream_len(seek: &mut impl Seek) -> Result<u64> {
-    let old_pos = seek.stream_position()?;
-    let len = seek.seek(SeekFrom::End(0))?;
-
-    // Avoid seeking a third time when we were already at the end of the
-    // stream. The branch is usually way cheaper than a seek operation.
-    if old_pos != len {
-        seek.seek(SeekFrom::Start(old_pos))?;
-    }
-
-    Ok(len)
 }
 
 #[test]
@@ -233,7 +220,7 @@ fn deleted_chunk_doenst_exist() {
 }
 
 #[test]
-fn deleted_chunk_at_end_of_buffer_truncates_buffer() {
+fn into_inner_rewinds_to_correct_position() {
     let mut r = new_empty();
 
     r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(3))
@@ -243,24 +230,10 @@ fn deleted_chunk_at_end_of_buffer_truncates_buffer() {
     r.write_compressed_chunk(0, 2, Uncompressed, &n_sector_chunk(3))
         .unwrap();
 
-    let old_length = unstable_stream_len(&mut r.clone().into_inner().unwrap()).unwrap();
+    let expected_position = REGION_HEADER_SIZE + SECTOR_SIZE * 3 * 3;
 
-    r.remove_chunk(0, 2).unwrap();
-
-    let new_length = unstable_stream_len(&mut r.into_inner().unwrap()).unwrap();
-
-    assert!(new_length < old_length)
-}
-
-type FakeFile = Cursor<Vec<u8>>;
-
-impl crate::region::private::Sealed for FakeFile {}
-
-impl FileLike for FakeFile {
-    fn set_len(&mut self, size: u64) -> std::io::Result<()> {
-        self.get_mut().truncate(size as usize);
-        Ok(())
-    }
+    let inner = r.into_inner().unwrap();
+    assert_eq!(inner.position(), expected_position as u64);
 }
 
 // TODO: Should we always zero out space? Would likely be good for compression.

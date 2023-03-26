@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::fs::File;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -151,9 +150,26 @@ where
         }
     }
 
-    /// Return the inner buffer used. The buffer is rewound to the beginning.
+    /// Return the inner buffer used. The buffer is rewound to the logical end of the stream,
+    /// meaning the position at which the real data of the region ends. If the region does not
+    /// contain any chunk the position is undefined.
     pub fn into_inner(mut self) -> io::Result<S> {
-        self.stream.rewind()?;
+        // pop the last element so we can access the second last
+        self.offsets.pop().unwrap();
+        let Some(offset) = self.offsets.pop() else {
+            return Ok(self.stream)
+        };
+        self.stream
+            .seek(SeekFrom::Start(offset * SECTOR_SIZE as u64))?;
+        // add 4 to the chunk length in order to compensate for the 4 bytes the length field takes
+        // up itself
+        let chunk_length = self.stream.read_u32::<BigEndian>().unwrap() + 4;
+        let logical_end = unstable_div_ceil(
+            offset as usize * SECTOR_SIZE as usize + chunk_length as usize,
+            SECTOR_SIZE,
+        ) * SECTOR_SIZE;
+
+        self.stream.seek(SeekFrom::Start(logical_end as u64))?;
         Ok(self.stream)
     }
 
@@ -279,6 +295,20 @@ where
                 self.set_header(x, z, offset, required_sectors)?;
             }
         }
+
+        Ok(())
+    }
+
+    /// Remove the chunk at the chunk location with the coordinates x and z. Frees up space if
+    /// possible.
+    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
+        let loc = self.location(x, z)?;
+        // zero the region header for the chunk
+        self.set_header(x, z, 0, 0)?;
+
+        // remove the offset of the chunk
+        let i = self.offsets.binary_search(&loc.offset).unwrap();
+        self.offsets.remove(i);
 
         Ok(())
     }
@@ -452,51 +482,4 @@ impl ChunkMeta {
             compression_scheme: scheme,
         })
     }
-}
-
-impl<S> Region<S>
-where
-    S: FileLike + Read + Write + Seek,
-{
-    /// Remove the chunk at the chunk location with the coordinates x and z. Frees up space if
-    /// possible.
-    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
-        let loc = self.location(x, z)?;
-        // zero the region header for the chunk
-        self.set_header(x, z, 0, 0)?;
-
-        let i = self.offsets.binary_search(&loc.offset).unwrap();
-        // remove the offset of the chunk
-        self.offsets.remove(i);
-
-        // if the chunk's offset is the last the chunk is located at the end of the region and
-        // thereby the region can be truncated
-        if i + 1 >= self.offsets.len() {
-            let new_len = unstable_stream_len(&mut self.stream)? - loc.sectors * SECTOR_SIZE as u64;
-            self.stream.set_len(new_len)?;
-        }
-
-        Ok(())
-    }
-}
-
-/// FileLike is a sealed trait (users cannot implement it for their types). This
-/// allows us to add methods to this trait without breaking backwards
-/// compatibility.
-pub trait FileLike: private::Sealed {
-    fn set_len(&mut self, size: u64) -> io::Result<()>;
-}
-
-impl FileLike for File {
-    #[inline(always)]
-    fn set_len(&mut self, size: u64) -> io::Result<()> {
-        File::set_len(&self, size)
-    }
-}
-
-pub(crate) mod private {
-    use std::fs::File;
-
-    pub trait Sealed {}
-    impl Sealed for File {}
 }
