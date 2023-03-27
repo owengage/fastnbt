@@ -236,6 +236,14 @@ fn into_inner_rewinds_to_correct_position() {
     assert_eq!(inner.position(), expected_position as u64);
 }
 
+#[test]
+fn into_inner_rewinds_behind_header_if_empty_region() {
+    let r = new_empty();
+
+    let inner = r.into_inner().unwrap();
+    assert_eq!(inner.position(), REGION_HEADER_SIZE as u64);
+}
+
 // TODO: Should we always zero out space? Would likely be good for compression.
 // TODO: defrag?
 
