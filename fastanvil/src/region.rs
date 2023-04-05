@@ -166,8 +166,7 @@ where
     /// // manipulate region
     /// let mut file = region.into_inner()?;
     /// let len = file.stream_position()?;
-    /// file.truncate(len)?;
-    file.set_len(len)?;
+    /// file.set_len(len)?;
     /// # Ok(())
     /// # }
     ///  ```
@@ -185,7 +184,7 @@ where
         // up itself
         let chunk_length = self.stream.read_u32::<BigEndian>()? + 4;
         let logical_end = unstable_div_ceil(
-            offset as usize * SECTOR_SIZE as usize + chunk_length as usize,
+            offset as usize * SECTOR_SIZE + chunk_length as usize,
             SECTOR_SIZE,
         ) * SECTOR_SIZE;
 
