@@ -25,6 +25,7 @@ pub(crate) const CHUNK_HEADER_SIZE: usize = 5;
 /// File). This does not concern itself with manipulating chunk data, users are
 /// expected to use `fastnbt` or other deserialization method to manipulate the
 /// chunk data itself.
+#[derive(Clone)]
 pub struct Region<S> {
     stream: S,
     // last offset is always the next valid place to write a chunk.
@@ -149,9 +150,45 @@ where
         }
     }
 
-    /// Return the inner buffer used. The buffer is rewound to the beginning.
+    /// Return the inner buffer used. The buffer is rewound to the logical end of the stream,
+    /// meaning the position at which the chunk data of the region ends. If the region does not
+    /// contain any chunk the position is at the end of the header.
+    ///
+    /// # Examples
+    /// This can be used to truncate a region file after manipulating it to save disk space.
+    /// ```no_run
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::io::Seek;
+    /// # fn main() -> Result<()> {
+    /// let mut file = std::fs::File::open("foo.mca")?;
+    /// let mut region = Region::from_stream(file)?;
+    /// // manipulate region
+    /// let mut file = region.into_inner()?;
+    /// let len = file.stream_position()?;
+    /// file.set_len(len)?;
+    /// # Ok(())
+    /// # }
+    ///  ```
     pub fn into_inner(mut self) -> io::Result<S> {
-        self.stream.rewind()?;
+        // pop the last element so we can access the second last. This can be unwrapped safely as
+        // there should always be at least one offset
+        self.offsets.pop().unwrap();
+        let Some(offset) = self.offsets.pop() else {
+            self.stream.seek(SeekFrom::Start(REGION_HEADER_SIZE as u64))?;
+            return Ok(self.stream)
+        };
+        self.stream
+            .seek(SeekFrom::Start(offset * SECTOR_SIZE as u64))?;
+        // add 4 to the chunk length in order to compensate for the 4 bytes the length field takes
+        // up itself
+        let chunk_length = self.stream.read_u32::<BigEndian>()? + 4;
+        let logical_end = unstable_div_ceil(
+            offset as usize * SECTOR_SIZE + chunk_length as usize,
+            SECTOR_SIZE,
+        ) * SECTOR_SIZE;
+
+        self.stream.seek(SeekFrom::Start(logical_end as u64))?;
         Ok(self.stream)
     }
 
@@ -277,6 +314,20 @@ where
                 self.set_header(x, z, offset, required_sectors)?;
             }
         }
+
+        Ok(())
+    }
+
+    /// Remove the chunk at the chunk location with the coordinates x and z. Frees up space if
+    /// possible.
+    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
+        let loc = self.location(x, z)?;
+        // zero the region header for the chunk
+        self.set_header(x, z, 0, 0)?;
+
+        // remove the offset of the chunk
+        let i = self.offsets.binary_search(&loc.offset).unwrap();
+        self.offsets.remove(i);
 
         Ok(())
     }
