@@ -167,6 +167,7 @@ where
     /// let mut file = region.into_inner()?;
     /// let len = file.stream_position()?;
     /// file.truncate(len)?;
+    file.set_len(len)?;
     /// # Ok(())
     /// # }
     ///  ```
