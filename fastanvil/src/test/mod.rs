@@ -1,13 +1,16 @@
+#[cfg(feature = "render")]
+use crate::{biome::Biome, Block, Palette, Rgba};
+#[cfg(feature = "render")]
+use std::hash::Hash;
+#[cfg(feature = "render")]
 use std::{collections::hash_map::DefaultHasher, hash::Hasher};
 
 use fastnbt::{nbt, LongArray, Value};
 
-use crate::{biome::Biome, Block, Palette, Rgba};
-use std::hash::Hash;
-
 mod region;
 mod rogue_chunks;
 mod section_data;
+#[cfg(feature = "render")]
 mod standard_chunks;
 mod unicode_chunk;
 
@@ -21,8 +24,10 @@ fn nbt_macro_use() {
 /// A palette that colours blocks based on the hash of their full description.
 /// Will produce gibberish looking maps but is great for testing rendering isn't
 /// changing.
+#[cfg(feature = "render")]
 pub struct HashPalette;
 
+#[cfg(feature = "render")]
 impl Palette for HashPalette {
     fn pick(&self, block: &Block, _: Option<Biome>) -> Rgba {
         // Call methods just to exercise all the code.
@@ -34,6 +39,7 @@ impl Palette for HashPalette {
     }
 }
 
+#[cfg(feature = "render")]
 fn calculate_hash<T: Hash + ?Sized>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);
