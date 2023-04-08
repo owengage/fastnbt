@@ -11,6 +11,11 @@
 //!
 //! [`Region`] can be given a `Read`, `Write` and `Seek` type eg a file in
 //! order to read and write chunk data.
+//!
+//! # Crate features
+//!
+//! * **render** -
+//!   This feature is enabled by default and encapsulates all world-rendering related functionality.
 
 pub mod biome;
 pub mod tex;
@@ -20,7 +25,9 @@ mod dimension;
 mod files;
 mod java;
 mod region;
+#[cfg(feature = "render")]
 mod render;
+#[cfg(feature = "render")]
 mod rendered_palette;
 
 pub use bits::*;
@@ -28,7 +35,9 @@ pub use dimension::*;
 pub use files::*;
 pub use java::*;
 pub use region::*;
+#[cfg(feature = "render")]
 pub use render::*;
+#[cfg(feature = "render")]
 pub use rendered_palette::*;
 
 #[cfg(test)]
