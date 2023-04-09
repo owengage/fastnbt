@@ -12,6 +12,7 @@ mod heightmaps;
 mod section;
 mod section_data;
 mod section_tower;
+pub mod chunk_block_iter;
 
 pub use block::*;
 pub use chunk::*;
