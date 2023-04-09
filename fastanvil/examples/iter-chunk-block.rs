@@ -18,15 +18,6 @@ fn main() {
         count += 1;
     }
 
-    println!("hot load {:?}", now.elapsed());
-
-    let now = Instant::now();
-    let mut count = 0;
-
-    for _ in ChunkBlockIter::new(&mut chunk) {
-        count += 1;
-    }
-
     println!("basic {:?}", now.elapsed());
 
     match chunk {

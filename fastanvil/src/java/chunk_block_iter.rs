@@ -19,12 +19,12 @@ impl<'a> CurrentChunkBlockIter<'a> {
             blocks_to_fill: 0,
         };
 
-        thing.init();
+        thing.new_section();
 
         return thing;
     }
 
-    fn init(&mut self) {
+    fn new_section(&mut self) {
 
         self.current_block_states = Some(
             &self
@@ -47,6 +47,8 @@ impl<'a> Iterator for CurrentChunkBlockIter<'a> {
     type Item = Block;
 
     fn next(&mut self) -> Option<Self::Item> {
+
+        //check if in "empty" section
         if self.blocks_to_fill > 0 {
             self.blocks_to_fill -= 1;
 
@@ -62,11 +64,12 @@ impl<'a> Iterator for CurrentChunkBlockIter<'a> {
 
         return match self.current_section_iter.as_mut().unwrap().next() {
             None => {
+                //current section finished
                 if self.next_y >= self.section_tower.y_max() {
                     return None;
                 };
 
-                self.init();
+                self.new_section();
 
                 self.next()
             }
