@@ -1,4 +1,4 @@
-use crate::{Block, BlockData, CurrentJavaChunk, Section, SectionTower, StatesIter};
+use crate::{Block, BlockData, Chunk, CurrentJavaChunk, JavaChunk, Section, SectionTower, StatesIter};
 
 pub struct CurrentChunkBlockIter<'a> {
     section_tower: &'a SectionTower<Section>,
@@ -83,3 +83,51 @@ impl<'a> Iterator for CurrentChunkBlockIter<'a> {
         }
     }
 }
+
+
+pub struct ChunkBlockIter<'a> {
+    chunk: &'a JavaChunk,
+
+    x: usize,
+    y: isize,
+    z: usize,
+}
+
+impl<'a> ChunkBlockIter<'a> {
+    pub fn new(chunk: &'a mut JavaChunk) -> Self {
+        Self {
+            chunk,
+            x: 0,
+            y: -64,
+            z: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for ChunkBlockIter<'a> {
+    type Item = Block;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.x += 1;
+
+        if self.x >= 16 {
+            self.x = 0;
+            self.z += 1;
+
+            if self.z >= 16 {
+                self.z = 0;
+                self.y += 1;
+
+                if self.y >= 320 {
+                    return None;
+                }
+            }
+        }
+
+        return match self.chunk.block(self.x, self.y, self.z) {
+            None => None,
+            Some(block) => Some(block.clone()),
+        };
+    }
+}
+

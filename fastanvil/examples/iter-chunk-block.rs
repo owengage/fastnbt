@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use fastanvil::chunk_block_iter::CurrentChunkBlockIter;
+use fastanvil::chunk_block_iter::{ChunkBlockIter, CurrentChunkBlockIter};
 use fastanvil::{Chunk, JavaChunk, Region};
 
 fn main() {
@@ -9,19 +9,28 @@ fn main() {
     let mut region = Region::from_stream(file).unwrap();
     let data = region.read_chunk(0, 0).unwrap().unwrap();
 
-    let chunk = JavaChunk::from_bytes(&data).unwrap();
+    let mut chunk = JavaChunk::from_bytes(&data).unwrap();
+
+    let now = Instant::now();
+    let mut count = 0;
+
+    for _ in ChunkBlockIter::new(&mut chunk) {
+        count += 1;
+    }
+
+    println!("hot load {:?}", now.elapsed());
+
+    let now = Instant::now();
+    let mut count = 0;
+
+    for _ in ChunkBlockIter::new(&mut chunk) {
+        count += 1;
+    }
+
+    println!("basic {:?}", now.elapsed());
 
     match chunk {
         JavaChunk::Post18(mut chunk) => {
-            let now = Instant::now();
-            let mut count = 0;
-
-            for _ in CurrentChunkBlockIter::new(&mut chunk) {
-                count += 1;
-            }
-
-            println!("{:?}", now.elapsed());
-            println!("{}", count);
 
             let now = Instant::now();
             let mut count = 0;
@@ -36,8 +45,16 @@ fn main() {
                 }
             }
 
-            println!("{:?}", now.elapsed());
-            println!("{}", count);
+            println!("hand {:?}", now.elapsed());
+
+            let now = Instant::now();
+            let mut count = 0;
+
+            for _ in CurrentChunkBlockIter::new(&mut chunk) {
+                count += 1;
+            }
+
+            println!("complex {:?}", now.elapsed());
         }
         JavaChunk::Pre18(_) => {}
         JavaChunk::Pre13(_) => {}

@@ -1,6 +1,17 @@
 use std::ops::Range;
 
+use once_cell::sync::Lazy;
+
+pub use block::*;
+pub use chunk::*;
 use fastnbt::{error::Result, from_bytes};
+pub use heightmaps::*;
+pub use section::*;
+pub use section_data::*;
+pub use section_tower::*;
+
+use crate::{biome::Biome, Chunk, HeightMode};
+
 /// 1.2 to 1.12
 pub mod pre13;
 /// 1.13 to 1.17
@@ -8,22 +19,11 @@ pub mod pre18;
 
 mod block;
 mod chunk;
+pub mod chunk_block_iter;
 mod heightmaps;
 mod section;
 mod section_data;
 mod section_tower;
-pub mod chunk_block_iter;
-
-pub use block::*;
-pub use chunk::*;
-pub use heightmaps::*;
-pub use section::*;
-pub use section_data::*;
-pub use section_tower::*;
-
-use once_cell::sync::Lazy;
-
-use crate::{biome::Biome, Chunk, HeightMode};
 
 pub static AIR: Lazy<Block> = Lazy::new(|| Block {
     name: "minecraft:air".to_owned(),
