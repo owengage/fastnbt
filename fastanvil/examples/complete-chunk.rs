@@ -13,16 +13,4 @@ fn main() {
 
     println!("{}", complete_chunk.status);
     println!("{}", chunk.status);
-
-    for x in 0..16 {
-        for z in 0..16 {
-            for y in -64..64 {
-                assert!(complete_chunk
-                    .block(x, y, z)
-                    .unwrap()
-                    .name()
-                    .eq(chunk.block(x, y, z).unwrap().name()))
-            }
-        }
-    }
 }

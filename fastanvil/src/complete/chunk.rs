@@ -39,6 +39,6 @@ impl dimension::Chunk for Chunk {
     }
 
     fn y_range(&self) -> Range<isize> {
-        todo!()
+        self.sections.y_range()
     }
 }

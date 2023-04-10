@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::complete::section::Section;
 use crate::{java, Block};
 
@@ -36,5 +38,9 @@ impl SectionTower {
 
     fn y_to_index(&self, y: isize) -> usize {
         ((y - self.y_min) / 16) as usize
+    }
+
+    pub fn y_range(&self) -> Range<isize> {
+        self.y_min..self.y_max
     }
 }
