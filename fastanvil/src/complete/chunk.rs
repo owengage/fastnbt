@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::biome::Biome;
 use crate::complete::section_tower::SectionTower;
-use crate::{dimension, Block, CurrentJavaChunk, HeightMode};
+use crate::{dimension, Block, CurrentJavaChunk, HeightMode, JavaChunk};
 
 pub struct Chunk {
     pub status: String,
@@ -11,6 +11,18 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    pub fn from_bytes(data: &[u8]) -> fastnbt::error::Result<Self> {
+        return match JavaChunk::from_bytes(data)? {
+            JavaChunk::Post18(chunk) => Ok(Self::from_current_chunk(&chunk)),
+            JavaChunk::Pre18(_) => {
+                todo!()
+            }
+            JavaChunk::Pre13(_) => {
+                todo!()
+            }
+        };
+    }
+
     pub fn from_current_chunk(current_java_chunk: &CurrentJavaChunk) -> Self {
         Chunk {
             status: current_java_chunk.status.clone(),
