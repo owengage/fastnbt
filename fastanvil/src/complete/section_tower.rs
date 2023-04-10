@@ -19,13 +19,17 @@ impl SectionTower {
         }
 
         SectionTower {
-            sections: sections,
+            sections,
             y_min: current_tower.y_min(),
             y_max: current_tower.y_max(),
         }
     }
 
     pub fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {
+        if !self.y_range().contains(&y) || !(0..16).contains(&x) || !(0..16).contains(&z) {
+            return None;
+        }
+
         let section_index = self.y_to_index(y);
 
         let section = self.sections.get(section_index).unwrap();
