@@ -1,4 +1,6 @@
-use crate::{Block, BlockData, Chunk, CurrentJavaChunk, JavaChunk, Section, SectionTower, StatesIter};
+use crate::{
+    Block, BlockData, Chunk, CurrentJavaChunk, JavaChunk, Section, SectionTower, StatesIter,
+};
 
 pub struct CurrentChunkBlockIter<'a> {
     section_tower: &'a SectionTower<Section>,
@@ -25,7 +27,6 @@ impl<'a> CurrentChunkBlockIter<'a> {
     }
 
     fn new_section(&mut self) {
-
         self.current_block_states = Some(
             &self
                 .section_tower
@@ -44,22 +45,14 @@ impl<'a> CurrentChunkBlockIter<'a> {
 }
 
 impl<'a> Iterator for CurrentChunkBlockIter<'a> {
-    type Item = Block;
+    type Item = &'a Block;
 
     fn next(&mut self) -> Option<Self::Item> {
-
         //check if in "empty" section
         if self.blocks_to_fill > 0 {
             self.blocks_to_fill -= 1;
 
-            return Some(
-                self.current_block_states
-                    .unwrap()
-                    .palette()
-                    .get(0)
-                    .unwrap()
-                    .clone(),
-            );
+            return Some(self.current_block_states.unwrap().palette().get(0).unwrap());
         }
 
         return match self.current_section_iter.as_mut().unwrap().next() {
@@ -73,20 +66,16 @@ impl<'a> Iterator for CurrentChunkBlockIter<'a> {
 
                 self.next()
             }
-            Some(index) => {
-                Some(
-                    self.current_block_states
-                        .unwrap()
-                        .palette()
-                        .get(index)
-                        .unwrap()
-                        .clone(),
-                )
-            }
-        }
+            Some(index) => Some(
+                self.current_block_states
+                    .unwrap()
+                    .palette()
+                    .get(index)
+                    .unwrap(),
+            ),
+        };
     }
 }
-
 
 pub struct ChunkBlockIter<'a> {
     chunk: &'a JavaChunk,
@@ -108,7 +97,7 @@ impl<'a> ChunkBlockIter<'a> {
 }
 
 impl<'a> Iterator for ChunkBlockIter<'a> {
-    type Item = Block;
+    type Item = &'a Block;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.x += 1;
@@ -129,8 +118,7 @@ impl<'a> Iterator for ChunkBlockIter<'a> {
 
         return match self.chunk.block(self.x, self.y, self.z) {
             None => None,
-            Some(block) => Some(block.clone()),
+            Some(block) => Some(block),
         };
     }
 }
-
