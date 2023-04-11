@@ -1,3 +1,5 @@
-pub mod chunk;
-pub mod section;
-pub mod section_tower;
+mod chunk;
+mod section;
+mod section_tower;
+
+pub use chunk::Chunk;

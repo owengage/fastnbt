@@ -1,7 +1,7 @@
 use crate::{java, Block};
 
 pub struct Section {
-    block_pallet: Vec<Block>,
+    block_palette: Vec<Block>,
 
     //could be [] because of fix size
     //This will increase in x, then z, then y.
@@ -23,18 +23,18 @@ impl Section {
         }
 
         Section {
-            block_pallet: Vec::from(current_tower.block_states.palette()),
+            block_palette: Vec::from(current_tower.block_states.palette()),
             blocks,
         }
     }
 
     pub fn block(&self, x: usize, y: usize, z: usize) -> Option<&Block> {
         return match &self.blocks {
-            None => Some(self.block_pallet.get(0).unwrap()),
+            None => Some(self.block_palette.get(0).unwrap()),
             Some(blocks) => {
                 let index = y * (16 * 16) + z * 16 + x;
 
-                self.block_pallet.get(*blocks.get(index).unwrap() as usize)
+                self.block_palette.get(*blocks.get(index).unwrap() as usize)
             }
         };
     }

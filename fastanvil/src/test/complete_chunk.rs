@@ -18,7 +18,7 @@ fn get_test_chunk() -> CurrentJavaChunk {
 fn block_returns_same_as_current_java_chunk() {
     let java_chunk = get_test_chunk();
 
-    let complete_chunk = complete::chunk::Chunk::from_current_chunk(&java_chunk);
+    let complete_chunk = complete::Chunk::from_current_chunk(&java_chunk);
 
     for x in 0..16 {
         for z in 0..16 {
