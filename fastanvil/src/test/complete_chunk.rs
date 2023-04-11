@@ -3,7 +3,7 @@ use fastnbt::from_bytes;
 use crate::{complete, Chunk, CurrentJavaChunk, Region};
 
 fn get_test_chunk() -> CurrentJavaChunk {
-    let file = std::fs::File::open("./resources/1.18.mca").unwrap();
+    let file = std::fs::File::open("./resources/1.19.4.mca").unwrap();
 
     let mut region = Region::from_stream(file).unwrap();
     let data = region.read_chunk(0, 0).unwrap().unwrap();
@@ -21,7 +21,7 @@ fn block_returns_same_as_current_java_chunk() {
 
     for x in 0..16 {
         for z in 0..16 {
-            for y in -64..64 {
+            for y in complete_chunk.y_range() {
                 // for y in complete_chunk.y_range() {
                 assert!(complete_chunk
                     .block(x, y, z)
@@ -43,8 +43,8 @@ fn iter_block_returns_same_as_current_java_chunk() {
         let x = index % 16;
         let z = (index / 16) % 16;
 
-        //-64 because y beginns with -64
-        let y = index as isize / (16 * 16) - 64;
+        //- y_range() because chunk does not begin at y = 0
+        let y = index as isize / (16 * 16) + complete_chunk.y_range().start;
 
         assert!(block.name().eq(java_chunk.block(x, y, z).unwrap().name()))
     }

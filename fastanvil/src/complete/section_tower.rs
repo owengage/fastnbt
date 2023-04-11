@@ -78,6 +78,7 @@ impl<'a> Iterator for SectionTowerBlockIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         return match self.section_iter_current.next() {
             None => {
+                //check if it was the last section
                 if self.section_index_current >= self.sections.len() - 1 {
                     return None;
                 }
