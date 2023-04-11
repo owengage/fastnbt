@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::complete::section::Section;
+use crate::complete::section::{Section, SectionBlockIter};
 use crate::{java, Block};
 
 pub struct SectionTower {
@@ -33,6 +33,10 @@ impl SectionTower {
     pub fn y_range(&self) -> Range<isize> {
         self.y_min..self.y_max
     }
+
+    pub fn iter_blocks(&self) -> SectionTowerBlockIter {
+        SectionTowerBlockIter::new(self)
+    }
 }
 
 impl From<&java::SectionTower<java::Section>> for SectionTower {
@@ -48,5 +52,46 @@ impl From<&java::SectionTower<java::Section>> for SectionTower {
             y_min: current_tower.y_min(),
             y_max: current_tower.y_max(),
         }
+    }
+}
+
+pub struct SectionTowerBlockIter<'a> {
+    sections: &'a Vec<Section>,
+
+    section_index_current: usize,
+    section_iter_current: SectionBlockIter<'a>,
+}
+
+impl<'a> SectionTowerBlockIter<'a> {
+    pub fn new(section_tower: &'a SectionTower) -> Self {
+        Self {
+            sections: &section_tower.sections,
+            section_iter_current: section_tower.sections.get(0).unwrap().iter_blocks(),
+            section_index_current: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for SectionTowerBlockIter<'a> {
+    type Item = &'a Block;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        return match self.section_iter_current.next() {
+            None => {
+                if self.section_index_current >= self.sections.len() - 1 {
+                    return None;
+                }
+
+                self.section_index_current += 1;
+                self.section_iter_current = self
+                    .sections
+                    .get(self.section_index_current)
+                    .unwrap()
+                    .iter_blocks();
+
+                self.section_iter_current.next()
+            }
+            Some(block) => Some(block),
+        };
     }
 }

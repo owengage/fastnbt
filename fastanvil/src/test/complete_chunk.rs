@@ -1,4 +1,3 @@
-use std::fs;
 use fastnbt::from_bytes;
 
 use crate::{complete, Chunk, CurrentJavaChunk, Region};
@@ -23,7 +22,7 @@ fn block_returns_same_as_current_java_chunk() {
     for x in 0..16 {
         for z in 0..16 {
             for y in -64..64 {
-            // for y in complete_chunk.y_range() {
+                // for y in complete_chunk.y_range() {
                 assert!(complete_chunk
                     .block(x, y, z)
                     .unwrap()
@@ -31,5 +30,22 @@ fn block_returns_same_as_current_java_chunk() {
                     .eq(java_chunk.block(x, y, z).unwrap().name()))
             }
         }
+    }
+}
+
+#[test]
+fn iter_block_returns_same_as_current_java_chunk() {
+    let java_chunk = get_test_chunk();
+
+    let complete_chunk: complete::Chunk = (&java_chunk).into();
+
+    for (index, block) in complete_chunk.iter_blocks().enumerate() {
+        let x = index % 16;
+        let z = (index / 16) % 16;
+
+        //-64 because y beginns with -64
+        let y = index as isize / (16 * 16) - 64;
+
+        assert!(block.name().eq(java_chunk.block(x, y, z).unwrap().name()))
     }
 }

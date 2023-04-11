@@ -1,3 +1,6 @@
+use std::ops::Range;
+use std::slice::Iter;
+
 use crate::{java, Block};
 
 pub struct Section {
@@ -19,6 +22,10 @@ impl Section {
             }
         };
     }
+
+    pub fn iter_blocks(&self) -> SectionBlockIter {
+        SectionBlockIter::new(self)
+    }
 }
 
 impl From<&java::Section> for Section {
@@ -39,5 +46,47 @@ impl From<&java::Section> for Section {
             block_palette: Vec::from(current_section.block_states.palette()),
             blocks,
         }
+    }
+}
+
+pub struct SectionBlockIter<'a> {
+    section: &'a Section,
+
+    block_index_iter: Option<Iter<'a, u16>>,
+    default_block_iter: Option<Range<i32>>,
+}
+
+impl<'a> SectionBlockIter<'a> {
+    pub fn new(section: &'a Section) -> Self {
+        let mut iter = Self {
+            section,
+            block_index_iter: None,
+            default_block_iter: None,
+        };
+
+        match &section.blocks {
+            None => iter.default_block_iter = Some(0..(16 * 16 * 16)),
+            Some(blocks) => iter.block_index_iter = Some(blocks.iter()),
+        }
+
+        iter
+    }
+}
+
+impl<'a> Iterator for SectionBlockIter<'a> {
+    type Item = &'a Block;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        return if let Some(iter) = self.default_block_iter.as_mut() {
+            match iter.next() {
+                None => None,
+                Some(_) => self.section.block_palette.get(0),
+            }
+        } else {
+            match self.block_index_iter.as_mut().unwrap().next() {
+                None => None,
+                Some(index) => self.section.block_palette.get(*index as usize),
+            }
+        };
     }
 }

@@ -9,4 +9,12 @@ fn main() {
     let complete_chunk = complete::Chunk::from_bytes(&data).unwrap();
 
     println!("{}", complete_chunk.status);
+
+    let mut count = 0;
+
+    for _block in complete_chunk.iter_blocks() {
+        count += 1;
+    }
+
+    println!("{}", count);
 }

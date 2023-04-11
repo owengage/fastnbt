@@ -22,6 +22,10 @@ impl Chunk {
             }
         };
     }
+
+    pub fn iter_blocks(&self) -> impl Iterator<Item = &Block> {
+        self.sections.iter_blocks()
+    }
 }
 
 impl dimension::Chunk for Chunk {
