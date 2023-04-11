@@ -11,20 +11,6 @@ pub struct SectionTower {
 }
 
 impl SectionTower {
-    pub fn from_current_chunk(current_tower: &java::SectionTower<java::Section>) -> Self {
-        let mut sections = vec![];
-
-        for section in current_tower.sections() {
-            sections.push(Section::from_current_section(section))
-        }
-
-        SectionTower {
-            sections,
-            y_min: current_tower.y_min(),
-            y_max: current_tower.y_max(),
-        }
-    }
-
     pub fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {
         if !self.y_range().contains(&y) || !(0..16).contains(&x) || !(0..16).contains(&z) {
             return None;
@@ -46,5 +32,21 @@ impl SectionTower {
 
     pub fn y_range(&self) -> Range<isize> {
         self.y_min..self.y_max
+    }
+}
+
+impl From<&java::SectionTower<java::Section>> for SectionTower {
+    fn from(current_tower: &java::SectionTower<java::Section>) -> Self {
+        let mut sections = vec![];
+
+        for section in current_tower.sections() {
+            sections.push(section.into())
+        }
+
+        SectionTower {
+            sections,
+            y_min: current_tower.y_min(),
+            y_max: current_tower.y_max(),
+        }
     }
 }
