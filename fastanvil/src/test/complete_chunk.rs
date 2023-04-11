@@ -2,22 +2,21 @@ use fastnbt::from_bytes;
 
 use crate::{complete, Chunk, CurrentJavaChunk, Region};
 
-fn get_test_chunk() -> CurrentJavaChunk {
+fn get_test_chunk() -> (CurrentJavaChunk, complete::Chunk) {
     let file = std::fs::File::open("./resources/1.19.4.mca").unwrap();
 
     let mut region = Region::from_stream(file).unwrap();
     let data = region.read_chunk(0, 0).unwrap().unwrap();
 
-    let chunk: CurrentJavaChunk = from_bytes(data.as_slice()).unwrap();
+    let current_java_chunk: CurrentJavaChunk = from_bytes(data.as_slice()).unwrap();
+    let complete_chunk = complete::Chunk::from_bytes(data.as_slice()).unwrap();
 
-    chunk
+    (current_java_chunk, complete_chunk)
 }
 
 #[test]
 fn block_returns_same_as_current_java_chunk() {
-    let java_chunk = get_test_chunk();
-
-    let complete_chunk: complete::Chunk = (&java_chunk).into();
+    let (java_chunk, complete_chunk) = get_test_chunk();
 
     for x in 0..16 {
         for z in 0..16 {
@@ -35,9 +34,7 @@ fn block_returns_same_as_current_java_chunk() {
 
 #[test]
 fn iter_block_returns_same_as_current_java_chunk() {
-    let java_chunk = get_test_chunk();
-
-    let complete_chunk: complete::Chunk = (&java_chunk).into();
+    let (java_chunk, complete_chunk) = get_test_chunk();
 
     for (index, block) in complete_chunk.iter_blocks().enumerate() {
         let x = index % 16;

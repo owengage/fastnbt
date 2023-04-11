@@ -39,8 +39,8 @@ impl SectionTower {
     }
 }
 
-impl From<&java::SectionTower<java::Section>> for SectionTower {
-    fn from(current_tower: &java::SectionTower<java::Section>) -> Self {
+impl From<java::SectionTower<java::Section>> for SectionTower {
+    fn from(current_tower: java::SectionTower<java::Section>) -> Self {
         let mut sections = vec![];
 
         for section in current_tower.sections() {

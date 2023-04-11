@@ -13,7 +13,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn from_bytes(data: &[u8]) -> fastnbt::error::Result<Self> {
         return match JavaChunk::from_bytes(data)? {
-            JavaChunk::Post18(chunk) => Ok((&chunk).into()),
+            JavaChunk::Post18(chunk) => Ok(chunk.into()),
             JavaChunk::Pre18(_) => {
                 todo!()
             }
@@ -50,11 +50,11 @@ impl dimension::Chunk for Chunk {
     }
 }
 
-impl From<&CurrentJavaChunk> for Chunk {
-    fn from(current_java_chunk: &CurrentJavaChunk) -> Self {
+impl From<CurrentJavaChunk> for Chunk {
+    fn from(current_java_chunk: CurrentJavaChunk) -> Self {
         Chunk {
             status: current_java_chunk.status.clone(),
-            sections: current_java_chunk.sections.as_ref().unwrap().into(),
+            sections: current_java_chunk.sections.unwrap().into(),
         }
     }
 }
