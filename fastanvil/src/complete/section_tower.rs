@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use crate::biome::Biome;
 use crate::complete::section::{Section, SectionBlockIter};
 use crate::{java, Block};
 
@@ -24,6 +25,22 @@ impl SectionTower {
         let section_y = y - ((16 * section_index) as isize + self.y_min);
 
         section.block(x, section_y as usize, z)
+    }
+
+    pub fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
+        // y * 4 to map biom y to block y
+        if !self.y_range().contains(&y) || !(0..16).contains(&x) || !(0..16).contains(&z) {
+            return None;
+        }
+
+        let section_index = self.y_to_index(y);
+
+        let section = self.sections.get(section_index).unwrap();
+
+        //first compute current section y then sub that from the ask y to get the y in the section
+        let section_y = y - ((16 * section_index) as isize + self.y_min);
+
+        section.biome(x, section_y as usize, z)
     }
 
     fn y_to_index(&self, y: isize) -> usize {

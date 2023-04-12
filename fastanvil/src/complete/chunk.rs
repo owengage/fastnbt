@@ -38,7 +38,7 @@ impl dimension::Chunk for Chunk {
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
-        todo!()
+        self.sections.biome(x, y, z)
     }
 
     fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {

@@ -21,7 +21,6 @@ fn block_returns_same_as_current_java_chunk() {
     for x in 0..16 {
         for z in 0..16 {
             for y in complete_chunk.y_range() {
-                // for y in complete_chunk.y_range() {
                 assert!(complete_chunk
                     .block(x, y, z)
                     .unwrap()
@@ -44,5 +43,18 @@ fn iter_block_returns_same_as_current_java_chunk() {
         let y = index as isize / (16 * 16) + complete_chunk.y_range().start;
 
         assert!(block.name().eq(java_chunk.block(x, y, z).unwrap().name()))
+    }
+}
+
+#[test]
+fn biome_returns_same_as_current_java_chunk() {
+    let (java_chunk, complete_chunk) = get_test_chunk();
+
+    for x in 0..16 {
+        for z in 0..16 {
+            for y in complete_chunk.y_range() {
+                assert_eq!(complete_chunk.biome(x, y, z).unwrap(), java_chunk.biome(x, y, z).unwrap())
+            }
+        }
     }
 }
