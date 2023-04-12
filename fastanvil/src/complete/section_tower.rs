@@ -13,10 +13,6 @@ pub struct SectionTower {
 
 impl SectionTower {
     pub fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {
-        if !self.y_range().contains(&y) || !(0..16).contains(&x) || !(0..16).contains(&z) {
-            return None;
-        }
-
         let section_index = self.y_to_index(y);
 
         let section = self.sections.get(section_index).unwrap();
@@ -28,11 +24,6 @@ impl SectionTower {
     }
 
     pub fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
-        // y * 4 to map biom y to block y
-        if !self.y_range().contains(&y) || !(0..16).contains(&x) || !(0..16).contains(&z) {
-            return None;
-        }
-
         let section_index = self.y_to_index(y);
 
         let section = self.sections.get(section_index).unwrap();

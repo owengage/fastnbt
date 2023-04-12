@@ -2,7 +2,9 @@ use std::ops::Range;
 
 use crate::biome::Biome;
 use crate::complete::section_tower::SectionTower;
-use crate::{dimension, Block, CurrentJavaChunk, HeightMode, JavaChunk};
+use crate::{
+    dimension, Block, Chunk as DimensionChunk, CurrentJavaChunk, HeightMode, JavaChunk,
+};
 
 pub struct Chunk {
     pub status: String,
@@ -26,6 +28,10 @@ impl Chunk {
     pub fn iter_blocks(&self) -> impl Iterator<Item = &Block> {
         self.sections.iter_blocks()
     }
+
+    pub fn is_valid_block_cord(&self, x: usize, y: isize, z: usize) -> bool {
+        self.y_range().contains(&y) && (0..16).contains(&x) && (0..16).contains(&z)
+    }
 }
 
 impl dimension::Chunk for Chunk {
@@ -38,10 +44,18 @@ impl dimension::Chunk for Chunk {
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
+        if !self.is_valid_block_cord(x, y, z) {
+            return None;
+        }
+
         self.sections.biome(x, y, z)
     }
 
     fn block(&self, x: usize, y: isize, z: usize) -> Option<&Block> {
+        if !self.is_valid_block_cord(x, y, z) {
+            return None;
+        }
+
         self.sections.block(x, y, z)
     }
 

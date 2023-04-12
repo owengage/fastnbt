@@ -3,6 +3,7 @@ use fastnbt::from_bytes;
 use crate::{complete, Chunk, CurrentJavaChunk, Region};
 
 fn get_test_chunk() -> (CurrentJavaChunk, complete::Chunk) {
+    //todo better test region (different bioms)
     let file = std::fs::File::open("./resources/1.19.4.mca").unwrap();
 
     let mut region = Region::from_stream(file).unwrap();
@@ -53,7 +54,10 @@ fn biome_returns_same_as_current_java_chunk() {
     for x in 0..16 {
         for z in 0..16 {
             for y in complete_chunk.y_range() {
-                assert_eq!(complete_chunk.biome(x, y, z).unwrap(), java_chunk.biome(x, y, z).unwrap())
+                assert_eq!(
+                    complete_chunk.biome(x, y, z).unwrap(),
+                    java_chunk.biome(x, y, z).unwrap()
+                )
             }
         }
     }
