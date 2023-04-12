@@ -2,14 +2,18 @@ use std::ops::Range;
 
 use crate::biome::Biome;
 use crate::complete::section_tower::SectionTower;
+// Chunk as DimensionChunk need because complete::Chunk and dimension::Chunk are both called Chunk maybe rename one
 use crate::{
-    dimension, Block, Chunk as DimensionChunk, CurrentJavaChunk, HeightMode, JavaChunk,
+    dimension, Block, Chunk as DimensionChunk, CurrentJavaChunk, HeightMode, Heightmaps, JavaChunk,
 };
 
 pub struct Chunk {
     pub status: String,
 
     pub sections: SectionTower,
+
+    //todo more | different Heightmaps
+    pub heightmap: [i16; 256],
 }
 
 impl Chunk {
@@ -40,7 +44,12 @@ impl dimension::Chunk for Chunk {
     }
 
     fn surface_height(&self, x: usize, z: usize, mode: HeightMode) -> isize {
-        todo!()
+        match mode {
+            HeightMode::Trust => self.heightmap[z * 16 + x] as isize,
+            HeightMode::Calculate => {
+                todo!()
+            }
+        }
     }
 
     fn biome(&self, x: usize, y: isize, z: usize) -> Option<Biome> {
@@ -66,9 +75,18 @@ impl dimension::Chunk for Chunk {
 
 impl From<CurrentJavaChunk> for Chunk {
     fn from(current_java_chunk: CurrentJavaChunk) -> Self {
+        //probably find better way. maybe always recalculate if need and then cache
+        current_java_chunk.recalculate_heightmap(HeightMode::Trust);
+        let heightmap = current_java_chunk
+            .lazy_heightmap
+            .read()
+            .unwrap()
+            .unwrap();
+
         Chunk {
             status: current_java_chunk.status.clone(),
             sections: current_java_chunk.sections.unwrap().into(),
+            heightmap,
         }
     }
 }

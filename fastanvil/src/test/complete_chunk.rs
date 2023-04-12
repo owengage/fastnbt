@@ -1,6 +1,6 @@
 use fastnbt::from_bytes;
 
-use crate::{complete, Chunk, CurrentJavaChunk, Region};
+use crate::{complete, Chunk, CurrentJavaChunk, HeightMode, Region};
 
 fn get_test_chunk() -> (CurrentJavaChunk, complete::Chunk) {
     //todo better test region (different bioms)
@@ -59,6 +59,20 @@ fn biome_returns_same_as_current_java_chunk() {
                     java_chunk.biome(x, y, z).unwrap()
                 )
             }
+        }
+    }
+}
+
+#[test]
+fn surface_height_returns_same_as_current_java_chunk() {
+    let (java_chunk, complete_chunk) = get_test_chunk();
+
+    for x in 0..16 {
+        for z in 0..16 {
+            assert_eq!(
+                complete_chunk.surface_height(x, z, HeightMode::Trust),
+                java_chunk.surface_height(x, z, HeightMode::Trust)
+            )
         }
     }
 }
