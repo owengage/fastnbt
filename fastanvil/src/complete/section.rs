@@ -28,8 +28,8 @@ impl Section {
     }
 }
 
-impl From<&java::Section> for Section {
-    fn from(current_section: &java::Section) -> Self {
+impl From<java::Section> for Section {
+    fn from(current_section: java::Section) -> Self {
         let mut blocks = None;
 
         if let Some(iter) = current_section.block_states.try_iter_indices() {

@@ -41,17 +41,17 @@ impl SectionTower {
 
 impl From<java::SectionTower<java::Section>> for SectionTower {
     fn from(current_tower: java::SectionTower<java::Section>) -> Self {
-        let mut sections = vec![];
-
-        for section in current_tower.sections() {
-            sections.push(section.into())
-        }
-
-        SectionTower {
-            sections,
+        let mut tower = SectionTower {
+            sections: vec![],
             y_min: current_tower.y_min(),
             y_max: current_tower.y_max(),
+        };
+
+        for section in current_tower.take_sections() {
+            tower.sections.push(section.into())
         }
+
+        tower
     }
 }
 
