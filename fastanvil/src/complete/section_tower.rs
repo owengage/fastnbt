@@ -2,9 +2,9 @@ use std::ops::Range;
 
 use crate::biome::Biome;
 use crate::complete::section::{Section, SectionBlockIter};
+use crate::pre13::Pre13Section;
 use crate::pre18::Pre18Section;
 use crate::{java, Block};
-use crate::pre13::Pre13Section;
 
 pub struct SectionTower {
     sections: Vec<Section>,
@@ -98,9 +98,13 @@ impl From<(java::SectionTower<Pre18Section>, Vec<Biome>)> for SectionTower {
     }
 }
 
-impl From<(java::SectionTower<Pre13Section>,Vec<Block>, Vec<Biome>)> for SectionTower {
+impl From<(java::SectionTower<Pre13Section>, Vec<Block>, Vec<Biome>)> for SectionTower {
     fn from(
-        (current_tower,current_blocks, current_biomes): (java::SectionTower<Pre13Section>,Vec<Block>, Vec<Biome>),
+        (current_tower, current_blocks, current_biomes): (
+            java::SectionTower<Pre13Section>,
+            Vec<Block>,
+            Vec<Biome>,
+        ),
     ) -> Self {
         let mut tower = SectionTower {
             sections: vec![],
@@ -111,14 +115,10 @@ impl From<(java::SectionTower<Pre13Section>,Vec<Block>, Vec<Biome>)> for Section
         const BIOME_COUNT: usize = 4 * 4 * 4;
         const BLOCK_COUNT: usize = 16 * 16 * 16;
 
-        for (index, _section) in current_tower
-            .take_sections()
-            .into_iter()
-            .enumerate()
-        {
+        for (index, _section) in current_tower.take_sections().into_iter().enumerate() {
             tower.sections.push(
                 (
-                    &current_blocks[(index * BLOCK_COUNT)..((index + 1)  * BLOCK_COUNT)],
+                    &current_blocks[(index * BLOCK_COUNT)..((index + 1) * BLOCK_COUNT)],
                     &current_biomes[(index * BIOME_COUNT)..((index + 1) * BIOME_COUNT)],
                 )
                     .into(),

@@ -38,15 +38,15 @@ impl Section {
         let z = z / 4;
 
         return match &self.biomes {
-            None => Some(self.biome_palette.get(0).unwrap().clone()),
+            None => Some(*self.biome_palette.get(0).unwrap()),
             Some(biomes) => {
                 let index = y * (4 * 4) + z * 4 + x;
 
                 Some(
-                    self.biome_palette
+                    *self
+                        .biome_palette
                         .get(*biomes.get(index).unwrap() as usize)
-                        .unwrap()
-                        .clone(),
+                        .unwrap(),
                 )
             }
         };
@@ -59,15 +59,15 @@ impl Section {
 
 impl From<java::Section> for Section {
     fn from(current_section: java::Section) -> Self {
-        let blocks = match current_section.block_states.try_iter_indices() {
-            None => None,
-            Some(block_iter) => Some(block_iter.map(|index| index as u16).collect()),
-        };
+        let blocks = current_section
+            .block_states
+            .try_iter_indices()
+            .map(|block_iter| block_iter.map(|index| index as u16).collect());
 
-        let biomes = match current_section.biomes.try_iter_indices() {
-            None => None,
-            Some(biome_iter) => Some(biome_iter.map(|index| index as u8).collect()),
-        };
+        let biomes = current_section
+            .biomes
+            .try_iter_indices()
+            .map(|biome_iter| biome_iter.map(|index| index as u8).collect());
 
         Section {
             block_palette: Vec::from(current_section.block_states.palette()),
@@ -103,7 +103,7 @@ impl From<(Pre18Section, &[Biome])> for Section {
         let (biome_palette, biomes) = create_biome_palette(current_biomes);
 
         Section {
-            block_palette: Vec::from(block_pallet),
+            block_palette: block_pallet,
             blocks,
             biome_palette,
             biomes,
@@ -200,7 +200,7 @@ fn create_biome_palette(all_biomes: &[Biome]) -> (Vec<Biome>, Option<Vec<u8>>) {
             .position(|check_biome| check_biome == biome)
         {
             None => {
-                biome_palette.push(biome.clone());
+                biome_palette.push(*biome);
                 biomes.push((biome_palette.len() - 1) as u8)
             }
             Some(index) => biomes.push(index as u8),

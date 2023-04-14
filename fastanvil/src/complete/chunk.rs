@@ -19,11 +19,11 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn from_bytes(data: &[u8]) -> fastnbt::error::Result<Self> {
-        return match JavaChunk::from_bytes(data)? {
+        match JavaChunk::from_bytes(data)? {
             JavaChunk::Post18(chunk) => Ok(chunk.into()),
             JavaChunk::Pre18(chunk) => Ok(chunk.into()),
             JavaChunk::Pre13(chunk) => Ok(chunk.into()),
-        };
+        }
     }
 
     pub fn iter_blocks(&self) -> impl Iterator<Item = &Block> {
