@@ -1,11 +1,11 @@
 use std::ops::Range;
 
+use crate::{
+    dimension, pre18, Block, Chunk as DimensionChunk, CurrentJavaChunk, HeightMode, JavaChunk,
+};
+// Chunk as DimensionChunk need because complete::Chunk and dimension::Chunk are both called Chunk maybe rename one
 use crate::biome::Biome;
 use crate::complete::section_tower::SectionTower;
-// Chunk as DimensionChunk need because complete::Chunk and dimension::Chunk are both called Chunk maybe rename one
-use crate::{
-    dimension, Block, Chunk as DimensionChunk, CurrentJavaChunk, HeightMode, Heightmaps, JavaChunk,
-};
 
 pub struct Chunk {
     pub status: String,
@@ -20,9 +20,8 @@ impl Chunk {
     pub fn from_bytes(data: &[u8]) -> fastnbt::error::Result<Self> {
         return match JavaChunk::from_bytes(data)? {
             JavaChunk::Post18(chunk) => Ok(chunk.into()),
-            JavaChunk::Pre18(_) => {
-                todo!()
-            }
+            JavaChunk::Pre18(chunk) => {
+                Ok(chunk.into()) },
             JavaChunk::Pre13(_) => {
                 todo!()
             }
@@ -77,15 +76,35 @@ impl From<CurrentJavaChunk> for Chunk {
     fn from(current_java_chunk: CurrentJavaChunk) -> Self {
         //probably find better way. maybe always recalculate if need and then cache
         current_java_chunk.recalculate_heightmap(HeightMode::Trust);
-        let heightmap = current_java_chunk
-            .lazy_heightmap
-            .read()
-            .unwrap()
-            .unwrap();
+        let heightmap = current_java_chunk.lazy_heightmap.read().unwrap().unwrap();
 
         Chunk {
             status: current_java_chunk.status.clone(),
             sections: current_java_chunk.sections.unwrap().into(),
+            heightmap,
+        }
+    }
+}
+
+impl From<pre18::JavaChunk> for Chunk {
+    fn from(java_chunk: pre18::JavaChunk) -> Self {
+        //probably find better way. maybe always recalculate if need and then cache
+        java_chunk.recalculate_heightmap(HeightMode::Trust);
+        let heightmap = java_chunk.level.lazy_heightmap.read().unwrap().unwrap();
+
+        let mut biomes = vec![];
+
+        for y in java_chunk.y_range().step_by(4) {
+            for z in (0..16).step_by(4) {
+                for x in (0..16).step_by(4) {
+                    biomes.push(java_chunk.biome(x, y, z).unwrap())
+                }
+            }
+        }
+
+        Chunk {
+            status: java_chunk.status(),
+            sections: (java_chunk.level.sections.unwrap(), biomes).into(),
             heightmap,
         }
     }

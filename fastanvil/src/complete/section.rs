@@ -2,7 +2,8 @@ use std::ops::Range;
 use std::slice::Iter;
 
 use crate::biome::Biome;
-use crate::{java, Block, StatesIter};
+use crate::pre18::Pre18Section;
+use crate::{java, Block, AIR};
 
 //could remove duplication though another layer similar to BlockData<> | BiomData<>
 pub struct Section {
@@ -38,12 +39,12 @@ impl Section {
 
         return match &self.biomes {
             None => Some(self.biome_palette.get(0).unwrap().clone()),
-            Some(bioms) => {
+            Some(biomes) => {
                 let index = y * (4 * 4) + z * 4 + x;
 
                 Some(
                     self.biome_palette
-                        .get(*bioms.get(index).unwrap() as usize)
+                        .get(*biomes.get(index).unwrap() as usize)
                         .unwrap()
                         .clone(),
                 )
@@ -72,6 +73,60 @@ impl From<java::Section> for Section {
             block_palette: Vec::from(current_section.block_states.palette()),
             blocks,
             biome_palette: Vec::from(current_section.biomes.palette()),
+            biomes,
+        }
+    }
+}
+
+impl From<(Pre18Section, &[Biome])> for Section {
+    fn from((current_section, current_biomes): (Pre18Section, &[Biome])) -> Self {
+        let blocks;
+        let block_pallet;
+
+        match current_section.block_states {
+            None => {
+                block_pallet = vec![AIR.clone()];
+                blocks = None
+            }
+            Some(block_states) => {
+                block_pallet = current_section.palette;
+
+                blocks = Some(
+                    block_states
+                        .iter_indices(block_pallet.len())
+                        .map(|index| index as u16)
+                        .collect(),
+                );
+            }
+        }
+
+        let mut biomes = vec![];
+        let mut biome_palette = vec![];
+
+        for biome in current_biomes {
+            match biome_palette
+                .iter()
+                .position(|check_biome| check_biome == biome)
+            {
+                None => {
+                    biome_palette.push(biome.clone());
+                    biomes.push((biome_palette.len() - 1) as u8)
+                }
+                Some(index) => biomes.push(index as u8),
+            }
+        }
+
+        let mut biomes = Some(biomes);
+
+        //optimize if possible
+        if biome_palette.len() == 1 {
+            biomes = None;
+        }
+
+        Section {
+            block_palette: Vec::from(block_pallet),
+            blocks,
+            biome_palette,
             biomes,
         }
     }

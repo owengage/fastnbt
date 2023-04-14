@@ -110,7 +110,7 @@ pub struct Level {
     pub status: String,
 
     #[serde(skip)]
-    lazy_heightmap: RwLock<Option<[i16; 256]>>,
+    pub(crate) lazy_heightmap: RwLock<Option<[i16; 256]>>,
 }
 
 impl JavaChunk {

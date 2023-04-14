@@ -2,6 +2,7 @@ use std::ops::Range;
 
 use crate::biome::Biome;
 use crate::complete::section::{Section, SectionBlockIter};
+use crate::pre18::Pre18Section;
 use crate::{java, Block};
 
 pub struct SectionTower {
@@ -57,6 +58,39 @@ impl From<java::SectionTower<java::Section>> for SectionTower {
 
         for section in current_tower.take_sections() {
             tower.sections.push(section.into())
+        }
+
+        tower
+    }
+}
+
+impl From<(java::SectionTower<Pre18Section>, Vec<Biome>)> for SectionTower {
+    fn from(
+        (current_tower, current_biomes): (java::SectionTower<Pre18Section>, Vec<Biome>),
+    ) -> Self {
+        let mut tower = SectionTower {
+            sections: vec![],
+            y_min: current_tower.y_min(),
+            y_max: current_tower.y_max(),
+        };
+
+        const BIOME_COUNT: usize = 4 * 4 * 4;
+
+        //needed to skip first because it seems like there is a sections to much in the list
+        // could be connected to java::section_tower.get_section_for_y -> todo
+        for (index, section) in current_tower
+            .take_sections()
+            .into_iter()
+            .enumerate()
+            .skip(1)
+        {
+            tower.sections.push(
+                (
+                    section,
+                    &current_biomes[((index - 1) * BIOME_COUNT)..(index * BIOME_COUNT)],
+                )
+                    .into(),
+            );
         }
 
         tower
