@@ -16,9 +16,16 @@ fn get_test_chunk() -> Vec<(JavaChunk, complete::Chunk)> {
     let complete_chunk_pre18 =
         complete::Chunk::from_bytes(include_bytes!("../../resources/1.17.1.chunk")).unwrap();
 
+    let chunk_pre13 =
+        JavaChunk::from_bytes(include_bytes!("../../resources/1.12.chunk")).unwrap();
+
+    let complete_chunk_pre13 =
+        complete::Chunk::from_bytes(include_bytes!("../../resources/1.12.chunk")).unwrap();
+
     vec![
         (current_java_chunk, complete_chunk_current),
         (chunk_pre18, complete_chunk_pre18),
+        (chunk_pre13, complete_chunk_pre13),
     ]
 }
 

@@ -4,9 +4,10 @@ use std::mem::MaybeUninit;
 use std::ops::Range;
 use std::sync::RwLock;
 
-use fastnbt::ByteArray;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
+
+use fastnbt::ByteArray;
 
 use crate::{biome::Biome, Block, Chunk, HeightMode};
 use crate::{expand_heightmap, Heightmaps, SectionLike, SectionTower};
@@ -170,7 +171,7 @@ pub struct Level {
     pub heightmaps: Option<Heightmaps>,
 
     #[serde(skip)]
-    lazy_heightmap: RwLock<Option<[i16; 256]>>,
+    pub(crate) lazy_heightmap: RwLock<Option<[i16; 256]>>,
 }
 
 impl JavaChunk {
@@ -252,7 +253,7 @@ pub struct Pre13Section {
 }
 
 impl Pre13Section {
-    fn block(&self, x: usize, sec_y: usize, z: usize) -> RawBlock {
+    pub(crate) fn block(&self, x: usize, sec_y: usize, z: usize) -> RawBlock {
         let idx: usize = (sec_y << 8) + (z << 4) + x;
 
         // Important: byte array can have negative values, we want to convert -1 into 255

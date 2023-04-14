@@ -100,31 +100,46 @@ impl From<(Pre18Section, &[Biome])> for Section {
             }
         }
 
-        let mut biomes = vec![];
-        let mut biome_palette = vec![];
-
-        for biome in current_biomes {
-            match biome_palette
-                .iter()
-                .position(|check_biome| check_biome == biome)
-            {
-                None => {
-                    biome_palette.push(biome.clone());
-                    biomes.push((biome_palette.len() - 1) as u8)
-                }
-                Some(index) => biomes.push(index as u8),
-            }
-        }
-
-        let mut biomes = Some(biomes);
-
-        //optimize if possible
-        if biome_palette.len() == 1 {
-            biomes = None;
-        }
+        let (biome_palette, biomes) = create_biome_palette(current_biomes);
 
         Section {
             block_palette: Vec::from(block_pallet),
+            blocks,
+            biome_palette,
+            biomes,
+        }
+    }
+}
+
+impl From<(&[Block], &[Biome])> for Section {
+    fn from((current_blocks, current_biomes): (&[Block], &[Biome])) -> Self {
+        let mut blocks = vec![];
+        let mut block_palette = vec![];
+
+        for block in current_blocks {
+            match block_palette
+                .iter()
+                .position(|check_block: &Block| check_block.name() == block.name())
+            {
+                None => {
+                    block_palette.push(block.clone());
+                    blocks.push((block_palette.len() - 1) as u16)
+                }
+                Some(index) => blocks.push(index as u16),
+            }
+        }
+
+        let mut blocks = Some(blocks);
+
+        //optimize if possible
+        if block_palette.len() == 1 {
+            blocks = None;
+        }
+
+        let (biome_palette, biomes) = create_biome_palette(current_biomes);
+
+        Section {
+            block_palette,
             blocks,
             biome_palette,
             biomes,
@@ -172,4 +187,32 @@ impl<'a> Iterator for SectionBlockIter<'a> {
             }
         };
     }
+}
+
+//todo generic so it an also be used for blocks
+fn create_biome_palette(all_biomes: &[Biome]) -> (Vec<Biome>, Option<Vec<u8>>) {
+    let mut biomes = vec![];
+    let mut biome_palette = vec![];
+
+    for biome in all_biomes {
+        match biome_palette
+            .iter()
+            .position(|check_biome| check_biome == biome)
+        {
+            None => {
+                biome_palette.push(biome.clone());
+                biomes.push((biome_palette.len() - 1) as u8)
+            }
+            Some(index) => biomes.push(index as u8),
+        }
+    }
+
+    let mut biomes = Some(biomes);
+
+    //optimize if possible
+    if biome_palette.len() == 1 {
+        biomes = None;
+    }
+
+    (biome_palette, biomes)
 }
