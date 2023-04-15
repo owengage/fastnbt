@@ -19,6 +19,7 @@
 
 pub mod biome;
 pub mod tex;
+pub mod complete;
 
 mod bits;
 mod dimension;

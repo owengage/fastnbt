@@ -18,6 +18,10 @@ impl<S> SectionTower<S> {
         &self.sections
     }
 
+    pub(crate) fn take_sections(self) -> Vec<S> {
+        self.sections
+    }
+
     pub fn get_section_for_y(&self, y: isize) -> Option<&S> {
         if y >= self.y_max || y < self.y_min {
             // TODO: This occurs a lot in hermitcraft season 7. Probably some
@@ -42,8 +46,8 @@ impl<S> SectionTower<S> {
 
 impl<'de, S: SectionLike + Deserialize<'de>> Deserialize<'de> for SectionTower<S> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
+        where
+            D: serde::Deserializer<'de>,
     {
         let sections: Vec<S> = Deserialize::deserialize(deserializer)?;
         if sections.is_empty() {

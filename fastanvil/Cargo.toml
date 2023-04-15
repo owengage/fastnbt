@@ -29,3 +29,7 @@ render = ["dep:image"]
 [[bench]]
 name = "chunk_parse"
 harness = false
+
+[[bench]]
+name = "complete_chunk"
+harness = false
