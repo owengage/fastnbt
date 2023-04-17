@@ -3,7 +3,8 @@
 members = [
     "fastnbt",
     "fastanvil",
-    "tools"
+    "tools",
+    "app/src-tauri"
 ]
 
 
