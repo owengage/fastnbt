@@ -31,3 +31,14 @@ body {
   bottom: 0;
   right: 0;
 }
+
+canvas,
+img {
+  /* image-rendering: -moz-crisp-edges; */
+  /* image-rendering: -webkit-crisp-edges; */
+  /* image-rendering: -moz-crisp-edges; */
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  /* image-rendering: pixelated; */
+  /* image-rendering: crisp-edges; */
+}

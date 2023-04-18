@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/tauri";
 import "./App.css";
@@ -6,8 +6,9 @@ import { open } from "@tauri-apps/api/dialog";
 // import { readDir, BaseDirectory } from "@tauri-apps/api/fs";
 import { homeDir } from "@tauri-apps/api/path";
 // // const homeDirPath = await homeDir();
-
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useLeafletContext } from "@react-leaflet/core";
 
 // // Reads the `$APPDATA/users` directory recursively
 // const entries = await readDir(".", {
@@ -16,6 +17,7 @@ import "leaflet/dist/leaflet.css";
 // });
 
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { AnvilLayer } from "./AnvilLayer";
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
@@ -38,23 +40,22 @@ function App() {
     console.log(selected);
   }
 
+  // TODO: Actually get the world path and whatnot.
   return (
     <div className="container">
       <MapContainer
+        crs={L.CRS.Simple}
+        minZoom={0}
         className="map-container"
-        center={[51.505, -0.09]}
-        zoom={13}
+        center={[0, 0]}
+        zoom={0}
         scrollWheelZoom={true}
       >
-        <TileLayer
+        {/* <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={[51.505, -0.09]}>
-          <Popup>
-            A pretty CSS3 popup. <br /> Easily customizable.
-          </Popup>
-        </Marker>
+        /> */}
+        <AnvilLayer worldDir="../../corpus-tests/corpus/test-worlds/midkemia" />
       </MapContainer>
     </div>
   );
