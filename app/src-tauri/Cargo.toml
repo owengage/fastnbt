@@ -14,7 +14,7 @@ tauri-build = { version = "1.2", features = [] }
 
 [dependencies]
 fastanvil = { version = "0.28.0", path = "../../fastanvil" }
-tauri = { version = "1.2", features = ["dialog-open", "fs-exists", "fs-read-dir", "fs-read-file", "path-all", "shell-open"] }
+tauri = { version = "1.2", features = ["dialog-open", "fs-exists", "fs-read-dir", "fs-read-file", "os-all", "path-all", "shell-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rayon = "1.7.0"

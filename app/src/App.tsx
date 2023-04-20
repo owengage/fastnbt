@@ -1,61 +1,53 @@
-import { useEffect, useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/tauri";
+import { useState } from "react";
 import "./App.css";
 import { open } from "@tauri-apps/api/dialog";
-// import { readDir, BaseDirectory } from "@tauri-apps/api/fs";
-import { homeDir } from "@tauri-apps/api/path";
-// // const homeDirPath = await homeDir();
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useLeafletContext } from "@react-leaflet/core";
 
-// // Reads the `$APPDATA/users` directory recursively
-// const entries = await readDir(".", {
-//   dir: BaseDirectory.Home,
-//   recursive: true,
-// });
-
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer } from "react-leaflet";
 import { AnvilLayer } from "./AnvilLayer";
+import { Ribbon } from "./Ribbon";
+import { savesDir } from "./openWorld";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const [worldDir, setWorldDir] = useState<string | undefined>();
 
   async function handleOpen() {
-    const home = await homeDir();
+    const saves = await savesDir();
 
     const selected = await open({
-      multiple: true,
+      multiple: false,
       directory: true,
-      defaultPath: `${home}/Library/Application Support/minecraft/saves`,
+      defaultPath: saves ?? undefined,
     });
 
-    console.log(selected);
+    if (selected && !Array.isArray(selected)) {
+      setWorldDir(selected);
+    }
   }
 
   // TODO: Actually get the world path and whatnot.
+  // TODO: Some way for super zoom out? Currently causes way too many tile
+  // requests.
+  // TODO: Zoom in is blurry. Feels like it shouldn't be on MacOS's webview. But
+  // it is.
+  // TODO: Just list saves in drop down or something rather than file dialog
+  // TODO: Open arb directory for world.
+  // TODO: Show coordinates.
   return (
     <div className="container">
+      <Ribbon>
+        <button onClick={handleOpen}>Open save...</button>
+      </Ribbon>
       <MapContainer
         crs={L.CRS.Simple}
-        minZoom={0}
+        minZoom={2}
         className="map-container"
         center={[0, 0]}
-        zoom={0}
+        zoom={6}
         scrollWheelZoom={true}
       >
-        {/* <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        /> */}
-        <AnvilLayer worldDir="../../corpus-tests/corpus/test-worlds/midkemia" />
+        {worldDir && <AnvilLayer worldDir={worldDir} />}
       </MapContainer>
     </div>
   );

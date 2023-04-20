@@ -19,8 +19,8 @@ export function AnvilLayer({ worldDir }: AnvilLayerProps) {
     useEffect(() => {
         const container = context.layerContainer || context.map;
         const layer = make_layer({ worldDir }, {
-            minNativeZoom: 1,
-            maxNativeZoom: 1,
+            minNativeZoom: 6,
+            maxNativeZoom: 6,
             tileSize: 512,
             noWrap: true,
         });
@@ -47,7 +47,7 @@ export function AnvilLayer({ worldDir }: AnvilLayerProps) {
             container.removeLayer(layer);
             unlisten && unlisten();
         };
-    }, []);
+    }, [worldDir]);
 
     return null;
 }
@@ -90,8 +90,8 @@ interface TileError {
 }
 
 interface Callback {
-    done: (error: Error | null, tile: HTMLCanvasElement) => void,
-    tile: HTMLCanvasElement,
+    done: (error: Error | null, tile: HTMLImageElement) => void,
+    tile: HTMLImageElement,
     /// Has this tile already been requested before?
     cached: boolean,
 }
@@ -118,17 +118,14 @@ const _AnvilLayerInner = L.GridLayer.extend({
 
                 if (cached) {
                     done(null, tile);
+                    return;
                 }
 
-                fromB64(resp.imageData).then(imageData => {
-                    var ctx = tile.getContext('2d')!;
-
-                    ctx.putImageData(new ImageData(imageData, 512, 512), 0, 0);
-                    const key = `${resp.rx},${resp.rz}`;
-                    callbacks.set(key, { done, tile, cached: true });
-
-                    done(null, tile);
-                })
+                tile.src = "data:image/png;base64," + resp.imageData;
+                const key = `${resp.rx},${resp.rz}`;
+                callbacks.set(key, { done, tile, cached: true });
+                console.log("Tile element", tile);
+                done(null, tile);
             } else {
                 console.error(resp);
             }
@@ -148,7 +145,10 @@ const _AnvilLayerInner = L.GridLayer.extend({
             // request already been made.
             return val.tile;
         } else {
-            var tile = L.DomUtil.create('canvas', 'leaflet-tile') as HTMLCanvasElement;
+            // FIXME: Version of safari/webkit that Tauri uses does not support
+            // crisp rendering on canvas elements, only img elements. Can we
+            // change to img elements?
+            var tile = L.DomUtil.create('img', 'leaflet-tile');
             var size = this.getTileSize();
             (<any>tile).width = size.x;
             (<any>tile).height = size.y;

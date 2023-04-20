@@ -10,6 +10,7 @@ use base64_serde::base64_serde_type;
 use fastanvil::{
     render_region, CCoord, HeightMode, RCoord, RegionFileLoader, RenderedPalette, TopShadeRenderer,
 };
+use image::Pixel;
 use serde::{Deserialize, Serialize};
 use tauri::Window;
 use tauri::{CustomMenuItem, Menu, MenuItem, Submenu};
@@ -62,12 +63,23 @@ fn render_tile(
                 }
             }
 
+            let mut buf = vec![];
+            let enc = image::png::PngEncoder::new(&mut buf);
+
+            enc.encode(
+                img.as_raw(),
+                img.width(),
+                img.height(),
+                image::Rgba::<u8>::COLOR_TYPE,
+            )
+            .unwrap();
+
             Ok(TileRender {
                 rx: tile.rx,
                 rz: tile.rz,
                 world_dir: tile.world_dir,
                 dimension: tile.dimension,
-                image_data: img.into_raw(),
+                image_data: buf,
             })
         };
 
@@ -133,16 +145,7 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
     let palette = Arc::new(palette::get_palette()?);
 
-    let quit = CustomMenuItem::new("open".to_string(), "Open...");
-    let close = CustomMenuItem::new("close".to_string(), "Close");
-    let submenu = Submenu::new("File", Menu::new().add_item(quit).add_item(close));
-    let menu = Menu::new()
-        .add_native_item(MenuItem::Copy)
-        .add_item(CustomMenuItem::new("hide", "Hide"))
-        .add_submenu(submenu);
-
     tauri::Builder::default()
-        .menu(menu)
         .manage(palette)
         .invoke_handler(tauri::generate_handler![render_tile])
         .run(tauri::generate_context!())
