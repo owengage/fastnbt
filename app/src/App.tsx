@@ -11,6 +11,7 @@ import { savesDir } from "./openWorld";
 
 function App() {
   const [worldDir, setWorldDir] = useState<string | undefined>();
+  const [calcHeights, setCalcHeights] = useState(false);
 
   async function handleOpen() {
     const saves = await savesDir();
@@ -26,7 +27,10 @@ function App() {
     }
   }
 
-  // TODO: Actually get the world path and whatnot.
+  function handleHeightmapModeChange(ev: React.ChangeEvent<HTMLInputElement>) {
+    setCalcHeights((prev) => !prev);
+  }
+
   // TODO: Some way for super zoom out? Currently causes way too many tile
   // requests.
   // TODO: Zoom in is blurry. Feels like it shouldn't be on MacOS's webview. But
@@ -34,10 +38,19 @@ function App() {
   // TODO: Just list saves in drop down or something rather than file dialog
   // TODO: Open arb directory for world.
   // TODO: Show coordinates.
+  // TODO: Distingush broken vs missing regions.
   return (
     <div className="container">
       <Ribbon>
         <button onClick={handleOpen}>Open save...</button>
+        <label>
+          <input
+            type="checkbox"
+            checked={calcHeights}
+            onChange={handleHeightmapModeChange}
+          />
+          Recalculate Heightmaps
+        </label>
       </Ribbon>
       <MapContainer
         crs={L.CRS.Simple}
@@ -47,7 +60,12 @@ function App() {
         zoom={6}
         scrollWheelZoom={true}
       >
-        {worldDir && <AnvilLayer worldDir={worldDir} />}
+        {worldDir && (
+          <AnvilLayer
+            heightmapMode={calcHeights ? "calculate" : "trust"}
+            worldDir={worldDir}
+          />
+        )}
       </MapContainer>
     </div>
   );

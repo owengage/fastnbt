@@ -13,7 +13,6 @@ use fastanvil::{
 use image::Pixel;
 use serde::{Deserialize, Serialize};
 use tauri::Window;
-use tauri::{CustomMenuItem, Menu, MenuItem, Submenu};
 
 base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 
@@ -21,10 +20,12 @@ base64_serde_type!(Base64Standard, base64::engine::general_purpose::STANDARD);
 fn render_tile(
     window: Window,
     palette: tauri::State<Arc<RenderedPalette>>,
+    id: usize,
     rx: isize,
     rz: isize,
     dimension: String,
     world_dir: String,
+    heightmap_mode: String,
 ) {
     let palette = palette.deref().clone();
 
@@ -34,9 +35,15 @@ fn render_tile(
             rz,
             dimension,
             world_dir,
+            heightmap_mode,
         };
         let render_inner = |tile: TileRequest| -> anyhow::Result<TileRender> {
-            let renderer = TopShadeRenderer::new(palette.deref(), HeightMode::Trust);
+            let heightmap_mode = if tile.heightmap_mode == "calculate" {
+                HeightMode::Calculate
+            } else {
+                HeightMode::Trust
+            };
+            let renderer = TopShadeRenderer::new(palette.deref(), heightmap_mode);
             let loader = RegionFileLoader::new(format!("{}/{}", tile.world_dir, "region").into());
 
             let map =
@@ -75,6 +82,7 @@ fn render_tile(
             .unwrap();
 
             Ok(TileRender {
+                id,
                 rx: tile.rx,
                 rz: tile.rz,
                 world_dir: tile.world_dir,
@@ -91,6 +99,7 @@ fn render_tile(
                 let _emit = window.emit(
                     "tile-rendered",
                     TileResponse::Error(TileError {
+                        id,
                         rx: tile.rx,
                         rz: tile.rz,
                         dimension: tile.dimension,
@@ -110,6 +119,7 @@ struct TileRequest {
     rz: isize,
     dimension: String,
     world_dir: String,
+    heightmap_mode: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -123,6 +133,7 @@ enum TileResponse {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TileRender {
+    id: usize,
     rx: isize,
     rz: isize,
     dimension: String,
@@ -134,6 +145,7 @@ struct TileRender {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TileError {
+    id: usize,
     rx: isize,
     rz: isize,
     dimension: String,

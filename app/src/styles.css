@@ -32,14 +32,7 @@ body,
   right: 0;
 }
 
-.ribbon {
-  /* background-color: red; */
-}
-
-/* #root, */
-/* .container, */
 .map-container {
-  /* box-sizing: border-box; */
   flex-grow: 1;
 }
 

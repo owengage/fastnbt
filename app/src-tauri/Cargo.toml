@@ -27,6 +27,13 @@ image = "0.23.4"
 base64-serde = "0.7.0"
 base64 = "0.21.0"
 
+[profile.dev.package.fastnbt]
+opt-level = 3
+
+[profile.dev.package.fastanvil]
+opt-level = 3
+
+
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!

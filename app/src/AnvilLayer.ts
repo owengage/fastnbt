@@ -6,19 +6,22 @@ import { listen } from '@tauri-apps/api/event';
 
 import { invoke } from '@tauri-apps/api/tauri';
 
+type HeightmapMode = "trust" | "calculate";
+
 interface AnvilLayerProps {
     /// Base path of a Minecraft world. This should be the directory containing
     /// the entire world, so the DIM1, DIM-1 and region directories are within
     /// this directory.
     worldDir: string,
+    heightmapMode: HeightmapMode,
 }
 
-export function AnvilLayer({ worldDir }: AnvilLayerProps) {
+export function AnvilLayer({ worldDir, heightmapMode }: AnvilLayerProps) {
     const context = useLeafletContext();
 
     useEffect(() => {
         const container = context.layerContainer || context.map;
-        const layer = make_layer({ worldDir }, {
+        const layer = make_layer({ worldDir, heightmapMode }, {
             minNativeZoom: 6,
             maxNativeZoom: 6,
             tileSize: 512,
@@ -47,7 +50,7 @@ export function AnvilLayer({ worldDir }: AnvilLayerProps) {
             container.removeLayer(layer);
             unlisten && unlisten();
         };
-    }, [worldDir]);
+    }, [worldDir, heightmapMode]);
 
     return null;
 }
@@ -63,6 +66,7 @@ function make_layer(args: AnvilLayerInnerArgs, leafletOpts: Object): AnvilLayerI
 
 interface AnvilLayerInnerArgs {
     worldDir: string,
+    heightmapMode: HeightmapMode,
 }
 
 interface AnvilLayerInner {
@@ -73,6 +77,7 @@ type TileResponse = TileRender | TileError;
 
 interface TileRender {
     kind: "render",
+    id: number,
     rx: number,
     rz: number,
     dimension: string,
@@ -82,6 +87,7 @@ interface TileRender {
 
 interface TileError {
     kind: "error",
+    id: number,
     rx: number,
     rz: number,
     dimension: string,
@@ -103,6 +109,7 @@ const _AnvilLayerInner = L.GridLayer.extend({
         // @ts-ignore
         L.GridLayer.prototype.initialize.call(this, args);
 
+        this.id = awfulRandomNumber();
         this.args = args;
         this.callbacks = new Map();
         this.handleTileResponse = (resp: TileResponse) => {
@@ -110,8 +117,14 @@ const _AnvilLayerInner = L.GridLayer.extend({
                 const callbacks: CallbackMap = this.callbacks;
                 const val = callbacks.get(`${resp.rx},${resp.rz}`);
 
+                if (resp.id !== this.id) {
+                    // This is from a different map. This can occur if we send a
+                    // request for a tile, but only receive it after some
+                    // options were changed.
+                    return;
+                }
+
                 if (!val) {
-                    console.log("no key:", resp);
                     return;
                 }
                 const { done, tile, cached } = val;
@@ -124,7 +137,6 @@ const _AnvilLayerInner = L.GridLayer.extend({
                 tile.src = "data:image/png;base64," + resp.imageData;
                 const key = `${resp.rx},${resp.rz}`;
                 callbacks.set(key, { done, tile, cached: true });
-                console.log("Tile element", tile);
                 done(null, tile);
             } else {
                 console.error(resp);
@@ -136,7 +148,14 @@ const _AnvilLayerInner = L.GridLayer.extend({
         const callbacks: CallbackMap = this.callbacks;
 
         // in minecraft x/z is the floor, but in leaflet x/y is.
-        const req = { rx: coords.x, rz: coords.y, dimension: "overworld", worldDir: args.worldDir };
+        const req = {
+            id: this.id,
+            rx: coords.x,
+            rz: coords.y,
+            dimension: "overworld",
+            worldDir: args.worldDir,
+            heightmapMode: args.heightmapMode,
+        };
 
         const key = `${req.rx},${req.rz}`;
         const val = callbacks.get(key)
@@ -145,18 +164,13 @@ const _AnvilLayerInner = L.GridLayer.extend({
             // request already been made.
             return val.tile;
         } else {
-            // FIXME: Version of safari/webkit that Tauri uses does not support
-            // crisp rendering on canvas elements, only img elements. Can we
-            // change to img elements?
             var tile = L.DomUtil.create('img', 'leaflet-tile');
             var size = this.getTileSize();
             (<any>tile).width = size.x;
             (<any>tile).height = size.y;
 
             callbacks.set(key, { done, tile, cached: false });
-            invoke('render_tile', req).then(() => {
-                console.log("Invoked render-tile:", coords, req);
-            })
+            invoke('render_tile', req);
 
             return tile;
         }
@@ -171,4 +185,9 @@ async function fromB64(data: string): Promise<Uint8ClampedArray> {
     const resp = await fetch(dataUrl);
     const buf = await resp.arrayBuffer();
     return new Uint8ClampedArray(buf);
+}
+
+function awfulRandomNumber(): number {
+    // don't judge me.
+    return Math.ceil(Math.random() * 1e6)
 }
