@@ -54,6 +54,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         for x in 0..32 {
             match region.read_chunk(x, z) {
                 Ok(Some(data)) => {
+                    if !should_output_chunk(&data) {
+                        continue;
+                    }
+
                     let mut out: Box<dyn Write> = if let Some(dir) = out_dir {
                         let ext = match output_format {
                             "nbt" => "nbt",
@@ -92,4 +96,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     Ok(())
+}
+
+fn should_output_chunk(_data: &[u8]) -> bool {
+    // If you're trying to locate a misbehaving chunk, you can filter out chunks here.
+    // let chunk = JavaChunk::from_bytes(data).unwrap();
+    true
 }

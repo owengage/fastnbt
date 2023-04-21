@@ -6,6 +6,7 @@ const ETHO_OLD_IN_NEW: &[u8] = include_bytes!("../../resources/etho-old-in-new.c
 const ETHO_OLD_IN_NEW2: &[u8] = include_bytes!("../../resources/etho-old-in-new2.chunk");
 const ETHO: &[u8] = include_bytes!("../../resources/etho.chunk");
 const ETHO_EMPTY: &[u8] = include_bytes!("../../resources/etho-empty.chunk");
+const ETHO_EMPTY_SECTIONS: &[u8] = include_bytes!("../../resources/etho-end-r.-6.-1.c.7.25.nbt");
 
 fn extract_heights(chunk: &mut dyn Chunk) -> [isize; 256] {
     let mut heights = [0; 256];
@@ -157,4 +158,13 @@ fn etho_empty() {
     let heights = extract_heights(&mut chunk);
 
     assert_eq!(expected_heights, heights);
+}
+
+#[test]
+fn etho_end_empty_sections() {
+    // This chunk has no sections, but does have biomes specified. This caused a
+    // panic in the biome selction code due to y_range being 0..0.
+    let chunk = JavaChunk::from_bytes(ETHO_EMPTY_SECTIONS).unwrap();
+    assert_eq!(0..0, chunk.y_range());
+    assert_eq!(None, chunk.biome(0, 0, 0));
 }
