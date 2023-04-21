@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" viewBox="0 0 512 512">
+    <rect x="5" y="5" width="502" height="502" fill="#00000000" stroke="#444" stroke-width="2" />
+    <g transform="translate(206,206)">
+        <g fill="#444" stroke="#333" stroke-width="2">
+            <rect width="100" height="40" />
+            <rect width="50" height="40" x="25" y="40" />
+            <rect width="70" height="30" x="15" y="60" />
+            <rect width="80" height="30" x="10" y="70" />
+
+            <animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 50 50" to="360 50 50" dur="3s" repeatCount="indefinite" />
+
+        </g>
+    </g>
+
+</svg>
