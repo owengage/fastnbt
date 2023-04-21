@@ -21,6 +21,11 @@ impl RegionFileLoader {
             _d: PhantomData,
         }
     }
+
+    pub fn has_region(&self, x: RCoord, z: RCoord) -> bool {
+        let path = self.region_dir.join(format!("r.{}.{}.mca", x.0, z.0));
+        path.exists()
+    }
 }
 
 impl RegionLoader<File> for RegionFileLoader {

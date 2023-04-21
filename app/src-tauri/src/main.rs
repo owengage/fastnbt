@@ -21,33 +21,56 @@ fn render_tile(
     window: Window,
     palette: tauri::State<Arc<RenderedPalette>>,
     id: usize,
-    rx: isize,
-    rz: isize,
-    dimension: String,
-    world_dir: String,
-    heightmap_mode: String,
+    tile: TileRequest,
 ) {
     let palette = palette.deref().clone();
+    let heightmap_mode = if tile.heightmap_mode == "calculate" {
+        HeightMode::Calculate
+    } else {
+        HeightMode::Trust
+    };
+
+    let subpath = match tile.dimension.as_str() {
+        "end" => "DIM1/region",
+        "nether" => "DIM-1/region",
+        _ => "region",
+    };
+
+    let loader = RegionFileLoader::new(format!("{}/{}", tile.world_dir, subpath).into());
+
+    if !loader.has_region(RCoord(tile.rx), RCoord(tile.rz)) {
+        window
+            .emit(
+                "tile_rendered",
+                TileResponse::Missing(TileMissing {
+                    id,
+                    rx: tile.rx,
+                    rz: tile.rz,
+                    dimension: tile.dimension,
+                    world_dir: tile.world_dir,
+                }),
+            )
+            .unwrap();
+
+        return;
+    }
 
     rayon::spawn(move || {
-        let tile = TileRequest {
-            rx,
-            rz,
-            dimension,
-            world_dir,
-            heightmap_mode,
-        };
-        let render_inner = |tile: TileRequest| -> anyhow::Result<TileRender> {
-            let heightmap_mode = if tile.heightmap_mode == "calculate" {
-                HeightMode::Calculate
-            } else {
-                HeightMode::Trust
-            };
+        let render_inner = |tile: TileRequest| -> anyhow::Result<TileResponse> {
             let renderer = TopShadeRenderer::new(palette.deref(), heightmap_mode);
-            let loader = RegionFileLoader::new(format!("{}/{}", tile.world_dir, "region").into());
-
-            let map =
-                render_region(RCoord(rx), RCoord(rz), &loader, renderer)?.context("no map")?;
+            let map = match render_region(RCoord(tile.rx), RCoord(tile.rz), &loader, renderer) {
+                Ok(Some(map)) => map,
+                Ok(None) => {
+                    return Ok(TileResponse::Missing(TileMissing {
+                        id,
+                        rx: tile.rx,
+                        rz: tile.rz,
+                        dimension: tile.dimension,
+                        world_dir: tile.world_dir,
+                    }));
+                }
+                Err(e) => return Err(e).context("error loading map"),
+            };
 
             let region_len: usize = 32 * 16;
 
@@ -81,32 +104,34 @@ fn render_tile(
             )
             .unwrap();
 
-            Ok(TileRender {
+            Ok(TileResponse::Render(TileRender {
                 id,
                 rx: tile.rx,
                 rz: tile.rz,
                 world_dir: tile.world_dir,
                 dimension: tile.dimension,
                 image_data: buf,
-            })
+            }))
         };
 
         match render_inner(tile.clone()) {
-            Ok(rendered) => {
-                let _emit = window.emit("tile_rendered", TileResponse::Render(rendered));
+            Ok(result) => {
+                window.emit("tile_rendered", result).unwrap();
             }
             Err(e) => {
-                let _emit = window.emit(
-                    "tile-rendered",
-                    TileResponse::Error(TileError {
-                        id,
-                        rx: tile.rx,
-                        rz: tile.rz,
-                        dimension: tile.dimension,
-                        world_dir: tile.world_dir,
-                        message: e.to_string(),
-                    }),
-                );
+                window
+                    .emit(
+                        "tile_rendered",
+                        TileResponse::Error(TileError {
+                            id,
+                            rx: tile.rx,
+                            rz: tile.rz,
+                            dimension: tile.dimension,
+                            world_dir: tile.world_dir,
+                            message: e.to_string(),
+                        }),
+                    )
+                    .unwrap();
             }
         }
     });
@@ -127,6 +152,7 @@ struct TileRequest {
 #[serde(tag = "kind")]
 enum TileResponse {
     Render(TileRender),
+    Missing(TileMissing),
     Error(TileError),
 }
 
@@ -140,6 +166,16 @@ struct TileRender {
     world_dir: String,
     #[serde(with = "Base64Standard")]
     image_data: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TileMissing {
+    id: usize,
+    rx: isize,
+    rz: isize,
+    dimension: String,
+    world_dir: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

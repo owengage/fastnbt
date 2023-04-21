@@ -34,6 +34,7 @@ body,
 
 .map-container {
   flex-grow: 1;
+  background-color: #2e2e2e;
 }
 
 canvas,

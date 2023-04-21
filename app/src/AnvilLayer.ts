@@ -1,4 +1,4 @@
-import L from 'leaflet';
+import L, { GridLayer } from 'leaflet';
 import { useLeafletContext } from "@react-leaflet/core";
 import { useEffect } from 'react';
 import { UnlistenFn } from '@tauri-apps/api/event';
@@ -13,15 +13,17 @@ interface AnvilLayerProps {
     /// the entire world, so the DIM1, DIM-1 and region directories are within
     /// this directory.
     worldDir: string,
+    dimension: string,
     heightmapMode: HeightmapMode,
 }
 
-export function AnvilLayer({ worldDir, heightmapMode }: AnvilLayerProps) {
+export function AnvilLayer({ worldDir, heightmapMode, dimension }: AnvilLayerProps) {
     const context = useLeafletContext();
 
     useEffect(() => {
+        console.log("useEffect AnvilLayer");
         const container = context.layerContainer || context.map;
-        const layer = make_layer({ worldDir, heightmapMode }, {
+        const layer = make_layer({ worldDir, heightmapMode, dimension }, {
             minNativeZoom: 6,
             maxNativeZoom: 6,
             tileSize: 512,
@@ -50,7 +52,7 @@ export function AnvilLayer({ worldDir, heightmapMode }: AnvilLayerProps) {
             container.removeLayer(layer);
             unlisten && unlisten();
         };
-    }, [worldDir, heightmapMode]);
+    }, [worldDir, heightmapMode, dimension]);
 
     return null;
 }
@@ -66,6 +68,7 @@ function make_layer(args: AnvilLayerInnerArgs, leafletOpts: Object): AnvilLayerI
 
 interface AnvilLayerInnerArgs {
     worldDir: string,
+    dimension: string,
     heightmapMode: HeightmapMode,
 }
 
@@ -73,7 +76,7 @@ interface AnvilLayerInner {
     handleTileResponse: (resp: TileResponse) => void;
 }
 
-type TileResponse = TileRender | TileError;
+type TileResponse = TileRender | TileMissing | TileError;
 
 interface TileRender {
     kind: "render",
@@ -81,7 +84,6 @@ interface TileRender {
     rx: number,
     rz: number,
     dimension: string,
-    basePath: string,
     imageData: string,
 }
 
@@ -91,9 +93,17 @@ interface TileError {
     rx: number,
     rz: number,
     dimension: string,
-    basePath: string,
     message: string,
 }
+
+interface TileMissing {
+    kind: "missing",
+    id: number,
+    rx: number,
+    rz: number,
+    dimension: string,
+}
+
 
 interface Callback {
     done: (error: Error | null, tile: HTMLImageElement) => void,
@@ -112,35 +122,52 @@ const _AnvilLayerInner = L.GridLayer.extend({
         this.id = awfulRandomNumber();
         this.args = args;
         this.callbacks = new Map();
+
+
         this.handleTileResponse = (resp: TileResponse) => {
-            if (resp.kind === "render") {
-                const callbacks: CallbackMap = this.callbacks;
-                const val = callbacks.get(`${resp.rx},${resp.rz}`);
 
-                if (resp.id !== this.id) {
-                    // This is from a different map. This can occur if we send a
-                    // request for a tile, but only receive it after some
-                    // options were changed.
-                    return;
-                }
+            const callbacks: CallbackMap = this.callbacks;
+            const val = callbacks.get(`${resp.rx},${resp.rz}`);
 
-                if (!val) {
-                    return;
-                }
-                const { done, tile, cached } = val;
-
-                if (cached) {
-                    done(null, tile);
-                    return;
-                }
-
-                tile.src = "data:image/png;base64," + resp.imageData;
-                const key = `${resp.rx},${resp.rz}`;
-                callbacks.set(key, { done, tile, cached: true });
-                done(null, tile);
-            } else {
-                console.error(resp);
+            if (resp.id !== this.id) {
+                // This is from a different map. This can occur if we send a
+                // request for a tile, but only receive it after some
+                // options were changed.
+                return;
             }
+
+            if (!val) {
+                return;
+            }
+            const { done, tile, cached } = val;
+
+            switch (resp.kind) {
+                case "render": {
+                    if (cached) {
+                        done(null, tile);
+                        return;
+                    }
+
+                    tile.src = "data:image/png;base64," + resp.imageData;
+                    const key = `${resp.rx},${resp.rz}`;
+                    callbacks.set(key, { done, tile, cached: true });
+                    done(null, tile);
+                    break;
+                }
+                case "missing": {
+                    done(null, tile);
+                    break;
+                }
+                case "error": {
+                    console.error(resp);
+                    done(null, tile);
+                    break;
+                }
+                default:
+                    console.error("Unexpected callback received");
+                    done(null, tile);
+                    break;
+            };
         };
     },
     createTile: function (coords: any, done: any) {
@@ -150,14 +177,16 @@ const _AnvilLayerInner = L.GridLayer.extend({
         // in minecraft x/z is the floor, but in leaflet x/y is.
         const req = {
             id: this.id,
-            rx: coords.x,
-            rz: coords.y,
-            dimension: "overworld",
-            worldDir: args.worldDir,
-            heightmapMode: args.heightmapMode,
+            tile: {
+                rx: coords.x,
+                rz: coords.y,
+                dimension: args.dimension,
+                worldDir: args.worldDir,
+                heightmapMode: args.heightmapMode,
+            },
         };
 
-        const key = `${req.rx},${req.rz}`;
+        const key = `${req.tile.rx},${req.tile.rz}`;
         const val = callbacks.get(key)
 
         if (val) {
@@ -171,7 +200,6 @@ const _AnvilLayerInner = L.GridLayer.extend({
 
             callbacks.set(key, { done, tile, cached: false });
             invoke('render_tile', req);
-
             return tile;
         }
     }
