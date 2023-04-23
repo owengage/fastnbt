@@ -228,6 +228,21 @@ impl<R: Read> Parser<R> {
         self.next_inner()
     }
 
+    /// Gets a reference to the underlying value in this parser.
+    pub fn get_ref(&self) -> &R {
+        &self.reader
+    }
+
+    /// Gets a mutable reference to the underlying value in this parser.
+    pub fn get_mut(&mut self) -> &mut R {
+        &mut self.reader
+    }
+
+    /// Consumes this parser, returning the underlying value.
+    pub fn into_inner(self) -> R {
+        self.reader
+    }
+
     /// Get the next value from the reader. Returns EOF if the stream ended sucessfully, and
     /// IO(err) for any other IO error.
     fn next_inner(&mut self) -> Result<Value> {
