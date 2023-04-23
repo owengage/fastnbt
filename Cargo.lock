@@ -68,6 +68,7 @@ dependencies = [
  "base64-serde",
  "env_logger 0.10.0",
  "fastanvil",
+ "fastnbt",
  "flate2",
  "image 0.23.13",
  "log",

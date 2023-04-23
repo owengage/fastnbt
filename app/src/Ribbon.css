@@ -1,0 +1,8 @@
+.ribbon label,
+.ribbon button {
+  margin-left: 0.5rem;
+}
+
+.ribbon label span {
+  font-size: 0.8rem;
+}

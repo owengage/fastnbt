@@ -1,9 +1,8 @@
-import L, { GridLayer } from 'leaflet';
-import { useLeafletContext } from "@react-leaflet/core";
 import { useEffect } from 'react';
+import L from 'leaflet';
+import { useLeafletContext } from "@react-leaflet/core";
 import { UnlistenFn } from '@tauri-apps/api/event';
 import { listen } from '@tauri-apps/api/event';
-
 import { invoke } from '@tauri-apps/api/tauri';
 
 type HeightmapMode = "trust" | "calculate";
@@ -28,6 +27,7 @@ export function AnvilLayer({ worldDir, heightmapMode, dimension }: AnvilLayerPro
             maxNativeZoom: 6,
             tileSize: 512,
             noWrap: true,
+            keepBuffer: 10,
         });
         let unlisten: UnlistenFn | null = null;
         let destructed = false;
@@ -41,7 +41,7 @@ export function AnvilLayer({ worldDir, heightmapMode, dimension }: AnvilLayerPro
             if (destructed) {
                 unlistenFn();
             }
-            // if it hasn't run, we save this for the destructor to call.
+            // if the destructor hasn't run, we save this for it to call.
             unlisten = unlistenFn;
         })
 
@@ -57,7 +57,7 @@ export function AnvilLayer({ worldDir, heightmapMode, dimension }: AnvilLayerPro
     return null;
 }
 
-function make_layer(args: AnvilLayerInnerArgs, leafletOpts: Object): AnvilLayerInner & L.Layer {
+function make_layer(args: AnvilLayerInnerArgs, leafletOpts: L.GridLayerOptions): AnvilLayerInner & L.Layer {
     // Leaflet types don't figure out the constructor args. These are the same
     // as get passed to the initialize function in the extend function below.
     // This makes a TS safe wrapper around the problem.
@@ -104,12 +104,9 @@ interface TileMissing {
     dimension: string,
 }
 
-
 interface Callback {
     done: (error: Error | null, tile: HTMLImageElement) => void,
     tile: HTMLImageElement,
-    /// Has this tile already been requested before?
-    cached: boolean,
 }
 
 type CallbackMap = Map<string, Callback>;
@@ -137,37 +134,28 @@ const _AnvilLayerInner = L.GridLayer.extend({
             }
 
             if (!val) {
+                console.error("Tile response for unrequested tile.");
                 return;
             }
-            const { done, tile, cached } = val;
+            let { done, tile } = val;
 
             switch (resp.kind) {
                 case "render": {
-                    if (cached) {
-                        done(null, tile);
-                        return;
-                    }
-
                     tile.src = "data:image/png;base64," + resp.imageData;
                     const key = `${resp.rx},${resp.rz}`;
-                    callbacks.set(key, { done, tile, cached: true });
-                    done(null, tile);
+                    callbacks.set(key, { done, tile });
                     break;
                 }
-                case "missing": {
-                    done(null, tile);
+                case "missing":
                     break;
-                }
-                case "error": {
+                case "error":
                     console.error(resp);
-                    done(null, tile);
                     break;
-                }
                 default:
                     console.error("Unexpected callback received");
-                    done(null, tile);
                     break;
             };
+            done(null, tile);
         };
     },
     createTile: function (coords: any, done: any) {
@@ -187,21 +175,15 @@ const _AnvilLayerInner = L.GridLayer.extend({
         };
 
         const key = `${req.tile.rx},${req.tile.rz}`;
-        const val = callbacks.get(key)
 
-        if (val) {
-            // request already been made.
-            return val.tile;
-        } else {
-            var tile = L.DomUtil.create('img', 'leaflet-tile');
-            var size = this.getTileSize();
-            (<any>tile).width = size.x;
-            (<any>tile).height = size.y;
+        var tile = L.DomUtil.create('img', 'leaflet-tile');
+        var size = this.getTileSize();
+        tile.width = size.x;
+        tile.height = size.y;
 
-            callbacks.set(key, { done, tile, cached: false });
-            invoke('render_tile', req);
-            return tile;
-        }
+        callbacks.set(key, { done, tile });
+        invoke('render_tile', req);
+        return tile;
     }
 });
 

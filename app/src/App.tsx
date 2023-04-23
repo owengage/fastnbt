@@ -8,11 +8,13 @@ import { MapContainer } from "react-leaflet";
 import { AnvilLayer } from "./AnvilLayer";
 import { Ribbon } from "./Ribbon";
 import { savesDir } from "./openWorld";
+import { WorldInfo, WorldSelect, useWorldSelect } from "./WorldSelect";
 
 function App() {
   const [worldDir, setWorldDir] = useState<string | undefined>();
-  const [calcHeights, setCalcHeights] = useState(false);
+  const [trustHeights, setTrustHeights] = useState(true);
   const [dimension, setDimension] = useState("overworld");
+  const worlds = useWorldSelect();
   const mapRef = useRef<L.Map | null>(null);
 
   async function handleOpen() {
@@ -21,7 +23,6 @@ function App() {
     const selected = await open({
       multiple: false,
       directory: true,
-      defaultPath: saves ?? undefined,
     });
 
     if (selected && !Array.isArray(selected)) {
@@ -29,8 +30,12 @@ function App() {
     }
   }
 
-  function handleHeightmapModeChange(ev: React.ChangeEvent<HTMLInputElement>) {
-    setCalcHeights((prev) => !prev);
+  function handleWorldSelect(world?: WorldInfo) {
+    setWorldDir(world && world.dir);
+  }
+
+  function handleTrustHeightChange(ev: React.ChangeEvent<HTMLInputElement>) {
+    setTrustHeights((prev) => !prev);
   }
 
   function handleDimensionChange(ev: React.ChangeEvent<HTMLSelectElement>) {
@@ -49,25 +54,41 @@ function App() {
   // TODO: Show coordinates.
   // TODO: Distingush broken vs missing regions.
   // TODO: Fix region loading indication not disappearing properly.
+  // TODO: Search for item! eg specific enchantment or name
+  // TODO: Add players! Show inventory, enderchest, acheivements.
+  // TODO: Fly to player. Could be any dimension.
+  // TODO: Search for block/entity
+  // TODO: Extract icon.png.
   return (
     <div className="container">
       <Ribbon>
-        <button onClick={handleOpen}>Open save...</button>
+        <WorldSelect
+          selected={worldDir}
+          worlds={worlds}
+          onChange={handleWorldSelect}
+        />
         <label>
+          <span>Dimension:</span>
           <select onChange={handleDimensionChange}>
             <option value="overworld">Overworld</option>
             <option value="nether">Nether</option>
             <option value="end">The End</option>
           </select>
         </label>
-        <label>
+        <label title="Heightmaps can sometimes be incorrect, turning this off may fix rendering but be slower.">
           <input
             type="checkbox"
-            checked={calcHeights}
-            onChange={handleHeightmapModeChange}
+            checked={trustHeights}
+            onChange={handleTrustHeightChange}
           />
-          Recalculate Heightmaps
+          <span>Trust heightmaps</span>
         </label>
+        <button
+          title="Open a world that is potentially not in your saves directory"
+          onClick={handleOpen}
+        >
+          Open folder...
+        </button>
       </Ribbon>
       <MapContainer
         ref={mapRef}
@@ -82,7 +103,7 @@ function App() {
       >
         {worldDir && (
           <AnvilLayer
-            heightmapMode={calcHeights ? "calculate" : "trust"}
+            heightmapMode={trustHeights ? "trust" : "calculate"}
             dimension={dimension}
             worldDir={worldDir}
           />

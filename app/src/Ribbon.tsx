@@ -1,4 +1,5 @@
 import { ReactFragment } from "react";
+import "./Ribbon.css";
 
 export interface RinnonPropsInner {}
 type RibbonProps = React.PropsWithChildren<RinnonPropsInner>;
