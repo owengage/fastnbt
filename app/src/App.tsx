@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { open } from "@tauri-apps/api/dialog";
 import L from "leaflet";
@@ -7,19 +7,46 @@ import "leaflet/dist/leaflet.css";
 import { MapContainer } from "react-leaflet";
 import { AnvilLayer } from "./AnvilLayer";
 import { Ribbon } from "./Ribbon";
-import { savesDir } from "./openWorld";
 import { WorldInfo, WorldSelect, useWorldSelect } from "./WorldSelect";
+import { invoke } from "@tauri-apps/api";
+
+function useWorld(
+  worldDir?: string,
+  worlds?: WorldInfo[]
+): WorldInfo | undefined {
+  const [info, setInfo] = useState<WorldInfo | undefined>();
+  // If worldDir is not in the list of saves, load the world info
+  // manually.
+  useEffect(() => {
+    const info = worlds?.find((info) => info.dir === worldDir);
+    if (info) {
+      setInfo(info);
+    } else {
+      const inner = async () => {
+        const resp = (await invoke("world_info", {
+          dir: worldDir,
+        })) as WorldInfo | undefined;
+        if (resp) {
+          setInfo(resp);
+        }
+      };
+      inner();
+    }
+  }, [worldDir]);
+
+  return info;
+}
 
 function App() {
   const [worldDir, setWorldDir] = useState<string | undefined>();
+  const worlds = useWorldSelect();
+  const worldInfo = useWorld(worldDir, worlds);
+
   const [trustHeights, setTrustHeights] = useState(true);
   const [dimension, setDimension] = useState("overworld");
-  const worlds = useWorldSelect();
   const mapRef = useRef<L.Map | null>(null);
 
   async function handleOpen() {
-    const saves = await savesDir();
-
     const selected = await open({
       multiple: false,
       directory: true,
@@ -89,6 +116,25 @@ function App() {
         >
           Open folder...
         </button>
+        <button
+          title="Fly to (0,0) on the map"
+          onClick={() => mapRef.current?.flyTo([0, 0])}
+        >
+          Fly to origin
+        </button>
+        {worldInfo && (
+          <button
+            title="Fly to spawn on the map"
+            onClick={() =>
+              mapRef.current?.flyTo([
+                -worldInfo.level.Data.SpawnZ / 64,
+                worldInfo.level.Data.SpawnX / 64,
+              ])
+            }
+          >
+            Fly to spawn
+          </button>
+        )}
       </Ribbon>
       <MapContainer
         ref={mapRef}
@@ -98,15 +144,14 @@ function App() {
         center={[0, 0]}
         zoom={6}
         scrollWheelZoom={true}
-        // @ts-ignore
-        loadingControl={true}
       >
-        {worldDir && (
+        {worldInfo && (
           <AnvilLayer
             heightmapMode={trustHeights ? "trust" : "calculate"}
             dimension={dimension}
-            worldDir={worldDir}
+            world={worldInfo}
           />
+          // <SpawnNavigator world={worldDir} />
         )}
       </MapContainer>
     </div>

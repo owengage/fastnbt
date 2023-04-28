@@ -4,6 +4,7 @@ import { useLeafletContext } from "@react-leaflet/core";
 import { UnlistenFn } from '@tauri-apps/api/event';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
+import { WorldInfo } from './WorldSelect';
 
 type HeightmapMode = "trust" | "calculate";
 
@@ -11,18 +12,18 @@ interface AnvilLayerProps {
     /// Base path of a Minecraft world. This should be the directory containing
     /// the entire world, so the DIM1, DIM-1 and region directories are within
     /// this directory.
-    worldDir: string,
+    world: WorldInfo,
     dimension: string,
     heightmapMode: HeightmapMode,
 }
 
-export function AnvilLayer({ worldDir, heightmapMode, dimension }: AnvilLayerProps) {
+export function AnvilLayer({ world, heightmapMode, dimension }: AnvilLayerProps) {
     const context = useLeafletContext();
 
     useEffect(() => {
         console.log("useEffect AnvilLayer");
         const container = context.layerContainer || context.map;
-        const layer = make_layer({ worldDir, heightmapMode, dimension }, {
+        const layer = make_layer({ worldDir: world.dir, heightmapMode, dimension }, {
             minNativeZoom: 6,
             maxNativeZoom: 6,
             tileSize: 512,
@@ -52,7 +53,7 @@ export function AnvilLayer({ worldDir, heightmapMode, dimension }: AnvilLayerPro
             container.removeLayer(layer);
             unlisten && unlisten();
         };
-    }, [worldDir, heightmapMode, dimension]);
+    }, [world.dir, heightmapMode, dimension]);
 
     return null;
 }

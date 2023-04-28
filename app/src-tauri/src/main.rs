@@ -5,6 +5,7 @@ mod render;
 
 use std::{
     io::{Cursor, Read},
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -59,13 +60,40 @@ fn world_list(dir: String) -> Result<Vec<WorldInfo>, JsError> {
         .collect())
 }
 
+#[tauri::command]
+fn world_info(dir: String) -> Result<WorldInfo, JsError> {
+    let dir = PathBuf::from(dir).canonicalize().map_err(JsError::new)?;
+
+    if dir.is_dir() {
+        let level = std::fs::read(dir.join("level.dat")).map_err(JsError::new)?;
+        let mut dec = GzDecoder::new(Cursor::new(&level));
+        let mut level = vec![];
+        dec.read_to_end(&mut level).map_err(JsError::new)?;
+
+        let level: Value = fastnbt::from_bytes(&level).map_err(JsError::new)?;
+
+        Ok(WorldInfo {
+            dir: dir.to_string_lossy().into_owned(),
+            level,
+        })
+    } else {
+        Err(JsError {
+            message: "world path was not a directory".to_string(),
+        })
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
     let palette = Arc::new(render::get_palette()?);
 
     tauri::Builder::default()
         .manage(palette)
-        .invoke_handler(tauri::generate_handler![render_tile, world_list])
+        .invoke_handler(tauri::generate_handler![
+            render_tile,
+            world_list,
+            world_info
+        ])
         .run(tauri::generate_context!())
         .context("error while running tauri application")
 }
