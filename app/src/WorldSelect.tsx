@@ -38,7 +38,6 @@ export function useWorldSelect(): WorldInfo[] | undefined {
           dir: saves,
         })) as WorldInfo[];
 
-        console.log(worlds);
         setWorlds(worlds);
       } catch (err) {
         console.error(err);
@@ -58,7 +57,6 @@ export function WorldSelect({ worlds, selected, onChange }: WorldSelectProps) {
 
   const selectedValue =
     worlds?.findIndex((info) => {
-      console.log(info.dir === selected, selected, info.dir);
       return info.dir === selected;
     }) ?? -1;
 

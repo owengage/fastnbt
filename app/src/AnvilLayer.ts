@@ -21,7 +21,6 @@ export function AnvilLayer({ world, heightmapMode, dimension }: AnvilLayerProps)
     const context = useLeafletContext();
 
     useEffect(() => {
-        console.log("useEffect AnvilLayer");
         const container = context.layerContainer || context.map;
         const layer = make_layer({ worldDir: world.dir, heightmapMode, dimension }, {
             minNativeZoom: 6,
