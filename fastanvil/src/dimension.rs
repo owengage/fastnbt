@@ -1,6 +1,8 @@
 use std::io::{Read, Seek, Write};
 use std::{error::Error, fmt::Display, ops::Range};
 
+use serde::{Deserialize, Serialize};
+
 use crate::Region;
 use crate::{biome::Biome, Block};
 
@@ -10,7 +12,7 @@ pub struct RCoord(pub isize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CCoord(pub isize);
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum HeightMode {
     Trust,     // trust height maps from chunk data
     Calculate, // calculate height maps manually, much slower.
