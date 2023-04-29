@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, io::Cursor};
 
 use serde::{Deserialize, Serialize};
 
@@ -1728,4 +1728,19 @@ fn i128_from_invalid_int_array() {
         .build();
     let v: Result<V> = from_bytes(payload.as_slice());
     assert!(v.is_err());
+}
+
+#[test]
+fn byte_array_value_from_reader() {
+    let data = Builder::new()
+        .start_compound("")
+        .byte_array("test1", &[1, 2, 3])
+        .int_array("test2", &[1, 2, 3])
+        .long_array("test3", &[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let r = Cursor::new(data);
+    // let r = &data;
+    let _v: Value = from_reader(r).unwrap();
 }

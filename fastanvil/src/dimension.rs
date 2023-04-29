@@ -1,8 +1,6 @@
 use std::io::{Read, Seek, Write};
 use std::{error::Error, fmt::Display, ops::Range};
 
-use serde::{Deserialize, Serialize};
-
 use crate::Region;
 use crate::{biome::Biome, Block};
 

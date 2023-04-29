@@ -8,6 +8,7 @@ use serde::{
     },
     forward_to_deserialize_any, serde_if_integer128, Deserialize, Deserializer,
 };
+use serde_bytes::ByteBuf;
 
 use crate::{error::Error, ByteArray, IntArray, LongArray, Value};
 
@@ -109,18 +110,18 @@ impl<'de> Deserialize<'de> for Value {
                         Ok(Value::Compound(compound))
                     }
                     Some(KeyClass::ByteArray) => {
-                        let data = map.next_value::<&[u8]>()?;
-                        Ok(Value::ByteArray(ByteArray::from_bytes(data)))
+                        let data = map.next_value::<ByteBuf>()?;
+                        Ok(Value::ByteArray(ByteArray::from_buf(data.into_vec())))
                     }
                     Some(KeyClass::IntArray) => {
-                        let data = map.next_value::<&[u8]>()?;
-                        IntArray::from_bytes(data)
+                        let data = map.next_value::<ByteBuf>()?;
+                        IntArray::from_bytes(&data)
                             .map(Value::IntArray)
                             .map_err(|_| serde::de::Error::custom("could not read int array"))
                     }
                     Some(KeyClass::LongArray) => {
-                        let data = map.next_value::<&[u8]>()?;
-                        LongArray::from_bytes(data)
+                        let data = map.next_value::<ByteBuf>()?;
+                        LongArray::from_bytes(&data)
                             .map(Value::LongArray)
                             .map_err(|_| serde::de::Error::custom("could not read long array"))
                     }
