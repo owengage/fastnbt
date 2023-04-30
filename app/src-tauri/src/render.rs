@@ -1,12 +1,10 @@
-use std::{ops::Deref, sync::Arc};
+use std::{fmt::Debug, ops::Deref, sync::Arc};
 
 use anyhow::Context;
 use base64_serde::base64_serde_type;
 use fastanvil::{
-    render_region, CCoord, HeightMode, RCoord, RegionFileLoader, RenderedPalette, Rgba,
-    TopShadeRenderer,
+    render_region, CCoord, HeightMode, RCoord, RegionFileLoader, RenderedPalette, TopShadeRenderer,
 };
-use flate2::read::GzDecoder;
 use image::Pixel;
 use serde::{Deserialize, Serialize};
 use tauri::Window;
@@ -132,52 +130,6 @@ pub fn render_tile(
             }
         }
     });
-}
-
-pub fn get_palette() -> anyhow::Result<RenderedPalette> {
-    let data = include_bytes!("../../../palette.tar.gz");
-    let f = GzDecoder::new(data.as_slice());
-    let mut ar = tar::Archive::new(f);
-    let mut grass = Err(anyhow::format_err!("no grass colour map"));
-    let mut foliage = Err(anyhow::format_err!("no foliage colour map"));
-    let mut blockstates = Err(anyhow::format_err!("no blockstate palette"));
-
-    for file in ar.entries()? {
-        let mut file = file?;
-        match file.path()?.to_str().context("invalid path in TAR")? {
-            "grass-colourmap.png" => {
-                use std::io::Read;
-                let mut buf = vec![];
-                file.read_to_end(&mut buf)?;
-
-                grass = Ok(
-                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba8(),
-                );
-            }
-            "foliage-colourmap.png" => {
-                use std::io::Read;
-                let mut buf = vec![];
-                file.read_to_end(&mut buf)?;
-
-                foliage = Ok(
-                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)?.into_rgba8(),
-                );
-            }
-            "blockstates.json" => {
-                let json: std::collections::HashMap<String, Rgba> = serde_json::from_reader(file)?;
-                blockstates = Ok(json);
-            }
-            _ => {}
-        }
-    }
-
-    let p = RenderedPalette {
-        blockstates: blockstates?,
-        grass: grass?,
-        foliage: foliage?,
-    };
-
-    Ok(p)
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

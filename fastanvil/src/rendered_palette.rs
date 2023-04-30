@@ -1,3 +1,10 @@
+use std::{
+    error::Error,
+    fmt::Display,
+    io::{BufReader, Read},
+};
+
+use flate2::bufread::GzDecoder;
 use log::debug;
 
 use crate::{biome::Biome, Block, Palette, Rgba, SNOW_BLOCK};
@@ -122,4 +129,78 @@ impl Palette for RenderedPalette {
             }
         }
     }
+}
+
+#[derive(Debug)]
+pub struct PaletteError(String);
+
+impl PaletteError {
+    fn new(err: impl Error) -> PaletteError {
+        Self(err.to_string())
+    }
+}
+
+impl Display for PaletteError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl Error for PaletteError {}
+
+/**
+ * Load a prepared rendered palette. This is for use with the palette.tar.gz
+ * alongside the fastnbt project repository.
+ */
+pub fn load_rendered_palette(
+    palette: impl Read,
+) -> std::result::Result<RenderedPalette, PaletteError> {
+    let f = GzDecoder::new(BufReader::new(palette));
+    let mut ar = tar::Archive::new(f);
+    let mut grass = Err(PaletteError("no grass colour map".to_owned()));
+    let mut foliage = Err(PaletteError("no foliage colour map".to_owned()));
+    let mut blockstates = Err(PaletteError("no blockstate palette".to_owned()));
+
+    for file in ar.entries().map_err(PaletteError::new)? {
+        let mut file = file.map_err(PaletteError::new)?;
+        match file
+            .path()
+            .map_err(PaletteError::new)?
+            .to_str()
+            .ok_or(PaletteError("invalid path".to_owned()))?
+        {
+            "grass-colourmap.png" => {
+                let mut buf = vec![];
+                file.read_to_end(&mut buf).map_err(PaletteError::new)?;
+
+                grass = Ok(
+                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)
+                        .map_err(PaletteError::new)?
+                        .into_rgba8(),
+                );
+            }
+            "foliage-colourmap.png" => {
+                let mut buf = vec![];
+                file.read_to_end(&mut buf).map_err(PaletteError::new)?;
+
+                foliage = Ok(
+                    image::load(std::io::Cursor::new(buf), image::ImageFormat::Png)
+                        .map_err(PaletteError::new)?
+                        .into_rgba8(),
+                );
+            }
+            "blockstates.json" => {
+                let json: std::collections::HashMap<String, Rgba> =
+                    serde_json::from_reader(file).map_err(PaletteError::new)?;
+                blockstates = Ok(json);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(RenderedPalette {
+        blockstates: blockstates?,
+        grass: grass?,
+        foliage: foliage?,
+    })
 }

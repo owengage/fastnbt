@@ -11,12 +11,16 @@ license = "MIT OR Apache-2.0"
 fastnbt = { path = "../fastnbt", version = "2" }
 flate2 = "1.0"
 num_enum = "0.5"
-image = { version = "0.23", default-features = false, optional = true }
 byteorder = "1.3"
 bit_field = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 once_cell = "1.9"
+
+# Deps for render feature.
+image = { version = "0.23", default-features = false, optional = true }
+tar = { version="0.4", default-features = false, optional=true }
+serde_json = { version="1.0", default-features = false, optional=true }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -24,7 +28,7 @@ criterion = "0.4"
 
 [features]
 default = ["render"]
-render = ["dep:image"]
+render = ["dep:image", "dep:tar", "dep:serde_json"]
 
 [[bench]]
 name = "chunk_parse"

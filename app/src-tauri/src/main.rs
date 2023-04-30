@@ -85,7 +85,8 @@ fn world_info(dir: String) -> Result<WorldInfo, JsError> {
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let palette = Arc::new(render::get_palette()?);
+    let data = include_bytes!("../../../palette.tar.gz");
+    let palette = Arc::new(fastanvil::load_rendered_palette(Cursor::new(data))?);
 
     tauri::Builder::default()
         .manage(palette)

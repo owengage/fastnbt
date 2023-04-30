@@ -77,7 +77,6 @@ function App() {
   // TODO: Zoom in is blurry. Feels like it shouldn't be on MacOS's webview. But
   // it is.
   // TODO: Just list saves in drop down or something rather than file dialog
-  // TODO: Open arb directory for world.
   // TODO: Show coordinates.
   // TODO: Distingush broken vs missing regions.
   // TODO: Fix region loading indication not disappearing properly.
@@ -85,7 +84,6 @@ function App() {
   // TODO: Add players! Show inventory, enderchest, acheivements.
   // TODO: Fly to player. Could be any dimension.
   // TODO: Search for block/entity
-  // TODO: Extract icon.png.
   return (
     <div className="container">
       <Ribbon>
