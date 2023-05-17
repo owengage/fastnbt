@@ -1,60 +1,75 @@
-use fastnbt::{nbt, Value};
+use serde::Deserialize;
 
 use crate::from_str;
 
-fn assert_value(expected: &Value, snbt: &str) {
-    let v: Value = from_str(snbt).unwrap();
 
-    assert_eq!(*expected, v);
+#[test]
+fn test_num() {
+    let input = "20b";
+    let v: i32 = from_str(input).unwrap();
+    assert_eq!(20, v);
+    let input = "20s";
+    let v: i32 = from_str(input).unwrap();
+    assert_eq!(20, v);
+    let input = "20l";
+    let v: i32 = from_str(input).unwrap();
+    assert_eq!(20, v);
+    let input = "20l";
+    let v: u8 = from_str(input).unwrap();
+    assert_eq!(20, v);
 }
 
-fn assert_all_values(expected: &Value, cases: &[&str]) {
-    for case in cases {
-        assert_value(expected, case)
+#[test]
+fn test_float() {
+    let input = "50.";
+    let f: f64 = from_str(input).unwrap();
+    assert_eq!(50., f);
+    let input = "-5000.e-2f";
+    let f: f64 = from_str(input).unwrap();
+    assert_eq!(-50., f);
+    let input = "inf";
+    let f: f64 = from_str(input).unwrap();
+    assert_eq!(f64::INFINITY, f);
+}
+
+#[test]
+fn test_str() {
+    let input = "\"simple\"";
+    let s: &str = from_str(input).unwrap();
+    assert_eq!("simple", s);
+    let input = "no+.quo0tes";
+    let s: &str = from_str(input).unwrap();
+    assert_eq!("no+.quo0tes", s);
+    let input = "'this\\'is a string'";
+    let s: String = from_str(input).unwrap();
+    assert_eq!("this\'is a string", s);
+    let input = "\"yet\\\"ano\\\\\\\"ther\"";
+    let s: String = from_str(input).unwrap();
+    assert_eq!("yet\"ano\\\"ther", s);
+    assert!(from_str::<&str>("\"not closed").is_err());
+    assert!(from_str::<&str>("test/").is_err());
+}
+
+#[test]
+fn test_seq() {
+    let input = "[1b,2b,3b]";
+    let bytes: Vec<u8> = from_str(input).unwrap();
+    assert_eq!(&[1, 2, 3], bytes.as_slice());
+    let input = "[1B,2,5.0e1D]";
+    let data: (i8,u64,f64) = from_str(input).unwrap();
+    assert_eq!((1, 2, 50.), data);
+}
+
+#[test]
+fn test_map() {
+    #[derive(Debug, Deserialize, PartialEq, Eq)]
+    struct SimpleStruct<'a> {
+        s: &'a str,
+        x: i16,
     }
+
+    let input = "{x:-10,s:test}";
+    let data: SimpleStruct = from_str(input).unwrap();
+    assert_eq!(SimpleStruct { s: "test", x: -10 }, data);
 }
 
-#[test]
-fn simple_byte() {
-    assert_all_values(
-        &nbt!({
-            "b": 123u8
-        }),
-        &[
-            r#"{"b":123B}"#,
-            r#"{ "b"  :  123B   }"#,
-            r#"{'b': 123B}"#,
-            r#"{'b': 123b}"#,
-            r#"{b: 123b}"#,
-            r#"  {
-                'b': 123B
-            }  "#,
-        ],
-    )
-}
-
-#[test]
-fn mismatched_quote() {
-    assert!(from_str::<Value>(r#"{"b':123B}"#).is_err());
-    assert!(from_str::<Value>(r#"{'b":123B}"#).is_err());
-    assert!(from_str::<Value>(r#"{'b:123B}"#).is_err());
-}
-
-#[test]
-fn multiple_fields() {
-    assert_all_values(
-        &nbt!({
-            "a": 123u8,
-            "b": 0u8,
-        }),
-        &[
-            r#"{"b":0b,"a":123B}"#,
-            r#"{
-                'a': 123b, 
-                "b": 0b
-            }"#,
-        ],
-    )
-}
-
-// TODO: Escapes of quote characters

@@ -39,31 +39,32 @@ impl From<std::io::Error> for Error {
 }
 
 impl Error {
-    pub(crate) fn invalid_tag(tag: u8) -> Error {
-        Error(format!("invalid nbt tag value: {}", tag))
+    pub(crate) fn invalid_input(pos: usize) -> Error {
+        Error(format!("invalid input at {}", pos))
     }
 
-    pub(crate) fn invalid_size(size: i32) -> Error {
-        Error(format!("invalid nbt list/array size: {}", size))
+    pub(crate) fn input_not_consumed() -> Error {
+        Error("Input wasn't fully consumed".into())
     }
 
-    pub(crate) fn no_root_compound() -> Error {
-        Error("invalid nbt: no root compound".to_owned())
+    pub(crate) fn expected_comma() -> Error {
+        Error("expected comma".into())
     }
 
-    pub(crate) fn nonunicode_string(data: &[u8]) -> Error {
-        Error(format!(
-            "invalid nbt string: nonunicode: {}",
-            String::from_utf8_lossy(data)
-        ))
+    pub(crate) fn expected_colon() -> Error {
+        Error("expected colon".into())
+    }
+
+    pub(crate) fn expected_array_end() -> Error {
+        Error("expected array end".into())
+    }
+
+    pub(crate) fn expected_map_end() -> Error {
+        Error("expected compound tag end".into())
     }
 
     pub(crate) fn unexpected_eof() -> Error {
         Error("eof: unexpectedly ran out of input".to_owned())
-    }
-
-    pub(crate) fn array_as_seq() -> Error {
-        Error("expected NBT Array, found seq: use ByteArray, IntArray or LongArray types".into())
     }
 
     pub(crate) fn array_as_other() -> Error {

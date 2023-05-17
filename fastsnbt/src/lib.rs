@@ -6,7 +6,7 @@ use serde::Serialize;
 pub mod ser;
 pub mod de;
 pub mod error;
-mod input;
+pub(crate) mod parser;
 
 pub(crate) const BYTE_ARRAY_TOKEN: &str = "\"__fastnbt_byte_array\"";
 pub(crate) const INT_ARRAY_TOKEN: &str = "\"__fastnbt_int_array\"";
@@ -21,6 +21,9 @@ where
 {
     let mut des = Deserializer::from_str(input);
     let t = T::deserialize(&mut des)?;
+    if !des.input.is_empty() {
+        return Err(error::Error::input_not_consumed());
+    }
     Ok(t)
 }
 
