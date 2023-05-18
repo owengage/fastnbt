@@ -1,3 +1,17 @@
+//! This module contains a serde deserializer.
+//! It can do most of the things you would expect of
+//! a typical serde deserializer, such as deserializing into:
+//! - Rust structs.
+//! - containers like `HashMap` and `Vec`.
+//! - an arbitrary `Value`.
+//!
+//! This deserializer supports [`from_str`](crate::from_str) for
+//! zero-copy deserialization for types like [`&str`] if possible.
+//! If there are escaped characters in the string, it will have
+//! to own the resulting string.
+//!
+//! TODO: something about `UUID`s?
+
 use std::{borrow::Cow, marker::PhantomData};
 
 use byteorder::{WriteBytesExt, BE};

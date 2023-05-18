@@ -382,7 +382,6 @@ dependencies = [
  "nom",
  "ryu",
  "serde",
- "serde_bytes",
 ]
 
 [[package]]

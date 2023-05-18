@@ -22,7 +22,6 @@ impl serde::de::Error for Error {
     }
 }
 
-// TODO: Separate error types for ser and de?
 impl serde::ser::Error for Error {
     fn custom<T>(msg: T) -> Self
     where

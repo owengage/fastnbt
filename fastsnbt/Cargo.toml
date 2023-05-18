@@ -11,10 +11,11 @@ keywords = ["minecraft", "nbt", "snbt", "serde"]
 categories = ["parser-implementations"]
 
 [dependencies]
-fastnbt = "2"
 serde = { version = "1" }
-serde_bytes = "0.11"
 byteorder = "1"
 itoa = "1"
 ryu = "1"
 nom = "7"
+
+[dev-dependencies]
+fastnbt = "2"

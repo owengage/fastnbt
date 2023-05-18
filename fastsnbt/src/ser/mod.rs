@@ -1,3 +1,16 @@
+//! This module contains a serde serializer for sNBT data.
+//! This should be able to serialize most structures to sNBT.
+//! Use [`to_vec`](crate::to_vec) or [`to_string`](crate::to_string).
+//!
+//! Some Rust structures have no sensible mapping to sNBT data.
+//! These cases will result in an error (not a panic).
+//! If you find a case where you think there is a valid way to serialize it, please open an issue.
+//! TODO: make em not panic
+//!
+//! The [de](crate::de) module contains more information about (de)serialization.
+//!
+//! TODO: something about `UUID`s?
+
 use std::io::Write;
 
 use serde::ser::{self, SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant, SerializeMap, SerializeStruct, Impossible};
@@ -9,7 +22,7 @@ use self::name_serializer::NameSerializer;
 mod name_serializer;
 mod array_serializer;
 
-pub fn write_escaped_str<W: Write>(mut writer: W, v: &str) -> Result<(), Error> {
+pub(crate) fn write_escaped_str<W: Write>(mut writer: W, v: &str) -> Result<(), Error> {
     writer.write_all(b"\"")?;
     let bytes = v.as_bytes();
     let mut start = 0;
