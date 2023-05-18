@@ -31,7 +31,7 @@ pub(crate) fn write_escaped_str<W: Write>(mut writer: W, v: &str) -> Result<(), 
             continue;
         }
         if start < i {
-            writer.write_all(&v[start..i].as_bytes())?;
+            writer.write_all(v[start..i].as_bytes())?;
         }
         if byte == b'"' {
             writer.write_all(b"\\\"")?;
@@ -41,7 +41,7 @@ pub(crate) fn write_escaped_str<W: Write>(mut writer: W, v: &str) -> Result<(), 
         start = i + 1;
     }
     if start != bytes.len() {
-        writer.write_all(&v[start..].as_bytes())?;
+        writer.write_all(v[start..].as_bytes())?;
     }
     Ok(writer.write_all(b"\"")?)
 }
@@ -205,7 +205,7 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Ok(ArraySerializer::new("", self)?)
+        ArraySerializer::new("", self)
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
@@ -232,7 +232,7 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Ok(CompoundSerializer::new(self)?)
+        CompoundSerializer::new(self)
     }
 
     fn serialize_struct(
@@ -240,7 +240,7 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        Ok(CompoundSerializer::new(self)?)
+        CompoundSerializer::new(self)
     }
 
     // TODO: shouldn't this error?

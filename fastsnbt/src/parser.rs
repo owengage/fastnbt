@@ -2,11 +2,11 @@ use std::borrow::Cow;
 
 use nom::{IResult, combinator::{recognize, opt, map_res, map, cut}, sequence::{tuple, delimited, pair}, character::complete::{one_of, char, digit0, alphanumeric1, digit1}, branch::alt, bytes::complete::{tag, is_a, tag_no_case}, multi::many1, error::{ParseError, ErrorKind}};
 
-pub fn parse_str<'a>(input: &'a str) -> IResult<&'a str, Cow<'a, str>> {
+pub fn parse_str(input: &str) -> IResult<&str, Cow<'_, str>> {
     alt((
         delimited(char('"'), parse_escaped('"'), char('"')),
         delimited(char('\''), parse_escaped('\''), char('\'')),
-        map(parse_simple_string, |s: &str| Cow::from(s)),
+        map(parse_simple_string, Cow::from),
     ))(input)
 }
 
