@@ -55,12 +55,8 @@ impl Error {
         Error("expected colon".into())
     }
 
-    pub(crate) fn expected_array_end() -> Error {
-        Error("expected array end".into())
-    }
-
-    pub(crate) fn expected_map_end() -> Error {
-        Error("expected compound tag end".into())
+    pub(crate) fn expected_collection_end() -> Error {
+        Error("expected ] or } end".into())
     }
 
     pub(crate) fn unexpected_eof() -> Error {

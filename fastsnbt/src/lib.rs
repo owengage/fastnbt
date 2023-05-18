@@ -8,9 +8,12 @@ pub mod de;
 pub mod error;
 pub(crate) mod parser;
 
-pub(crate) const BYTE_ARRAY_TOKEN: &str = "\"__fastnbt_byte_array\"";
-pub(crate) const INT_ARRAY_TOKEN: &str = "\"__fastnbt_int_array\"";
-pub(crate) const LONG_ARRAY_TOKEN: &str = "\"__fastnbt_long_array\"";
+pub(crate) const BYTE_ARRAY_TOKEN_STR: &str = "\"__fastnbt_byte_array\"";
+pub(crate) const INT_ARRAY_TOKEN_STR: &str = "\"__fastnbt_int_array\"";
+pub(crate) const LONG_ARRAY_TOKEN_STR: &str = "\"__fastnbt_long_array\"";
+pub(crate) const BYTE_ARRAY_TOKEN: &str = "__fastnbt_byte_array";
+pub(crate) const INT_ARRAY_TOKEN: &str = "__fastnbt_int_array";
+pub(crate) const LONG_ARRAY_TOKEN: &str = "__fastnbt_long_array";
 
 #[cfg(test)]
 mod tests;

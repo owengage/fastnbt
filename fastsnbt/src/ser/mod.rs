@@ -2,7 +2,7 @@ use std::io::Write;
 
 use serde::ser::{self, SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant, SerializeMap, SerializeStruct, Impossible};
 
-use crate::{error::Error, BYTE_ARRAY_TOKEN, INT_ARRAY_TOKEN, LONG_ARRAY_TOKEN};
+use crate::{error::Error, BYTE_ARRAY_TOKEN_STR, INT_ARRAY_TOKEN_STR, LONG_ARRAY_TOKEN_STR};
 
 use self::name_serializer::NameSerializer;
 
@@ -372,17 +372,17 @@ impl<'a, W: Write + 'a> SerializeMap for CompoundSerializer<'a, W> {
         }
 
         match std::str::from_utf8(&name) {
-            Ok(BYTE_ARRAY_TOKEN) => value.serialize(array_serializer::ArraySerializer {
+            Ok(BYTE_ARRAY_TOKEN_STR) => value.serialize(array_serializer::ArraySerializer {
                 ser: self.serializer,
                 stride: 1,
                 prefix: "B;",
             }),
-            Ok(INT_ARRAY_TOKEN) => value.serialize(array_serializer::ArraySerializer {
+            Ok(INT_ARRAY_TOKEN_STR) => value.serialize(array_serializer::ArraySerializer {
                 ser: self.serializer,
                 stride: 4,
                 prefix: "I;",
             }),
-            Ok(LONG_ARRAY_TOKEN) => value.serialize(array_serializer::ArraySerializer {
+            Ok(LONG_ARRAY_TOKEN_STR) => value.serialize(array_serializer::ArraySerializer {
                 ser: self.serializer,
                 stride: 8,
                 prefix: "L;",

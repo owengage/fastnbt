@@ -98,18 +98,34 @@ pub fn parse_f64(input: &str) -> IResult<&str, f64> {
 
 fn float(input: &str) -> IResult<&str, &str> {
     alt((tag_no_case("inf"), tag_no_case("infinity"), tag_no_case("nan"),
-        recognize(tuple((
-            opt(alt((char('+'), char('-')))),
-            alt((
-                map(tuple((digit1, pair(char('.'), opt(digit1)))), |_| ()),
-                map(tuple((char('.'), digit1)), |_| ())
-            )),
-            opt(tuple((
-                alt((char('e'), char('E'))),
+        recognize(alt((
+            map(tuple((
                 opt(alt((char('+'), char('-')))),
-                cut(digit1)
-            )))
+                map(tuple((digit1, exp)), |_| ()),
+            )), |_| ()),
+            map(tuple((
+                float_num,
+                opt(exp),
+            )), |_| ()),
     )))))(input)
+}
+
+fn float_num(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((
+        opt(alt((char('+'), char('-')))),
+        alt((
+            map(tuple((digit1, pair(char('.'), opt(digit1)))), |_| ()),
+            map(tuple((char('.'), digit1)), |_| ())
+        ))
+    )))(input)
+}
+
+fn exp(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((
+        alt((char('e'), char('E'))),
+        opt(alt((char('+'), char('-')))),
+        cut(digit1)
+    )))(input)
 }
 
 // parse a single 0 OR a non-zero digit followed by a 0 or more digits

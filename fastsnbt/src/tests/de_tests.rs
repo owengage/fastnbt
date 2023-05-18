@@ -1,3 +1,4 @@
+use fastnbt::{ByteArray, IntArray, LongArray};
 use serde::Deserialize;
 
 use crate::from_str;
@@ -73,3 +74,23 @@ fn test_map() {
     assert_eq!(SimpleStruct { s: "test", x: -10 }, data);
 }
 
+#[test]
+fn test_bytearray() {
+    let input = "[B;1b,-2b,3B]";
+    let data: ByteArray = from_str(input).unwrap();
+    assert_eq!(ByteArray::new(vec![1,-2,3]), data);
+}
+
+#[test]
+fn test_intarray() {
+    let input = "[I;1,2,-3]";
+    let data: IntArray = from_str(input).unwrap();
+    assert_eq!(IntArray::new(vec![1,2,-3]), data);
+}
+
+#[test]
+fn test_longarray() {
+    let input = "[L;1l,2L,-3l]";
+    let data: LongArray = from_str(input).unwrap();
+    assert_eq!(LongArray::new(vec![1,2,-3]), data);
+}
