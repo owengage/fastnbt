@@ -106,18 +106,16 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         Ok(self.writer.write_all(b"l")?)
     }
 
-    // FIX: f32: Convention necessary for Nan or Inf -> turn into string?
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
         let mut buffer = ryu::Buffer::new();
-        let s = buffer.format_finite(v);
+        let s = buffer.format(v);
         self.writer.write_all(s.as_bytes())?;
         Ok(self.writer.write_all(b"f")?)
     }
 
-    // FIX: f64: Convention necessary for Nan or Inf -> turn into string?
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         let mut buffer = ryu::Buffer::new();
-        let s = buffer.format_finite(v);
+        let s = buffer.format(v);
         Ok(self.writer.write_all(s.as_bytes())?)
     }
 

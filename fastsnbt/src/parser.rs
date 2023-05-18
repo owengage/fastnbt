@@ -98,6 +98,7 @@ pub fn parse_f64(input: &str) -> IResult<&str, f64> {
 
 fn float(input: &str) -> IResult<&str, &str> {
     alt((tag_no_case("inf"), tag_no_case("infinity"), tag_no_case("nan"),
+        tag_no_case("-inf"), tag_no_case("-infinity"),
         recognize(alt((
             map(tuple((
                 opt(alt((char('+'), char('-')))),
