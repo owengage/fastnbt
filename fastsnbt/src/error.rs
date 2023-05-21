@@ -1,7 +1,7 @@
-//! Contains the Error and Result type used by the deserializer.
+//! Contains the [`Error`] and [`Result`] type used by the deserializer.
 use std::fmt::Display;
 
-/// Various errors that can occur during deserialization.
+/// Various errors that can occur during (de)serialization.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(String);
 
