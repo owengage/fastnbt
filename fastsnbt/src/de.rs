@@ -10,7 +10,9 @@
 //! If there are escaped characters in the string, it will have
 //! to own the resulting string.
 //!
-//! TODO: something about `UUID`s?
+//! ## Uuid
+//! Because [`Deserializer`] expects a human-readable format,
+//! `UUID`s are expected to be strings.
 
 use std::{borrow::Cow, marker::PhantomData};
 

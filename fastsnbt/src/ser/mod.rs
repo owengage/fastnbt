@@ -9,7 +9,9 @@
 //!
 //! The [de](crate::de) module contains more information about (de)serialization.
 //!
-//! TODO: something about `UUID`s?
+//! ## Uuid
+//! Because sNBT is a human-readable format,
+//! `Uuid`s are represented as strings.
 
 use std::io::Write;
 
