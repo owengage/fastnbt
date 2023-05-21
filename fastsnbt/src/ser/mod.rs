@@ -5,7 +5,6 @@
 //! Some Rust structures have no sensible mapping to sNBT data.
 //! These cases will result in an error (not a panic).
 //! If you find a case where you think there is a valid way to serialize it, please open an issue.
-//! TODO: make em not panic
 //!
 //! The [de](crate::de) module contains more information about (de)serialization.
 //!
@@ -151,9 +150,8 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         SerializeSeq::end(serializer)
     }
 
-    // TODO: `None` concept does not exist
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Err(Error::bespoke("cannot serialize None".to_string()))
     }
 
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
@@ -163,14 +161,14 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         value.serialize(self)
     }
 
-    // TODO: unit concept does not exist
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Err(Error::bespoke("cannot serialize unit: ()".to_string()))
     }
 
-    // TODO: unit struct concept does not exist
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Err(Error::bespoke(format!(
+            "cannot serialize unit struct: {name}"
+        )))
     }
 
     fn serialize_unit_variant(
@@ -193,7 +191,6 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         value.serialize(self)
     }
 
-    // TODO: concept does not exist
     fn serialize_newtype_variant<T: ?Sized>(
         self,
         _name: &'static str,
@@ -202,8 +199,11 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: serde::Serialize {
-        todo!()
+        T: serde::Serialize
+    {
+        Err(Error::bespoke(
+            "cannot serialize newtype variant, please open fastnbt issue".to_string(),
+        ))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -222,7 +222,6 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         self.serialize_tuple(len)
     }
 
-    // TODO: shouldn't this error?
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
@@ -230,7 +229,9 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        todo!()
+        Err(Error::bespoke(
+            "cannot serialize newtype tuple variant, please open fastnbt issue".to_string(),
+        ))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
@@ -245,7 +246,6 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         CompoundSerializer::new(self)
     }
 
-    // TODO: shouldn't this error?
     fn serialize_struct_variant(
         self,
         _name: &'static str,
@@ -253,7 +253,9 @@ impl<'a, W: 'a + Write> ser::Serializer for &'a mut Serializer<W> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        todo!()
+        Err(Error::bespoke(
+            "cannot serialize struct variant, please open fastnbt issue".to_string(),
+        ))
     }
 }
 
