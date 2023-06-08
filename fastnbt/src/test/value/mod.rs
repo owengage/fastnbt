@@ -1,9 +1,7 @@
 mod ser;
 mod de;
 
-use std::collections::HashMap;
-
-use crate::{from_bytes, to_bytes, Tag, Value};
+use crate::{from_bytes, to_bytes, Tag, Value, value::CompoundMap};
 
 use super::builder::Builder;
 
@@ -118,7 +116,7 @@ fn distinguish_floats() {
 #[test]
 fn fuzz_float() {
     let v = Value::Float(1.4e-44);
-    let mut inner = HashMap::new();
+    let mut inner = CompoundMap::new();
     inner.insert("".to_string(), v);
 
     let v = Value::Compound(inner);

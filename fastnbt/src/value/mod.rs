@@ -2,13 +2,27 @@ mod array_serializer;
 mod de;
 mod ser;
 
-use std::collections::HashMap;
-
 use serde::{serde_if_integer128, Deserialize, Serialize};
 
 use crate::{error::Error, ByteArray, IntArray, LongArray};
 
 pub use self::ser::Serializer;
+
+/// The [`String`] to [`Value`] map used by [`Value::Compound`].
+///
+/// Normally this type is a [`HashMap`](std::collections::HashMap). Enabling the
+/// **`preserve-order`** feature flag will replace it with an [`IndexMap`].
+///
+/// [`IndexMap`]: <https://docs.rs/indexmap/latest/indexmap/map/struct.IndexMap.html>
+#[cfg(not(feature = "preserve-order"))]
+pub type CompoundMap = std::collections::HashMap<String, Value>;
+
+/// The [`String`] to [`Value`] map used by [`Value::Compound`].
+///
+/// This type is currently an [`IndexMap`](indexmap::IndexMap). Disabling the **`preserve-order`**
+/// feature flag will replace it with a [`HashMap`](std::collections::HashMap).
+#[cfg(feature = "preserve-order")]
+pub type CompoundMap = indexmap::IndexMap<String, Value>;
 
 /// Value is a complete NBT value. It owns its data. Compounds and Lists are
 /// resursively deserialized. This type takes care to preserve all the
@@ -44,7 +58,7 @@ pub enum Value {
     IntArray(IntArray),
     LongArray(LongArray),
     List(Vec<Value>),
-    Compound(HashMap<String, Value>),
+    Compound(CompoundMap),
 }
 
 #[cfg(feature = "arbitrary1")]

@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use serde::Serialize;
 
-use crate::{to_value, ByteArray, IntArray, LongArray, Value};
+use crate::{to_value, ByteArray, IntArray, LongArray, Value, value::CompoundMap};
 
 #[test]
 fn simple_types() {
@@ -43,7 +41,7 @@ fn simple_types() {
 
     let val = to_value(&v).unwrap();
     // Note: we cannot use the nbt! macro here as that uses the `to_value` function
-    let expected = Value::Compound(HashMap::from([
+    let expected = Value::Compound(CompoundMap::from([
         ("bool".to_string(), Value::Byte(1)),
         ("i8".to_string(), Value::Byte(i8::MAX)),
         ("i16".to_string(), Value::Short(i16::MAX)),
@@ -83,7 +81,7 @@ fn int_array_types() {
     };
 
     let val = to_value(&v).unwrap();
-    let expected = Value::Compound(HashMap::from([
+    let expected = Value::Compound(CompoundMap::from([
         (
             "i128".to_string(),
             // Only left most bit is 0
@@ -135,14 +133,14 @@ fn nested() {
     };
 
     let val = to_value(&v).unwrap();
-    let expected = Value::Compound(HashMap::from([
+    let expected = Value::Compound(CompoundMap::from([
         (
             "list".to_string(),
             Value::List(vec![Value::Short(1), Value::Short(2)]),
         ),
         (
             "nested".to_string(),
-            Value::Compound(HashMap::from([("key".to_string(), Value::Byte(42))])),
+            Value::Compound(CompoundMap::from([("key".to_string(), Value::Byte(42))])),
         ),
     ]));
 
@@ -184,4 +182,46 @@ fn no_root_compound() {
             Value::Byte(4)
         ])
     );
+}
+
+#[cfg(feature = "preserve-order")]
+#[test]
+fn preserve_order() {
+    #[derive(Serialize)]
+    struct V {
+        a: u8,
+        b: u8,
+        c: u8,
+        d: u8,
+        e: u8,
+        f: u8,
+    }
+
+    let v = V {
+        a: 1,
+        b: 2,
+        c: 3,
+        d: 4,
+        e: 5,
+        f: 6,
+    };
+
+    let val = to_value(&v).unwrap();
+
+    let expected = [
+        ("a".to_string(), Value::Byte(1)),
+        ("b".to_string(), Value::Byte(2)),
+        ("c".to_string(), Value::Byte(3)),
+        ("d".to_string(), Value::Byte(4)),
+        ("e".to_string(), Value::Byte(5)),
+        ("f".to_string(), Value::Byte(6)),
+    ];
+
+    match val {
+        Value::Compound(map) => {
+            let list: Vec<_> = map.into_iter().collect();
+            assert_eq!(expected[..], list[..]);
+        }
+        val => panic!("wrong value type (expected compound): {val:?}")
+    }
 }

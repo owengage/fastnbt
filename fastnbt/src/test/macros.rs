@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{ByteArray, IntArray, LongArray, Value};
+use crate::{ByteArray, IntArray, LongArray, Value, value::CompoundMap};
 
 #[test]
 fn nbt() {
@@ -43,10 +41,10 @@ fn nbt() {
         ])
     );
 
-    assert_eq!(nbt!({}), Value::Compound(HashMap::new()));
+    assert_eq!(nbt!({}), Value::Compound(CompoundMap::new()));
     assert_eq!(
         nbt!({ "key": "value" }),
-        Value::Compound(HashMap::from([(
+        Value::Compound(CompoundMap::from([(
             "key".to_owned(),
             Value::String("value".to_owned())
         ),]))
@@ -57,7 +55,7 @@ fn nbt() {
             "key2": 42,
             "key3": [4, 2],
         }),
-        Value::Compound(HashMap::from([
+        Value::Compound(CompoundMap::from([
             ("key1".to_owned(), Value::String("value1".to_owned())),
             ("key2".to_owned(), Value::Int(42)),
             (

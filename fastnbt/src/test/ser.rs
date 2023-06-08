@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter::FromIterator};
 use crate::{
     borrow, from_bytes,
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
-    to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
+    to_bytes, ByteArray, IntArray, LongArray, Tag, Value, value::CompoundMap,
 };
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_bytes::{ByteBuf, Bytes};
@@ -452,7 +452,7 @@ fn nbt_long_array() {
 #[test]
 fn value_hashmap() {
     // let v = Value::Unit;
-    let v = Value::Compound(HashMap::from_iter([
+    let v = Value::Compound(CompoundMap::from_iter([
         ("a".to_string(), Value::Int(123)),
         ("b".to_string(), Value::Byte(123)),
     ]));
