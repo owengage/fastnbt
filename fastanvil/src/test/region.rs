@@ -16,7 +16,7 @@ where
     let ChunkLocation {
         offset: found_offset,
         sectors: found_size,
-    } = r.location(x, z).unwrap();
+    } = r.location(x, z).unwrap().unwrap();
 
     assert_eq!(offset, found_offset);
     assert_eq!(size, found_size);

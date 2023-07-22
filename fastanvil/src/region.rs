@@ -53,10 +53,7 @@ where
 
         for z in 0..32 {
             for x in 0..32 {
-                let loc = tmp.location(x, z)?;
-                if loc.offset == 0 && loc.sectors == 0 {
-                    continue;
-                }
+                let Some(loc) = tmp.location(x, z)? else { continue };
 
                 tmp.offsets.push(loc.offset);
                 if loc.offset > max_offset {
@@ -100,7 +97,7 @@ where
     }
 
     /// Get the location of the chunk in the stream.
-    pub(crate) fn location(&mut self, x: usize, z: usize) -> Result<ChunkLocation> {
+    pub(crate) fn location(&mut self, x: usize, z: usize) -> Result<Option<ChunkLocation>> {
         if x >= 32 || z >= 32 {
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
@@ -116,7 +113,7 @@ where
         offset |= buf[2] as u64;
         let sectors = buf[3] as u64;
 
-        Ok(ChunkLocation { offset, sectors })
+        Ok((offset != 0 || sectors != 0).then_some(ChunkLocation { offset, sectors }))
     }
 
     /// Low level method. Read a compressed chunk into the given writer. The
@@ -130,24 +127,20 @@ where
         z: usize,
         writer: &mut dyn Write,
     ) -> Result<bool> {
-        let loc = self.location(x, z)?;
+        let Some(loc) = self.location(x, z)? else { return Ok(false) };
 
-        if loc.offset == 0 && loc.sectors == 0 {
-            Ok(false)
-        } else {
-            self.stream
-                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+        self.stream
+            .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
 
-            let mut buf = [0u8; 5];
-            self.stream.read_exact(&mut buf)?;
-            let metadata = ChunkMeta::new(&buf)?;
+        let mut buf = [0u8; 5];
+        self.stream.read_exact(&mut buf)?;
+        let metadata = ChunkMeta::new(&buf)?;
 
-            let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
+        let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
 
-            io::copy(&mut adapted, writer)?;
+        io::copy(&mut adapted, writer)?;
 
-            Ok(true)
-        }
+        Ok(true)
     }
 
     /// Return the inner buffer used. The buffer is rewound to the logical end of the stream,
@@ -200,20 +193,16 @@ where
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
 
-        let loc = self.location(x, z)?;
+        let Some(loc) = self.location(x, z)? else { return Ok(None) };
 
-        if loc.offset == 0 && loc.sectors == 0 {
-            Ok(None)
-        } else {
-            self.stream
-                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+        self.stream
+            .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
 
-            let mut buf = [0u8; 5];
-            self.stream.read_exact(&mut buf)?;
-            let metadata = ChunkMeta::new(&buf)?;
+        let mut buf = [0u8; 5];
+        self.stream.read_exact(&mut buf)?;
+        let metadata = ChunkMeta::new(&buf)?;
 
-            Ok(Some(metadata.compression_scheme))
-        }
+        Ok(Some(metadata.compression_scheme))
     }
 
     pub fn iter(&mut self) -> RegionIter<'_, S> {
@@ -281,16 +270,7 @@ where
         let required_sectors =
             unstable_div_ceil(CHUNK_HEADER_SIZE + compressed_chunk.len(), SECTOR_SIZE);
 
-        if loc.offset == 0 && loc.sectors == 0 {
-            // chunk does not exist in the region yet.
-            let offset = *self.offsets.last().expect("offset should always exist");
-
-            // add a new offset representing the new 'end' of the current region file.
-            self.offsets.push(offset + required_sectors as u64);
-            self.set_chunk(offset, scheme, compressed_chunk)?;
-            self.pad()?;
-            self.set_header(x, z, offset, required_sectors)?;
-        } else {
+        if let Some(loc) = loc {
             // chunk already exists in the region file, need to update it.
             let i = self.offsets.binary_search(&loc.offset).unwrap();
             let start_offset = self.offsets[i];
@@ -313,6 +293,15 @@ where
                 self.pad()?;
                 self.set_header(x, z, offset, required_sectors)?;
             }
+        } else {
+            // chunk does not exist in the region yet.
+            let offset = *self.offsets.last().expect("offset should always exist");
+
+            // add a new offset representing the new 'end' of the current region file.
+            self.offsets.push(offset + required_sectors as u64);
+            self.set_chunk(offset, scheme, compressed_chunk)?;
+            self.pad()?;
+            self.set_header(x, z, offset, required_sectors)?;
         }
 
         Ok(())
@@ -321,7 +310,8 @@ where
     /// Remove the chunk at the chunk location with the coordinates x and z. Frees up space if
     /// possible.
     pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
-        let loc = self.location(x, z)?;
+        let Some(loc) = self.location(x, z)? else { return Ok(()) };
+
         // zero the region header for the chunk
         self.set_header(x, z, 0, 0)?;
 
