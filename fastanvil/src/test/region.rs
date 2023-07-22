@@ -220,6 +220,22 @@ fn deleted_chunk_doenst_exist() {
 }
 
 #[test]
+fn deleting_non_existing_chunk_works() {
+    let mut r = new_empty();
+
+    r.write_compressed_chunk(0, 0, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+    r.write_compressed_chunk(0, 2, Uncompressed, &n_sector_chunk(3))
+        .unwrap();
+
+    r.remove_chunk(0, 1).unwrap();
+
+    assert!(matches!(r.read_chunk(0, 0), Ok(Some(_))));
+    assert!(matches!(r.read_chunk(0, 1), Ok(None)));
+    assert!(matches!(r.read_chunk(0, 2), Ok(Some(_))));
+}
+
+#[test]
 fn into_inner_rewinds_to_correct_position() {
     let mut r = new_empty();
 
