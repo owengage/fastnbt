@@ -36,9 +36,23 @@ impl<S> Region<S>
 where
     S: Read + Seek,
 {
-    /// Load a region from an existing stream. Will assume a seek of zero is the
-    /// start of the region. This does not load all region data into memory.
+    /// Load a region from an existing stream, meaning something that implements
+    /// [`Read`] and [`Seek`]. This will assume a seek of zero is the start of
+    /// the region. This does not load all region data into memory immediately.
     /// Chunks are read from the underlying stream when needed.
+    ///
+    /// The most obvious 'stream' is a file:
+    /// ```
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::fs::File;
+    /// # fn main() -> Result<(), std::io::Error> {
+    /// let file = File::open("foo.mca")?;
+    /// let mut region = Region::from_stream(file)?;
+    /// // manipulate region
+    /// # Ok(())
+    /// # }
+    ///  ```
     pub fn from_stream(stream: S) -> Result<Self> {
         // Could delay the offsets loading until a write_chunk occurs. It's not
         // needed when only reading. But rendering some worlds with and without
@@ -74,6 +88,25 @@ where
     /// data returned is uncompressed NBT. `Ok(None)` means that the chunk does
     /// not exist, which will be the case if that chunk has not generated.  If
     /// `x` or `z` are outside `0..32`, [`Error::InvalidOffset`] is returned.
+    ///
+    /// ```
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::fs::File;
+    /// use fastanvil::CurrentJavaChunk;
+    ///
+    /// # fn main() -> Result<(), std::io::Error> {
+    /// let file = File::open("foo.mca")?;
+    /// let mut region = Region::from_stream(file)?;
+    ///
+    /// // Get a chunk. May error for IO reasons, and may not be present, hence Result<Option>.
+    /// let chunk = region.read_chunk(1,2).unwrap().unwrap()
+    ///
+    /// // Parse chunk data into a CurrentJavaChunk.
+    /// let chunk: CurrentJavaChunk = fastnbt::from_bytes(&chunk);
+    /// # Ok(())
+    /// # }
+    ///  ```
     pub fn read_chunk(&mut self, x: usize, z: usize) -> Result<Option<Vec<u8>>> {
         self.compression_scheme(x, z)?
             .map(|scheme| match scheme {
@@ -143,20 +176,27 @@ where
         Ok(true)
     }
 
-    /// Return the inner buffer used. The buffer is rewound to the logical end of the stream,
-    /// meaning the position at which the chunk data of the region ends. If the region does not
-    /// contain any chunk the position is at the end of the header.
+    /// Return the inner buffer used. The buffer is rewound to the logical end
+    /// of the region data. If the region does not contain any chunk the position is at
+    /// the end of the header. If saving to disk you should truncate the file to
+    /// this position to ensure the file is saved with the correct padding bytes.
     ///
     /// # Examples
-    /// This can be used to truncate a region file after manipulating it to save disk space.
-    /// ```no_run
+    /// This can be used to truncate a region file after manipulating it to save
+    /// disk space.
+    /// ```
     /// # use fastanvil::Region;
     /// # use fastanvil::Result;
     /// # use std::io::Seek;
-    /// # fn main() -> Result<()> {
-    /// let mut file = std::fs::File::open("foo.mca")?;
+    /// # use std::fs::File;
+    /// # fn main() -> Result<(), std::io::Error> {
+    /// let file = File::open("foo.mca")?;
     /// let mut region = Region::from_stream(file)?;
     /// // manipulate region
+    ///
+    /// // recover the file object in order to make sure the file is the correct
+    /// // size on disk. The seek head is left at the exact end of the region data,
+    /// // including required padding.
     /// let mut file = region.into_inner()?;
     /// let len = file.stream_position()?;
     /// file.set_len(len)?;
@@ -205,6 +245,8 @@ where
         Ok(Some(metadata.compression_scheme))
     }
 
+    /// Create an iterator for the chunks of the region. Chunks not present in
+    /// the file are skipped.
     pub fn iter(&mut self) -> RegionIter<'_, S> {
         RegionIter::new(self)
     }
@@ -231,9 +273,9 @@ impl<S> Region<S>
 where
     S: Read + Write + Seek,
 {
-    /// Create an new empty region. The provided stream will be overwritten, and
+    /// Create an new empty region. **The provided stream will be overwritten**, and
     /// will assume a seek to 0 is the start of the region. The stream needs
-    /// read, write, and seek like a file provides.
+    /// read, write, and seek, like a file provides.
     pub fn new(mut stream: S) -> Result<Self> {
         stream.rewind()?;
         stream.write_all(&[0; REGION_HEADER_SIZE])?;
@@ -245,7 +287,9 @@ where
     }
 
     /// Write the given uncompressed NBT chunk data to the chunk coordinates x,
-    /// z. The chunk data will be compressed with zlib by default. You can use
+    /// z.
+    ///
+    /// The chunk data will be compressed with zlib by default. You can use
     /// write_compressed_chunk if you want more control. If `x` or `z` are
     /// outside `0..32`, [`Error::InvalidOffset`] is returned.
     pub fn write_chunk(&mut self, x: usize, z: usize, uncompressed_chunk: &[u8]) -> Result<()> {
@@ -255,7 +299,8 @@ where
         self.write_compressed_chunk(x, z, CompressionScheme::Zlib, &buf)
     }
 
-    /// Low level method. Write the given compressed chunk data to the stream.
+    /// Low level method to write the given compressed chunk data to the stream.
+    ///
     /// It is the callers responsibility to make sure the compression scheme
     /// matches the compression used. If `x` or `z` are outside `0..32`,
     /// [`Error::InvalidOffset`] is returned.
@@ -307,8 +352,12 @@ where
         Ok(())
     }
 
-    /// Remove the chunk at the chunk location with the coordinates x and z. Frees up space if
-    /// possible.
+    /// Remove the chunk at the chunk location with the coordinates x and z.
+    ///
+    /// If you are stripping chunks from regions to save disk space, you should
+    /// instead iterate through the chunks of the region, and write the desired
+    /// chunks to a new region, and write that to disk. This will ensure chunks are
+    /// compactly stored with no gaps.
     pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
         let Some(loc) = self.location(x, z)? else { return Ok(()) };
 
