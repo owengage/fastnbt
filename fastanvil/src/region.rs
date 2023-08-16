@@ -42,11 +42,11 @@ where
     /// Chunks are read from the underlying stream when needed.
     ///
     /// The most obvious 'stream' is a file:
-    /// ```
+    /// ```no_run
     /// # use fastanvil::Region;
     /// # use fastanvil::Result;
     /// # use std::fs::File;
-    /// # fn main() -> Result<(), std::io::Error> {
+    /// # fn main() -> Result<()> {
     /// let file = File::open("foo.mca")?;
     /// let mut region = Region::from_stream(file)?;
     /// // manipulate region
@@ -89,21 +89,21 @@ where
     /// not exist, which will be the case if that chunk has not generated.  If
     /// `x` or `z` are outside `0..32`, [`Error::InvalidOffset`] is returned.
     ///
-    /// ```
+    /// ```no_run
     /// # use fastanvil::Region;
     /// # use fastanvil::Result;
     /// # use std::fs::File;
     /// use fastanvil::CurrentJavaChunk;
     ///
-    /// # fn main() -> Result<(), std::io::Error> {
+    /// # fn main() -> Result<()> {
     /// let file = File::open("foo.mca")?;
     /// let mut region = Region::from_stream(file)?;
     ///
     /// // Get a chunk. May error for IO reasons, and may not be present, hence Result<Option>.
-    /// let chunk = region.read_chunk(1,2).unwrap().unwrap()
+    /// let chunk = region.read_chunk(1,2).unwrap().unwrap();
     ///
     /// // Parse chunk data into a CurrentJavaChunk.
-    /// let chunk: CurrentJavaChunk = fastnbt::from_bytes(&chunk);
+    /// let chunk: CurrentJavaChunk = fastnbt::from_bytes(&chunk).unwrap();
     /// # Ok(())
     /// # }
     ///  ```
@@ -184,12 +184,12 @@ where
     /// # Examples
     /// This can be used to truncate a region file after manipulating it to save
     /// disk space.
-    /// ```
+    /// ```no_run
     /// # use fastanvil::Region;
     /// # use fastanvil::Result;
     /// # use std::io::Seek;
     /// # use std::fs::File;
-    /// # fn main() -> Result<(), std::io::Error> {
+    /// # fn main() -> Result<()> {
     /// let file = File::open("foo.mca")?;
     /// let mut region = Region::from_stream(file)?;
     /// // manipulate region
