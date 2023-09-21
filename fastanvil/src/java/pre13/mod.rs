@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 use std::fmt;
-use std::mem::MaybeUninit;
 use std::ops::Range;
 use std::sync::RwLock;
 
@@ -15,34 +14,12 @@ use crate::{expand_heightmap, Heightmaps, SectionLike, SectionTower};
 /// Conversion from numeric block ids to string based block names.
 mod pre13_block_names;
 
-/// This function creates an [OnceCell::new(); 256 * 16]
-const fn uninit_block_list() -> [OnceCell<Block>; 256 * 16] {
-    // We assume that since OnceCell::new is a const fn, the output will always be the same and
-    // therefore can be safely copied. But OnceCell<NonCopy> does not implement Copy, do we need to
-    // transmute it to a copyable type with the same size.
-    let bit_pattern: OnceCell<Block> = OnceCell::new();
-    // This is the result of converting OnceCell<Block> to bytes. We must use maybe uninitialized
-    // bytes because of any possible padding in the source type, we are never allowed to read that
-    // padding bytes.
-    type OnceCellAsBytes = [MaybeUninit<u8>; std::mem::size_of::<OnceCell<Block>>()];
-    // This is fine because we are transmuting to a type with the same size, and that type is a
-    // [MaybeUninit<u8>; N] so even if the source type has padding this is not UB because we will
-    // never read the padding bytes manually.
-    let bit_pattern_bytes: OnceCellAsBytes = unsafe { std::mem::transmute(bit_pattern) };
-    // This is fine because an uninitialized OnceCell can be copied, and a MaybeUninit type can
-    // also be copied. Miri seems to accept that copying a MaybeUninit that may have padding is
-    // perfectly fine as long as we never read that padding bytes manually.
-    let a: [OnceCellAsBytes; 256 * 16] = [bit_pattern_bytes; 256 * 16];
-    // This is fine because we obtained the OnceCellAsBytes type by transmuting a OnceCell<Block>
-    // in the first place, so transmuting back will be safe.
-    let a: [OnceCell<Block>; 256 * 16] = unsafe { std::mem::transmute(a) };
-
-    a
-}
-
 // List of interned blocks, so we only create a Block with a specific id once, and we can return a
 // reference to it in JavaChunk::block.
-static BLOCK_LIST: [OnceCell<Block>; 256 * 16] = uninit_block_list();
+static BLOCK_LIST: [OnceCell<Block>; 256 * 16] = {
+    const BLOCK: OnceCell<Block> = OnceCell::new();
+    [BLOCK; 256 * 16]
+};
 
 /// Use this to manually register the conversion from numeric block id (1) to string block id
 /// (minecraft:stone).
