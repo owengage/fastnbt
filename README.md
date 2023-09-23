@@ -6,8 +6,8 @@
 [![build-status-shield]][github-actions]
 
 ![fastsnbt-shield]
-[![fastsnbt-version-shield]][fastnbt-crates]
-[![fastsnbt-docs-shield]][fastnbt-docs]
+[![fastsnbt-version-shield]][fastsnbt-crates]
+[![fastsnbt-docs-shield]][fastsnbt-docs]
 
 ![fastanvil-shield]
 [![fastanvil-version-shield]][fastanvil-crates]
@@ -19,13 +19,14 @@
 [fastnbt-version-shield]: https://img.shields.io/crates/v/fastnbt.svg
 [fastnbt-docs]: https://docs.rs/fastnbt/latest/fastnbt/index.html
 [fastnbt-docs-shield]: https://img.shields.io/docsrs/fastnbt
+[fastnbt-crates]: https://crates.io/crates/fastnbt
 
 [fastsnbt-shield]: https://img.shields.io/badge/%20-FastSNBT-blue
 [fastsnbt-version-shield]: https://img.shields.io/crates/v/fastsnbt.svg
-[fastsnbt-docs]: https://docs.rs/fastnbt/latest/fastsnbt/index.html
+[fastsnbt-docs]: https://docs.rs/fastsnbt/latest/fastsnbt/index.html
 [fastsnbt-docs-shield]: https://img.shields.io/docsrs/fastsnbt
+[fastsnbt-crates]: https://crates.io/crates/fastsnbt
 
-[fastnbt-crates]: https://crates.io/crates/fastnbt
 [build-status-shield]: https://img.shields.io/github/actions/workflow/status/owengage/fastnbt/rust.yml?branch=master
 [github-actions]: https://github.com/owengage/fastnbt/actions?query=branch%3Amaster
 [fastanvil-shield]: https://img.shields.io/badge/%20-FastAnvil-blue

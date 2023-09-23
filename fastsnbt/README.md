@@ -10,7 +10,7 @@ Zero-copy is supported where possible through `from_str`.
 
 ```toml
 [dependencies]
-fastsnbt = "2"
+fastsnbt = "0.2"
 ```
 
 `fastsnbt` follows Semver, some things that this project does *not* count as a
