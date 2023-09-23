@@ -44,13 +44,13 @@
 //! }
 //!
 //!# fn main(){
-//!     let buf: &[u8] = unimplemented!("get a buffer from somewhere");
-//!     let section: Section = fastnbt::from_bytes(buf).unwrap();
-//!     let states = section.block_states.unwrap();
+//! let buf: &[u8] = unimplemented!("get a buffer from somewhere");
+//! let section: Section = fastnbt::from_bytes(buf).unwrap();
+//! let states = section.block_states.unwrap();
 //!
-//!     for long in states.iter() {
-//!         // do something
-//!     }
+//! for long in states.iter() {
+//!     // do something
+//! }
 //! # }
 //! ```
 //!
@@ -314,12 +314,12 @@ where
 /// # Ok(())
 /// # }
 /// ```
-pub fn from_reader<'de, R, T>(bytes: R) -> Result<T>
+pub fn from_reader<'de, R, T>(reader: R) -> Result<T>
 where
     T: serde_de::Deserialize<'de>,
     R: Read,
 {
-    let mut deserializer = Deserializer::from_reader(bytes, Default::default());
+    let mut deserializer = Deserializer::from_reader(reader, Default::default());
     serde_de::Deserialize::deserialize(&mut deserializer)
 }
 

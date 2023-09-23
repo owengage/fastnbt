@@ -2,7 +2,7 @@
 name = "fastanvil"
 description = "Minecraft Anvil library"
 repository = "https://github.com/owengage/fastnbt"
-version = "0.26.0"
+version = "0.29.0"
 authors = ["Owen Gage <owengage@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -11,18 +11,29 @@ license = "MIT OR Apache-2.0"
 fastnbt = { path = "../fastnbt", version = "2" }
 flate2 = "1.0"
 num_enum = "0.5"
-image = { version = "0.23", default-features = false }
 byteorder = "1.3"
 bit_field = "0.10"
-serde = { version = "1.0", features= ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 once_cell = "1.9"
-hematite-nbt = "0.5"
+
+# Deps for render feature.
+image = { version = "0.23", default-features = false, optional = true }
+tar = { version = "0.4", default-features = false, optional = true }
+serde_json = { version = "1.0", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
-criterion = "0.3"
+criterion = "0.4"
+
+[features]
+default = ["render"]
+render = ["dep:image", "dep:tar", "dep:serde_json"]
 
 [[bench]]
 name = "chunk_parse"
+harness = false
+
+[[bench]]
+name = "complete_chunk"
 harness = false

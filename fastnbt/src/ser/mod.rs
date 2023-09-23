@@ -6,7 +6,8 @@
 //! result in an error (not a panic). If you find a case where you think there
 //! is a valid way to serialize it, please open an issue.
 //!
-//! The examples directory contains some examples.
+//! The examples directory contains some examples. The [`de`][`crate::de`]
+//! module contains more information about (de)serialization.
 //!
 //! # 128 bit integers and UUIDs
 //!

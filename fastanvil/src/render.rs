@@ -3,8 +3,6 @@ use std::{
     io::{Read, Seek, Write},
 };
 
-use log::info;
-
 use crate::{
     Block, BlockArchetype, CCoord, Chunk, HeightMode, JavaChunk, LoaderError, LoaderResult, RCoord,
     RegionLoader,
@@ -98,7 +96,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
                         let water_depth = water_depth(x, y, z, chunk, y_min);
                         let alpha = water_depth_to_alpha(water_depth);
 
-                        block_colour[3] = alpha as u8;
+                        block_colour[3] = alpha;
 
                         colour = a_over_b_colour(colour, block_colour);
                         y -= water_depth;

@@ -54,6 +54,11 @@ impl Chunk for CurrentJavaChunk {
 }
 
 /// A Minecraft chunk.
+///
+/// This type is not designed for accessing all data of a chunk. It provides the
+/// data necessary to render maps for fastanvil. If you need more complete data
+/// you need to write your own chunk struct and implement the serde traits, or
+/// use [`fastnbt::Value`].
 #[derive(Deserialize, Debug)]
 pub struct CurrentJavaChunk {
     #[serde(rename = "DataVersion")]
@@ -69,7 +74,7 @@ pub struct CurrentJavaChunk {
     pub status: String,
 
     #[serde(skip)]
-    lazy_heightmap: RwLock<Option<[i16; 256]>>,
+    pub(crate) lazy_heightmap: RwLock<Option<[i16; 256]>>,
 }
 
 impl CurrentJavaChunk {

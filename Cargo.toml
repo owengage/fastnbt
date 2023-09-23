@@ -1,12 +1,4 @@
 [workspace]
 
-members = [
-    "fastnbt",
-    "fastsnbt",
-    "fastanvil",
-    "tools"
-]
-
-
-[profile.release]
-debug = true
+resolver = "2"
+members = ["fastnbt", "fastsnbt", "fastanvil", "tools"]

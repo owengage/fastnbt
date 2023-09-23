@@ -150,13 +150,13 @@ impl<T: Debug> Default for BiomeData<T> {
 
 /// Number of bits that will be used per block in block_states data for blocks.
 fn blockstates_bits_per_block(palette_len: usize) -> usize {
-    std::cmp::max(4, min_bits_for_n_states(palette_len)) as usize
+    std::cmp::max(4, min_bits_for_n_states(palette_len))
     // std::cmp::max((palette_len as f64).log2().ceil() as usize, 4)
 }
 
 /// Number of bits that will be used per block in block_states data for biomes.
 fn biomes_bits_per_block(palette_len: usize) -> usize {
-    std::cmp::max(1, min_bits_for_n_states(palette_len)) as usize
+    std::cmp::max(1, min_bits_for_n_states(palette_len))
     // std::cmp::max((palette_len as f64).log2().ceil() as usize, 1)
 }
 
@@ -195,7 +195,7 @@ impl<'a> Iterator for StatesIter<'a> {
         let start = self.pos;
         self.pos += self.stride;
         let end = self.pos;
-        let datum = *(self.inner.get(0)?) as u64;
+        let datum = *(self.inner.first()?) as u64;
 
         let value = datum.get_bits(start..end) as usize;
         self.remaining -= 1;

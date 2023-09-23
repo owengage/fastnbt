@@ -21,7 +21,11 @@ pub(crate) const REGION_HEADER_SIZE: usize = 2 * SECTOR_SIZE;
 /// compressed chunk data.
 pub(crate) const CHUNK_HEADER_SIZE: usize = 5;
 
-/// A Minecraft Region.
+/// A Minecraft Region, allowing reading and writing of chunk data to a stream (eg a
+/// File). This does not concern itself with manipulating chunk data, users are
+/// expected to use `fastnbt` or other deserialization method to manipulate the
+/// chunk data itself.
+#[derive(Clone)]
 pub struct Region<S> {
     stream: S,
     // last offset is always the next valid place to write a chunk.
@@ -32,9 +36,23 @@ impl<S> Region<S>
 where
     S: Read + Seek,
 {
-    /// Load a region from an existing stream. Will assume a seek of zero is the
-    /// start of the region. This does not load all region data into memory.
+    /// Load a region from an existing stream, meaning something that implements
+    /// [`Read`] and [`Seek`]. This will assume a seek of zero is the start of
+    /// the region. This does not load all region data into memory immediately.
     /// Chunks are read from the underlying stream when needed.
+    ///
+    /// The most obvious 'stream' is a file:
+    /// ```no_run
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::fs::File;
+    /// # fn main() -> Result<()> {
+    /// let file = File::open("foo.mca")?;
+    /// let mut region = Region::from_stream(file)?;
+    /// // manipulate region
+    /// # Ok(())
+    /// # }
+    ///  ```
     pub fn from_stream(stream: S) -> Result<Self> {
         // Could delay the offsets loading until a write_chunk occurs. It's not
         // needed when only reading. But rendering some worlds with and without
@@ -49,10 +67,7 @@ where
 
         for z in 0..32 {
             for x in 0..32 {
-                let loc = tmp.location(x, z)?;
-                if loc.offset == 0 && loc.sectors == 0 {
-                    continue;
-                }
+                let Some(loc) = tmp.location(x, z)? else { continue };
 
                 tmp.offsets.push(loc.offset);
                 if loc.offset > max_offset {
@@ -69,8 +84,29 @@ where
         Ok(tmp)
     }
 
-    /// Read the chunk located at the chunk coordindates x, z. These should
-    /// both be 0..32. The chunk data returned is uncompressed NBT.
+    /// Read the chunk located at the chunk coordindates `x`, `z`. The chunk
+    /// data returned is uncompressed NBT. `Ok(None)` means that the chunk does
+    /// not exist, which will be the case if that chunk has not generated.  If
+    /// `x` or `z` are outside `0..32`, [`Error::InvalidOffset`] is returned.
+    ///
+    /// ```no_run
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::fs::File;
+    /// use fastanvil::CurrentJavaChunk;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let file = File::open("foo.mca")?;
+    /// let mut region = Region::from_stream(file)?;
+    ///
+    /// // Get a chunk. May error for IO reasons, and may not be present, hence Result<Option>.
+    /// let chunk = region.read_chunk(1,2).unwrap().unwrap();
+    ///
+    /// // Parse chunk data into a CurrentJavaChunk.
+    /// let chunk: CurrentJavaChunk = fastnbt::from_bytes(&chunk).unwrap();
+    /// # Ok(())
+    /// # }
+    ///  ```
     pub fn read_chunk(&mut self, x: usize, z: usize) -> Result<Option<Vec<u8>>> {
         self.compression_scheme(x, z)?
             .map(|scheme| match scheme {
@@ -94,7 +130,11 @@ where
     }
 
     /// Get the location of the chunk in the stream.
-    pub(crate) fn location(&mut self, x: usize, z: usize) -> io::Result<ChunkLocation> {
+    pub(crate) fn location(&mut self, x: usize, z: usize) -> Result<Option<ChunkLocation>> {
+        if x >= 32 || z >= 32 {
+            return Err(Error::InvalidOffset(x as isize, z as isize));
+        }
+
         self.stream.seek(SeekFrom::Start(header_pos(x, z)))?;
 
         let mut buf = [0u8; 4];
@@ -106,7 +146,7 @@ where
         offset |= buf[2] as u64;
         let sectors = buf[3] as u64;
 
-        Ok(ChunkLocation { offset, sectors })
+        Ok((offset != 0 || sectors != 0).then_some(ChunkLocation { offset, sectors }))
     }
 
     /// Low level method. Read a compressed chunk into the given writer. The
@@ -120,33 +160,68 @@ where
         z: usize,
         writer: &mut dyn Write,
     ) -> Result<bool> {
-        if x >= 32 || z >= 32 {
-            return Err(Error::InvalidOffset(x as isize, z as isize));
-        }
+        let Some(loc) = self.location(x, z)? else { return Ok(false) };
 
-        let loc = self.location(x, z)?;
+        self.stream
+            .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
 
-        if loc.offset == 0 && loc.sectors == 0 {
-            Ok(false)
-        } else {
-            self.stream
-                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+        let mut buf = [0u8; 5];
+        self.stream.read_exact(&mut buf)?;
+        let metadata = ChunkMeta::new(&buf)?;
 
-            let mut buf = [0u8; 5];
-            self.stream.read_exact(&mut buf)?;
-            let metadata = ChunkMeta::new(&buf)?;
+        let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
 
-            let mut adapted = (&mut self.stream).take(metadata.compressed_len as u64);
+        io::copy(&mut adapted, writer)?;
 
-            io::copy(&mut adapted, writer)?;
-
-            Ok(true)
-        }
+        Ok(true)
     }
 
-    /// Return the inner buffer used. The buffer is rewound to the beginning.
+    /// Return the inner buffer used. The buffer is rewound to the logical end
+    /// of the region data. If the region does not contain any chunk the position is at
+    /// the end of the header. If saving to disk you should truncate the file to
+    /// this position to ensure the file is saved with the correct padding bytes.
+    ///
+    /// # Examples
+    /// This can be used to truncate a region file after manipulating it to save
+    /// disk space.
+    /// ```no_run
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::io::Seek;
+    /// # use std::fs::File;
+    /// # fn main() -> Result<()> {
+    /// let file = File::open("foo.mca")?;
+    /// let mut region = Region::from_stream(file)?;
+    /// // manipulate region
+    ///
+    /// // recover the file object in order to make sure the file is the correct
+    /// // size on disk. The seek head is left at the exact end of the region data,
+    /// // including required padding.
+    /// let mut file = region.into_inner()?;
+    /// let len = file.stream_position()?;
+    /// file.set_len(len)?;
+    /// # Ok(())
+    /// # }
+    ///  ```
     pub fn into_inner(mut self) -> io::Result<S> {
-        self.stream.rewind()?;
+        // pop the last element so we can access the second last. This can be unwrapped safely as
+        // there should always be at least one offset
+        self.offsets.pop().unwrap();
+        let Some(offset) = self.offsets.pop() else {
+            self.stream.seek(SeekFrom::Start(REGION_HEADER_SIZE as u64))?;
+            return Ok(self.stream)
+        };
+        self.stream
+            .seek(SeekFrom::Start(offset * SECTOR_SIZE as u64))?;
+        // add 4 to the chunk length in order to compensate for the 4 bytes the length field takes
+        // up itself
+        let chunk_length = self.stream.read_u32::<BigEndian>()? + 4;
+        let logical_end = unstable_div_ceil(
+            offset as usize * SECTOR_SIZE + chunk_length as usize,
+            SECTOR_SIZE,
+        ) * SECTOR_SIZE;
+
+        self.stream.seek(SeekFrom::Start(logical_end as u64))?;
         Ok(self.stream)
     }
 
@@ -158,22 +233,20 @@ where
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
 
-        let loc = self.location(x, z)?;
+        let Some(loc) = self.location(x, z)? else { return Ok(None) };
 
-        if loc.offset == 0 && loc.sectors == 0 {
-            Ok(None)
-        } else {
-            self.stream
-                .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
+        self.stream
+            .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
 
-            let mut buf = [0u8; 5];
-            self.stream.read_exact(&mut buf)?;
-            let metadata = ChunkMeta::new(&buf)?;
+        let mut buf = [0u8; 5];
+        self.stream.read_exact(&mut buf)?;
+        let metadata = ChunkMeta::new(&buf)?;
 
-            Ok(Some(metadata.compression_scheme))
-        }
+        Ok(Some(metadata.compression_scheme))
     }
 
+    /// Create an iterator for the chunks of the region. Chunks not present in
+    /// the file are skipped.
     pub fn iter(&mut self) -> RegionIter<'_, S> {
         RegionIter::new(self)
     }
@@ -200,9 +273,9 @@ impl<S> Region<S>
 where
     S: Read + Write + Seek,
 {
-    /// Create an new empty region. The provided stream will be overwritten, and
+    /// Create an new empty region. **The provided stream will be overwritten**, and
     /// will assume a seek to 0 is the start of the region. The stream needs
-    /// read, write, and seek like a file provides.
+    /// read, write, and seek, like a file provides.
     pub fn new(mut stream: S) -> Result<Self> {
         stream.rewind()?;
         stream.write_all(&[0; REGION_HEADER_SIZE])?;
@@ -214,9 +287,11 @@ where
     }
 
     /// Write the given uncompressed NBT chunk data to the chunk coordinates x,
-    /// z. The coordinates should both be 0..32. The chunk data will be
-    /// compressed with zlib by default. You can use write_compressed_chunk if
-    /// you want more control.
+    /// z.
+    ///
+    /// The chunk data will be compressed with zlib by default. You can use
+    /// write_compressed_chunk if you want more control. If `x` or `z` are
+    /// outside `0..32`, [`Error::InvalidOffset`] is returned.
     pub fn write_chunk(&mut self, x: usize, z: usize, uncompressed_chunk: &[u8]) -> Result<()> {
         let mut buf = vec![];
         let mut enc = ZlibEncoder::new(uncompressed_chunk, Compression::fast());
@@ -224,9 +299,11 @@ where
         self.write_compressed_chunk(x, z, CompressionScheme::Zlib, &buf)
     }
 
-    /// Low level method. Write the given compressed chunk data to the stream.
+    /// Low level method to write the given compressed chunk data to the stream.
+    ///
     /// It is the callers responsibility to make sure the compression scheme
-    /// matches the compression used.
+    /// matches the compression used. If `x` or `z` are outside `0..32`,
+    /// [`Error::InvalidOffset`] is returned.
     pub fn write_compressed_chunk(
         &mut self,
         x: usize,
@@ -238,15 +315,7 @@ where
         let required_sectors =
             unstable_div_ceil(CHUNK_HEADER_SIZE + compressed_chunk.len(), SECTOR_SIZE);
 
-        if loc.offset == 0 && loc.sectors == 0 {
-            // chunk does not exist in the region yet.
-            let offset = *self.offsets.last().expect("offset should always exist");
-
-            // add a new offset representing the new 'end' of the current region file.
-            self.offsets.push(offset + required_sectors as u64);
-            self.set_chunk(offset, scheme, compressed_chunk)?;
-            self.set_header(x, z, offset, required_sectors)?;
-        } else {
+        if let Some(loc) = loc {
             // chunk already exists in the region file, need to update it.
             let i = self.offsets.binary_search(&loc.offset).unwrap();
             let start_offset = self.offsets[i];
@@ -261,14 +330,43 @@ where
                 // we do not fit in the current gap, need to find a new home for
                 // this chunk.
                 self.offsets.remove(i); // this chunk will no longer be here.
-                let offset = *self.offsets.last().unwrap() as u64;
+                let offset = *self.offsets.last().unwrap();
 
                 // add a new offset representing the new 'end' of the current region file.
                 self.offsets.push(offset + required_sectors as u64);
                 self.set_chunk(offset, scheme, compressed_chunk)?;
+                self.pad()?;
                 self.set_header(x, z, offset, required_sectors)?;
             }
+        } else {
+            // chunk does not exist in the region yet.
+            let offset = *self.offsets.last().expect("offset should always exist");
+
+            // add a new offset representing the new 'end' of the current region file.
+            self.offsets.push(offset + required_sectors as u64);
+            self.set_chunk(offset, scheme, compressed_chunk)?;
+            self.pad()?;
+            self.set_header(x, z, offset, required_sectors)?;
         }
+
+        Ok(())
+    }
+
+    /// Remove the chunk at the chunk location with the coordinates x and z.
+    ///
+    /// If you are stripping chunks from regions to save disk space, you should
+    /// instead iterate through the chunks of the region, and write the desired
+    /// chunks to a new region, and write that to disk. This will ensure chunks are
+    /// compactly stored with no gaps.
+    pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
+        let Some(loc) = self.location(x, z)? else { return Ok(()) };
+
+        // zero the region header for the chunk
+        self.set_header(x, z, 0, 0)?;
+
+        // remove the offset of the chunk
+        let i = self.offsets.binary_search(&loc.offset).unwrap();
+        self.offsets.remove(i);
 
         Ok(())
     }
@@ -284,6 +382,14 @@ where
         ))?;
 
         self.stream.write_all(chunk)?;
+        Ok(())
+    }
+
+    fn pad(&mut self) -> Result<()> {
+        let current_end = unstable_stream_len(&mut self.stream)? as usize;
+        let padded_end = unstable_div_ceil(current_end, SECTOR_SIZE) * SECTOR_SIZE;
+        let pad_len = padded_end - current_end;
+        self.stream.write_all(&vec![0; pad_len])?;
         Ok(())
     }
 
@@ -386,6 +492,19 @@ pub const fn unstable_div_ceil(lhs: usize, rhs: usize) -> usize {
     } else {
         d
     }
+}
+
+fn unstable_stream_len(seek: &mut impl Seek) -> Result<u64> {
+    let old_pos = seek.stream_position()?;
+    let len = seek.seek(SeekFrom::End(0))?;
+
+    // Avoid seeking a third time when we were already at the end of the
+    // stream. The branch is usually way cheaper than a seek operation.
+    if old_pos != len {
+        seek.seek(SeekFrom::Start(old_pos))?;
+    }
+
+    Ok(len)
 }
 
 fn header_pos(x: usize, z: usize) -> u64 {

@@ -1,9 +1,4 @@
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
-
-use crate::{biome::Biome, Block, Chunk, HeightMode, JavaChunk, Palette, Rgba, TopShadeRenderer};
+use crate::{Chunk, HeightMode, JavaChunk, TopShadeRenderer};
 
 use super::HashPalette;
 

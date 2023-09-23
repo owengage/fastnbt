@@ -1,5 +1,36 @@
 use crate::{Block, BlockArchetype};
 
+macro_rules! coloured_block {
+    ($a:expr, $b:expr) => {
+        {
+            let col = match $b & 0b1111 {
+                0 => "white",
+                1 => "orange",
+                2 => "magenta",
+                3 => "light_blue",
+                4 => "yellow",
+                5 => "lime",
+                6 => "pink",
+                7 => "gray",
+                8 => "light_gray",
+                9 => "cyan",
+                10 => "purple",
+                11 => "blue",
+                12 => "brown",
+                13 => "green",
+                14 => "red",
+                15 => "black",
+                _ => unreachable!(),
+            };
+            Block {
+                name: format!("minecraft:{col}_{}", $a),
+                encoded: format!("minecraft:{col}_{}|", $a),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+    }
+}
+
 /// Initialize a `Block` from the given `block_id` and `data_value`.
 pub fn init_default_block(block_id: u16, data_value: u8) -> Block {
     assert!(
@@ -20,6 +51,234 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
     // it down. Could definitely use some macros for things like the wood/leaf types.
 
     match block_name {
+        "double_wooden_slab" => {
+            let kind = data_value & 0b0111;
+            let kind = match kind {
+                0 => "oak",
+                1 => "spruce",
+                2 => "birch",
+                3 => "jungle",
+                4 => "acacia",
+                5 => "dark_oak",
+                6 | 7 => "invalid_double_wooden_slab",
+                _ => unreachable!()
+            };
+            Block {
+                name: format!("{kind}_slab"),
+                encoded: format!("{kind}_slab|type=double"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "wooden_slab" => {
+            let kind = data_value & 0b0111;
+            let kind = match kind {
+                0 => "oak",
+                1 => "spruce",
+                2 => "birch",
+                3 => "jungle",
+                4 => "acacia",
+                5 => "dark_oak",
+                6 | 7 => "invalid_wooden_slab",
+                _ => unreachable!()
+            };
+            let top = data_value & 0b1000;
+            let top = match top {
+                0 => "bottom",
+                1 => "top",
+                _ => unreachable!(),
+            };
+            Block {
+                name: format!("{kind}_slab"),
+                encoded: format!("{kind}_slab|type={top}"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "flower" => {
+            let kind = data_value & 0b1111;
+            let kind = match kind {
+                0 => "poppy",
+                1 => "blue_orchid",
+                2 => "allium",
+                3 => "azure_bluet",
+                4 => "red_tulip",
+                5 => "orange_tulip",
+                6 => "white_tulip",
+                7 => "pink_tulip",
+                8 => "oxeye_daisy",
+                9 | 10 | 11 | 12 | 13 | 14 | 15 => "invalid_flower",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "red_sandstone" => {
+            let kind = data_value & 0b0011;
+            let kind = match kind {
+                0 => "red_sandstone",
+                1 => "chiseled_red_sandstone",
+                2 => "smooth_red_sandstone",
+                3 => "invalid_red_sandstone",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "sandstone" => {
+            let kind = data_value & 0b0011;
+            let kind = match kind {
+                0 => "sandstone",
+                1 => "chiseled_sandstone",
+                2 => "smooth_sandstone",
+                3 => "invalid_sandstone",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "double_stone_slab" => {
+            let kind = data_value & 0b0111;
+            let kind = match kind {
+                0 => "stone",
+                1 => "sandstone",
+                2 => "stone_wooden",
+                3 => "cobblestone",
+                4 => "bricks",
+                5 => "stone_brick",
+                6 => "nether_brick",
+                7 => "quartz",
+                _ => unreachable!(),
+            };
+            Block {
+                name: format!("{kind}_slab"),
+                encoded: format!("{kind}_slab|type=double"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "stone_slab" => {
+            let kind = data_value & 0b0111;
+            let kind = match kind {
+                0 => "stone",
+                1 => "sandstone",
+                2 => "stone_wooden",
+                3 => "cobblestone",
+                4 => "bricks",
+                5 => "stone_brick",
+                6 => "nether_brick",
+                7 => "quartz",
+                _ => unreachable!(),
+            };
+            let top = data_value & 0b1000;
+            let top = match top {
+                0 => "bottom",
+                1 => "top",
+                _ => unreachable!(),
+            };
+            Block {
+                name: format!("{kind}_slab"),
+                encoded: format!("{kind}_slab|type={top}"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "double_stone_slab2" => {
+            Block {
+                name: ns("red_sandstone_slab"),
+                encoded: enc0("red_sandstone_slab|type=double"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "stone_slab2" => {
+            let top = data_value & 0b1000;
+            let top = match top {
+                0 => "bottom",
+                8 => "top",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns("red_sandstone_slab"),
+                encoded: format!("red_sandstone_slab|type={top}"),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "stained_glass" => {
+            coloured_block!("stained_glass", data_value)
+        }
+        "wool" => {
+            coloured_block!("wool", data_value)
+        }
+        "carpet" => {
+            coloured_block!("carpet", data_value)
+        }
+        "sand" => {
+            let kind = data_value & 0b0001;
+            let kind = match kind {
+                0 => "sand",
+                1 => "red_sand",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "sapling" => {
+            let kind = data_value & 0b0111;
+            let kind = match kind {
+                0 => "oak_sapling",
+                1 => "spruce_sapling",
+                2 => "birch_sapling",
+                3 => "jungle_sapling",
+                4 => "acacia_sapling",
+                5 => "dark_oak_sapling",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "dirt" => {
+            let kind = data_value & 0b0011;
+            let kind = match kind {
+                0 => "dirt", 
+                1 => "coarse_dirt",
+                2 => "podzol",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
+        "stone" => {
+            let kind = data_value & 0b0111;
+            let kind = match kind {
+                0 => "stone",
+                1 => "granite",
+                2 => "polished_granite",
+                3 => "diorite",
+                4 => "polished_diorite",
+                5 => "andesite",
+                6 => "polished_andesite",
+                _ => unreachable!(),
+            };
+            Block {
+                name: ns(kind),
+                encoded: enc0(kind),
+                archetype: BlockArchetype::Normal,
+            }
+        }
         "leaves" => {
             let leaf = data_value & 0b0011;
             let leaf = match leaf {
