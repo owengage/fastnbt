@@ -4,16 +4,18 @@ description = "Serde deserializer for Minecraft's stringified NBT format"
 repository = "https://github.com/owengage/fastnbt"
 readme = "README.md"
 version = "0.1.0"
-authors = ["Owen Gage <owengage@gmail.com>"]
+authors = ["Owen Gage <owengage@gmail.com>", "GrizzlT <grizz@falconmc.org>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 keywords = ["minecraft", "nbt", "snbt", "serde"]
 categories = ["parser-implementations"]
 
 [dependencies]
-fastnbt = "2"
-cesu8 = "1.1"
 serde = { version = "1" }
+byteorder = "1"
+itoa = "1"
+ryu = "1"
+nom = "7"
 
 [dev-dependencies]
-flate2 = "1"
+fastnbt = "2"
