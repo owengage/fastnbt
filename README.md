@@ -5,6 +5,10 @@
 [![fastnbt-docs-shield]][fastnbt-docs]
 [![build-status-shield]][github-actions]
 
+![fastsnbt-shield]
+[![fastsnbt-version-shield]][fastnbt-crates]
+[![fastsnbt-docs-shield]][fastnbt-docs]
+
 ![fastanvil-shield]
 [![fastanvil-version-shield]][fastanvil-crates]
 [![fastanvil-docs-shield]][fastanvil-docs]
@@ -13,9 +17,15 @@
 
 [fastnbt-shield]: https://img.shields.io/badge/%20-FastNBT-blue
 [fastnbt-version-shield]: https://img.shields.io/crates/v/fastnbt.svg
-[fastnbt-crates]: https://crates.io/crates/fastnbt
-[fastnbt-docs-shield]: https://img.shields.io/docsrs/fastnbt
 [fastnbt-docs]: https://docs.rs/fastnbt/latest/fastnbt/index.html
+[fastnbt-docs-shield]: https://img.shields.io/docsrs/fastnbt
+
+[fastsnbt-shield]: https://img.shields.io/badge/%20-FastSNBT-blue
+[fastsnbt-version-shield]: https://img.shields.io/crates/v/fastsnbt.svg
+[fastsnbt-docs]: https://docs.rs/fastnbt/latest/fastsnbt/index.html
+[fastsnbt-docs-shield]: https://img.shields.io/docsrs/fastsnbt
+
+[fastnbt-crates]: https://crates.io/crates/fastnbt
 [build-status-shield]: https://img.shields.io/github/actions/workflow/status/owengage/fastnbt/rust.yml?branch=master
 [github-actions]: https://github.com/owengage/fastnbt/actions?query=branch%3Amaster
 [fastanvil-shield]: https://img.shields.io/badge/%20-FastAnvil-blue
@@ -27,15 +37,15 @@
 FastNBT is a [serde](https://serde.rs/) serializer and deserializer for
 _Minecraft: Java Edition's_ NBT format, including
 [`Value`](https://docs.rs/fastnbt/latest/fastnbt/enum.Value.html) type and
-[`nbt!`](https://docs.rs/fastnbt/latest/fastnbt/macro.nbt.html) macro.
+[`nbt!`](https://docs.rs/fastnbt/latest/fastnbt/macro.nbt.html) macro. For
+stringified NBT (sNBT) see FastSNBT.
 
 FastAnvil allows rendering maps of worlds, and a
 [`Region`](https://docs.rs/fastanvil/latest/fastanvil/struct.Region.html) for
-using the Region file format.
+using the Region file format. Includes partial support for 1.12 worlds.
 
 An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
-Supports 1.19 down to 1.15 inclusive. There is also a Tauri desktop UI
-application under `app`.
+Supports 1.19 down to 1.15 inclusive.
 
 # Demos
 
@@ -148,7 +158,7 @@ For the libraries
 ```toml
 [dependencies]
 fastnbt = "2"
-fastanvil = "0.29"
+fastanvil = "0.30"
 ```
 
 For the `anvil` executable
