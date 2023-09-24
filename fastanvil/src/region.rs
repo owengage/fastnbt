@@ -25,6 +25,10 @@ pub(crate) const CHUNK_HEADER_SIZE: usize = 5;
 /// File). This does not concern itself with manipulating chunk data, users are
 /// expected to use `fastnbt` or other deserialization method to manipulate the
 /// chunk data itself.
+///
+/// If using a stream with `Read` and `Seek` you can only read chunk data. If
+/// you want to be able to modify chunk data you also need a stream implementing
+/// `Write`. [`File`][`std::fs::File`] implements these, as does [`Cursor<Vec<u8>>`][`std::io::Cursor`].
 #[derive(Clone)]
 pub struct Region<S> {
     stream: S,
@@ -53,6 +57,22 @@ where
     /// # Ok(())
     /// # }
     ///  ```
+    ///
+    /// If you have raw data, this can also be used by wrapping it in a [`Cursor`][`std::io::Cursor`]:
+    ///
+    /// ```no_run
+    /// # use fastanvil::Region;
+    /// # use fastanvil::Result;
+    /// # use std::io::Cursor;
+    /// # use std::fs::File;
+    /// # fn main() -> Result<()> {
+    /// let data: Vec<u8> = todo!("get data");
+    /// let data = Cursor::new(data);
+    /// let mut region = Region::from_stream(data)?;
+    /// // manipulate region
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_stream(stream: S) -> Result<Self> {
         // Could delay the offsets loading until a write_chunk occurs. It's not
         // needed when only reading. But rendering some worlds with and without
@@ -67,7 +87,9 @@ where
 
         for z in 0..32 {
             for x in 0..32 {
-                let Some(loc) = tmp.location(x, z)? else { continue };
+                let Some(loc) = tmp.location(x, z)? else {
+                    continue;
+                };
 
                 tmp.offsets.push(loc.offset);
                 if loc.offset > max_offset {
@@ -160,7 +182,9 @@ where
         z: usize,
         writer: &mut dyn Write,
     ) -> Result<bool> {
-        let Some(loc) = self.location(x, z)? else { return Ok(false) };
+        let Some(loc) = self.location(x, z)? else {
+            return Ok(false);
+        };
 
         self.stream
             .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
@@ -208,8 +232,9 @@ where
         // there should always be at least one offset
         self.offsets.pop().unwrap();
         let Some(offset) = self.offsets.pop() else {
-            self.stream.seek(SeekFrom::Start(REGION_HEADER_SIZE as u64))?;
-            return Ok(self.stream)
+            self.stream
+                .seek(SeekFrom::Start(REGION_HEADER_SIZE as u64))?;
+            return Ok(self.stream);
         };
         self.stream
             .seek(SeekFrom::Start(offset * SECTOR_SIZE as u64))?;
@@ -233,7 +258,9 @@ where
             return Err(Error::InvalidOffset(x as isize, z as isize));
         }
 
-        let Some(loc) = self.location(x, z)? else { return Ok(None) };
+        let Some(loc) = self.location(x, z)? else {
+            return Ok(None);
+        };
 
         self.stream
             .seek(SeekFrom::Start(loc.offset * SECTOR_SIZE as u64))?;
@@ -359,7 +386,9 @@ where
     /// chunks to a new region, and write that to disk. This will ensure chunks are
     /// compactly stored with no gaps.
     pub fn remove_chunk(&mut self, x: usize, z: usize) -> Result<()> {
-        let Some(loc) = self.location(x, z)? else { return Ok(()) };
+        let Some(loc) = self.location(x, z)? else {
+            return Ok(());
+        };
 
         // zero the region header for the chunk
         self.set_header(x, z, 0, 0)?;
