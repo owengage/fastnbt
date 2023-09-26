@@ -6,7 +6,7 @@ use fastnbt::Value;
 
 //
 // This loads an MCA file:
-// https://minecraft.fandom.com/wiki/Anvil_file_format#Further_information
+// https://minecraft.wiki/w/Anvil_file_format#Further_information
 //
 // This can be a region, a POI, or an entities MCA file, and dumps the value of it.
 //

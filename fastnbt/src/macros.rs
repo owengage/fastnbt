@@ -28,7 +28,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 /// Produce a [`Value`][`crate::Value`] using
-/// JSON/[SNBT](https://minecraft.fandom.com/wiki/NBT_format#SNBT_format)-like
+/// JSON/[SNBT](https://minecraft.wiki/w/NBT_format#SNBT_format)-like
 /// syntax.
 ///
 /// Example:
@@ -45,7 +45,7 @@
 /// above could not be simplified to just `key1`.
 ///
 /// NBT Arrays are supported with
-/// [SNBT](https://minecraft.fandom.com/wiki/NBT_format#SNBT_format) syntax:
+/// [SNBT](https://minecraft.wiki/w/NBT_format#SNBT_format) syntax:
 ///
 /// ```rust
 /// # use fastnbt::nbt;

@@ -563,7 +563,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Delayed<'a, W> {
             // relevant serialize call never happens.
 
             // This is talked about a bit here:
-            // https://minecraft.fandom.com/wiki/NBT_format
+            // https://minecraft.wiki/w/NBT_format
             // A list of end tags seems to be the way to go.
 
             self.ser.writer.write_tag(Tag::End)?;
