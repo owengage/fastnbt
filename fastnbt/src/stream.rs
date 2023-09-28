@@ -175,7 +175,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// ```
 /// ## Finding a heightmap
 /// Here we assume we've parsed up until we have entered the `Heightmaps` compound of the
-/// [Minecraft Anvil chunk format](https://minecraft.gamepedia.com/Chunk_format). We keep parsing until we find the
+/// [Minecraft Anvil chunk format](https://minecraft.wiki/w/Chunk_format). We keep parsing until we find the
 /// `WORLD_SURFACE` long array. We avoid entering nested compounds by skipping them if we enter one. We know we have
 /// finished with the current compound when we see the `CompoundEnd` value.
 ///

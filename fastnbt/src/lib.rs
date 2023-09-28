@@ -58,7 +58,7 @@
 //!
 //! This example demonstrates printing out a players inventory and ender chest
 //! contents from the [player dat
-//! files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds.
+//! files](https://minecraft.wiki/w/Player.dat_format) found in worlds.
 //!
 //! Here we
 //! * use serde's renaming attributes to have rustfmt conformant field names,

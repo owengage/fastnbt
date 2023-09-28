@@ -3,7 +3,7 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Deserializer};
 
-// Values from https://minecraft.gamepedia.com/Java_Edition_data_value#Biomes
+// Values from https://minecraft.wiki/w/Java_Edition_data_value#Biomes
 #[derive(TryFromPrimitive, IntoPrimitive, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(i32)] // i32 as in corresponding NBT.
 pub enum Biome {
