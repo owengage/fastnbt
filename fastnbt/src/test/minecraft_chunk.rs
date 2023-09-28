@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 #[test]
 fn unit_variant_enum_for_chunk_status() {
-    // From https://minecraft.gamepedia.com/Chunk_format
+    // From https://minecraft.wiki/w/Chunk_format
     //
     //  Status: Defines the world generation status of this chunk. It is always
     //  one of the following: empty, structure_starts, structure_references,

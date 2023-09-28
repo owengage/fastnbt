@@ -109,7 +109,7 @@ fn main() {
 # Example: print player inventory
 
 This example demonstrates printing out a players inventory and ender chest contents from the [player dat
-files](https://minecraft.gamepedia.com/Player.dat_format) found in worlds. We
+files](https://minecraft.wiki/w/Player.dat_format) found in worlds. We
 
 - use serde's renaming attribute to have rustfmt conformant field names,
 - use lifetimes to save on string allocations, and
