@@ -1167,7 +1167,7 @@ fn enum_variant_types() {
         .end_compound()
         .build();
     let v: Result<Single<Letter>> = from_bytes(&newtype_input);
-    assert!(matches!(v, Err(_)));
+    assert!(v.is_err());
 
     let tuple_input = Builder::new()
         .start_compound("")
@@ -1176,7 +1176,7 @@ fn enum_variant_types() {
         .build();
 
     let v: Result<Single<Letter>> = from_bytes(&tuple_input);
-    assert!(matches!(v, Err(_)));
+    assert!(v.is_err());
 
     let struct_input = Builder::new()
         .start_compound("")
@@ -1184,7 +1184,7 @@ fn enum_variant_types() {
         .end_compound()
         .build();
     let v: Result<Single<Letter>> = from_bytes(&struct_input);
-    assert!(matches!(v, Err(_)));
+    assert!(v.is_err());
 }
 
 #[test]
@@ -1328,7 +1328,7 @@ fn long_array_cannot_be_deserialized_to_int_array() {
         .end_compound()
         .build();
 
-    assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
+    assert!(from_bytes::<V>(payload.as_slice()).is_err());
 }
 
 #[test]
@@ -1344,7 +1344,7 @@ fn long_array_cannot_be_deserialized_to_byte_array() {
         .end_compound()
         .build();
 
-    assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
+    assert!(from_bytes::<V>(payload.as_slice()).is_err());
 }
 
 #[test]
@@ -1360,7 +1360,7 @@ fn int_array_cannot_be_deserialized_to_byte_array() {
         .end_compound()
         .build();
 
-    assert!(matches!(from_bytes::<V>(payload.as_slice()), Err(_)));
+    assert!(from_bytes::<V>(payload.as_slice()).is_err());
 }
 
 #[test]
@@ -1432,7 +1432,7 @@ fn array_subslice_doesnt_panic() {
         .build();
 
     // cut off the data
-    assert!(matches!(from_bytes::<V>(&payload[..20]), Err(_)));
+    assert!(from_bytes::<V>(&payload[..20]).is_err());
 }
 
 #[test]

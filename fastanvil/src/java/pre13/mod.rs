@@ -17,6 +17,7 @@ mod pre13_block_names;
 // List of interned blocks, so we only create a Block with a specific id once, and we can return a
 // reference to it in JavaChunk::block.
 static BLOCK_LIST: [OnceCell<Block>; 256 * 16] = {
+    #[allow(clippy::declare_interior_mutable_const)]
     const BLOCK: OnceCell<Block> = OnceCell::new();
     [BLOCK; 256 * 16]
 };

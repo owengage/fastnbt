@@ -633,7 +633,7 @@ fn empty_list() {
 #[ignore = "doesn't work yet"]
 fn must_have_root() {
     // TODO: also do for other tag types.
-    assert!(matches!(to_bytes(&123), Err(_)));
+    assert!(to_bytes(&123).is_err());
 }
 
 #[test]

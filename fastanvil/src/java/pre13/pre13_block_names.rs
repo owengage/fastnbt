@@ -1,34 +1,32 @@
 use crate::{Block, BlockArchetype};
 
 macro_rules! coloured_block {
-    ($a:expr, $b:expr) => {
-        {
-            let col = match $b & 0b1111 {
-                0 => "white",
-                1 => "orange",
-                2 => "magenta",
-                3 => "light_blue",
-                4 => "yellow",
-                5 => "lime",
-                6 => "pink",
-                7 => "gray",
-                8 => "light_gray",
-                9 => "cyan",
-                10 => "purple",
-                11 => "blue",
-                12 => "brown",
-                13 => "green",
-                14 => "red",
-                15 => "black",
-                _ => unreachable!(),
-            };
-            Block {
-                name: format!("minecraft:{col}_{}", $a),
-                encoded: format!("minecraft:{col}_{}|", $a),
-                archetype: BlockArchetype::Normal,
-            }
+    ($a:expr, $b:expr) => {{
+        let col = match $b & 0b1111 {
+            0 => "white",
+            1 => "orange",
+            2 => "magenta",
+            3 => "light_blue",
+            4 => "yellow",
+            5 => "lime",
+            6 => "pink",
+            7 => "gray",
+            8 => "light_gray",
+            9 => "cyan",
+            10 => "purple",
+            11 => "blue",
+            12 => "brown",
+            13 => "green",
+            14 => "red",
+            15 => "black",
+            _ => unreachable!(),
+        };
+        Block {
+            name: format!("minecraft:{col}_{}", $a),
+            encoded: format!("minecraft:{col}_{}|", $a),
+            archetype: BlockArchetype::Normal,
         }
-    }
+    }};
 }
 
 /// Initialize a `Block` from the given `block_id` and `data_value`.
@@ -61,7 +59,7 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
                 4 => "acacia",
                 5 => "dark_oak",
                 6 | 7 => "invalid_double_wooden_slab",
-                _ => unreachable!()
+                _ => unreachable!(),
             };
             Block {
                 name: format!("{kind}_slab"),
@@ -79,7 +77,7 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
                 4 => "acacia",
                 5 => "dark_oak",
                 6 | 7 => "invalid_wooden_slab",
-                _ => unreachable!()
+                _ => unreachable!(),
             };
             let top = data_value & 0b1000;
             let top = match top {
@@ -105,7 +103,7 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
                 6 => "white_tulip",
                 7 => "pink_tulip",
                 8 => "oxeye_daisy",
-                9 | 10 | 11 | 12 | 13 | 14 | 15 => "invalid_flower",
+                9..=15 => "invalid_flower",
                 _ => unreachable!(),
             };
             Block {
@@ -188,13 +186,11 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
                 archetype: BlockArchetype::Normal,
             }
         }
-        "double_stone_slab2" => {
-            Block {
-                name: ns("red_sandstone_slab"),
-                encoded: enc0("red_sandstone_slab|type=double"),
-                archetype: BlockArchetype::Normal,
-            }
-        }
+        "double_stone_slab2" => Block {
+            name: ns("red_sandstone_slab"),
+            encoded: enc0("red_sandstone_slab|type=double"),
+            archetype: BlockArchetype::Normal,
+        },
         "stone_slab2" => {
             let top = data_value & 0b1000;
             let top = match top {
@@ -250,7 +246,7 @@ fn modern_block(block_name: &'static str, data_value: u8) -> Block {
         "dirt" => {
             let kind = data_value & 0b0011;
             let kind = match kind {
-                0 => "dirt", 
+                0 => "dirt",
                 1 => "coarse_dirt",
                 2 => "podzol",
                 _ => unreachable!(),

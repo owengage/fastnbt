@@ -41,7 +41,7 @@ fn simple_types() {
         string: "value".to_string(),
     };
 
-    let val = to_value(&v).unwrap();
+    let val = to_value(v).unwrap();
     // Note: we cannot use the nbt! macro here as that uses the `to_value` function
     let expected = Value::Compound(HashMap::from([
         ("bool".to_string(), Value::Byte(1)),
@@ -82,7 +82,7 @@ fn int_array_types() {
         longs: LongArray::new(vec![1, 2, 3, 4, 5]),
     };
 
-    let val = to_value(&v).unwrap();
+    let val = to_value(v).unwrap();
     let expected = Value::Compound(HashMap::from([
         (
             "i128".to_string(),
@@ -134,7 +134,7 @@ fn nested() {
         nested: Inner { key: 42 },
     };
 
-    let val = to_value(&v).unwrap();
+    let val = to_value(v).unwrap();
     let expected = Value::Compound(HashMap::from([
         (
             "list".to_string(),

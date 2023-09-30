@@ -27,7 +27,7 @@ fn cube_model() -> Model {
 
 fn acacia_stairs_model() -> Model {
     serde_json::from_str(
-        r##"
+        r#"
     {
         "parent": "minecraft:block/stairs",
         "textures": {
@@ -35,7 +35,7 @@ fn acacia_stairs_model() -> Model {
           "top": "minecraft:block/acacia_planks",
           "side": "minecraft:block/acacia_planks"
         }
-      }"##,
+      }"#,
     )
     .unwrap()
 }
@@ -95,7 +95,7 @@ fn stairs_model() -> Model {
 
 fn block_model() -> Model {
     serde_json::from_str(
-        r##"
+        r#"
         {
             "gui_light": "side",
             "display": {
@@ -131,7 +131,7 @@ fn block_model() -> Model {
                 }
             }
         }        
-        "##,
+        "#,
     )
     .unwrap()
 }
@@ -158,21 +158,21 @@ fn cube_all_model() -> Model {
 
 fn cobblestone_model() -> Model {
     serde_json::from_str(
-        r##"
+        r#"
         {
             "parent": "minecraft:block/cube_all",
             "textures": {
                 "all": "minecraft:block/cobblestone"
             }
         }
-        "##,
+        "#,
     )
     .unwrap()
 }
 
 fn cobblestone_blockstate() -> Blockstate {
     serde_json::from_str(
-        r##"
+        r#"
         {
             "variants": {
             "": {
@@ -180,7 +180,7 @@ fn cobblestone_blockstate() -> Blockstate {
             }
             }
         }
-        "##,
+        "#,
     )
     .unwrap()
 }
