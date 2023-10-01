@@ -35,7 +35,7 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         let status = chunk.status();
-        const OK_STATUSES: [&str; 4] = ["full", "spawn", "postprocessed", "fullchunk"];
+        const OK_STATUSES: [&str; 8] = ["full", "spawn", "postprocessed", "fullchunk", "minecraft:full", "minecraft:spawn", "minecraft:postprocessed", "minecraft:fullchunk"];
         if !OK_STATUSES.contains(&status.as_str()) {
             // Chunks that have been fully generated will have a 'full' status.
             // Skip chunks that don't; the way they render is unpredictable.
