@@ -14,7 +14,7 @@ categories = ["parser-implementations"]
 arbitrary = { version = "1", optional = true, features = ["derive"] }
 byteorder = "1"
 cesu8 = "1.1"
-serde = { version = "1", features=["derive"] }
+serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11.5"
 
 [features]
