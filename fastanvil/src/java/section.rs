@@ -22,6 +22,9 @@ pub struct Section {
 
 impl SectionLike for Section {
     fn is_terminator(&self) -> bool {
+        // Seems impossible to determine for post 1.18 sections, as sections can
+        // be saved with no block states or palette but still be a legitimate
+        // part of the world.
         false
     }
 

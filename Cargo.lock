@@ -356,6 +356,7 @@ dependencies = [
  "env_logger",
  "fastanvil",
  "fastnbt 2.4.4",
+ "fastsnbt",
  "flate2",
  "image",
  "log",

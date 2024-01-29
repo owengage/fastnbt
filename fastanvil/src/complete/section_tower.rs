@@ -57,6 +57,9 @@ impl From<java::SectionTower<java::Section>> for SectionTower {
             y_max: current_tower.y_max(),
         };
 
+        // This looks suspicious, we're not using the map of sections. #99
+        // This is only a problem because if there can be a terminating section
+        // in 1.18 worlds? It looks like that's not the case.
         for section in current_tower.take_sections() {
             tower.sections.push(section.into())
         }

@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true)
                 .required(false)
                 .default_value("rust")
-                .possible_values(&["rust", "rust-pretty", "json", "json-pretty", "nbt"])
+                .possible_values(&["rust", "rust-pretty", "json", "json-pretty", "nbt", "snbt"])
                 .help("output format"),
         )
         .arg(
@@ -86,6 +86,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                         "json-pretty" => {
                             serde_json::ser::to_writer_pretty(out, &chunk).unwrap();
+                        }
+                        "snbt" => {
+                            let s = fastsnbt::to_string(&chunk).unwrap();
+                            out.write_all(s.as_bytes()).unwrap();
                         }
                         _ => panic!("unknown output format '{}'", output_format),
                     }

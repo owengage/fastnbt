@@ -69,12 +69,24 @@ impl From<java::Section> for Section {
             .try_iter_indices()
             .map(|biome_iter| biome_iter.map(|index| index as u8).collect());
 
-        Section {
+        let mut sec = Section {
             block_palette: Vec::from(current_section.block_states.palette()),
             blocks,
             biome_palette: Vec::from(current_section.biomes.palette()),
             biomes,
+        };
+
+        // We can find sections with no palettes, but still look like they
+        // should be valid. We just assume they're full of air. #99.
+        if sec.block_palette.is_empty() {
+            sec.block_palette.push(AIR.clone());
         }
+
+        if sec.biome_palette.is_empty() {
+            sec.biome_palette.push(Biome::Plains);
+        }
+
+        sec
     }
 }
 

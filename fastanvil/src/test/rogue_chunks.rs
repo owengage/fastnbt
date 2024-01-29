@@ -1,4 +1,4 @@
-use crate::{Chunk, HeightMode, JavaChunk};
+use crate::{complete, Chunk, HeightMode, JavaChunk};
 
 const ETHO_OLD_HEIGHTS: &[u8] = include_bytes!("../../resources/etho-old-heightmaps.chunk");
 const ETHO_MAX_HEIGHTS: &[u8] = include_bytes!("../../resources/etho-max-heights.chunk");
@@ -167,4 +167,17 @@ fn etho_end_empty_sections() {
     let chunk = JavaChunk::from_bytes(ETHO_EMPTY_SECTIONS).unwrap();
     assert_eq!(0..0, chunk.y_range());
     assert_eq!(None, chunk.biome(0, 0, 0));
+}
+
+#[test]
+fn issue99() {
+    let ch = include_bytes!("../../resources/issue99-chunk.nbt");
+    let ch = complete::Chunk::from_bytes(ch).unwrap();
+    for chunk_x in 0..16 {
+        for chunk_z in 0..16 {
+            for chunk_y in ch.y_range() {
+                let _block = ch.block(chunk_x, chunk_y, chunk_z);
+            }
+        }
+    }
 }

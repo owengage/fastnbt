@@ -1,4 +1,4 @@
-use crate::JavaChunk;
+use crate::{complete, JavaChunk};
 
 const UNICODE_CHUNK: &[u8] = include_bytes!("../../resources/unicode.chunk");
 
@@ -9,5 +9,7 @@ fn unicode_chunk() {
     // is an encoding for unicode. Rust uses utf-8 for strings so there can be
     // conflicts if not deserialized properly.
     let c = JavaChunk::from_bytes(UNICODE_CHUNK);
+    assert!(c.is_ok());
+    let c = complete::Chunk::from_bytes(UNICODE_CHUNK);
     assert!(c.is_ok());
 }
