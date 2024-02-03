@@ -43,10 +43,10 @@ stringified NBT (sNBT) see FastSNBT.
 
 FastAnvil allows rendering maps of worlds, and a
 [`Region`](https://docs.rs/fastanvil/latest/fastanvil/struct.Region.html) for
-using the Region file format. Includes partial support for 1.12 worlds.
+using the Region file format. Supports 1.20 down to 1.13 inclusive, and slightly
+flaky support for 1.12.
 
 An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
-Supports 1.19 down to 1.15 inclusive.
 
 # Demos
 
