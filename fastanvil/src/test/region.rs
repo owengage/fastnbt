@@ -6,7 +6,7 @@ use crate::{
 };
 
 fn new_empty() -> Region<Cursor<Vec<u8>>> {
-    Region::new(Cursor::new(vec![])).unwrap()
+    Region::create(Cursor::new(vec![])).unwrap()
 }
 
 fn assert_location<S>(r: &mut Region<S>, x: usize, z: usize, offset: u64, size: u64)

@@ -6,7 +6,7 @@ use std::io::Cursor;
 
 fuzz_target!(|data: Vec<u8>| {
     let reader = Cursor::new(data);
-    let mut r = Region::new(reader);
+    let mut r = Region::create(reader);
     match r {
         Ok(mut r) => {
             r.read_chunk(0, 0);

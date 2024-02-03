@@ -303,7 +303,7 @@ where
     /// Create an new empty region. **The provided stream will be overwritten**, and
     /// will assume a seek to 0 is the start of the region. The stream needs
     /// read, write, and seek, like a file provides.
-    pub fn new(mut stream: S) -> Result<Self> {
+    pub fn create(mut stream: S) -> Result<Self> {
         stream.rewind()?;
         stream.write_all(&[0; REGION_HEADER_SIZE])?;
 
