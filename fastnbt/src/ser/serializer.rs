@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, mem};
 
 use byteorder::{BigEndian, WriteBytesExt};
 use serde::{
@@ -18,11 +18,15 @@ use super::{
 enum DelayedHeader {
     List { len: usize }, // header for a list, so element tag and list size.
     MapEntry { outer_name: Vec<u8> }, // header for a compound, so tag, name of compound.
-    Root, // root compound, special because it isn't allowed to be an array type. Must be compound.
+    Root { root_name: String }, // root compound, special because it isn't allowed to be an array type. Must be compound.
 }
 
 pub struct Serializer<W: Write> {
     pub(crate) writer: W,
+
+    // Desired name of the root compound, typically an empty string.
+    // NOTE: This is `mem:take`en, so is only valid at the start of serialization!
+    pub(crate) root_name: String,
 }
 
 macro_rules! no_root {
@@ -132,10 +136,13 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+        // Take the root name to avoid a clone. Need to be careful not to use
+        // self.root_name elsewhere.
+        let root_name = mem::take(&mut self.root_name);
         Ok(SerializerMap {
             ser: self,
             key: None,
-            header: Some(DelayedHeader::Root),
+            header: Some(DelayedHeader::Root { root_name }),
             trailer: Some(Tag::End),
         })
     }
@@ -160,19 +167,19 @@ pub struct SerializerMap<'a, W: Write> {
     key: Option<Vec<u8>>,
     header: Option<DelayedHeader>,
     trailer: Option<Tag>,
-    // compound_name: Vec<u8>,
-    // first: bool,
 }
 
 fn write_header(writer: &mut impl Write, header: DelayedHeader, actual_tag: Tag) -> Result<()> {
     match header {
-        DelayedHeader::Root => {
+        DelayedHeader::Root {
+            root_name: outer_name,
+        } => {
             if actual_tag != Tag::Compound {
                 // TODO: Test case for this.
                 return Err(Error::no_root_compound());
             }
             writer.write_tag(Tag::Compound)?;
-            writer.write_size_prefixed_str("")?;
+            writer.write_size_prefixed_str(&outer_name)?;
         }
         DelayedHeader::MapEntry { ref outer_name } => {
             writer.write_tag(actual_tag)?;

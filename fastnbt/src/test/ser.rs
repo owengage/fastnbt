@@ -1,12 +1,14 @@
-use std::{collections::HashMap, iter::FromIterator};
+use std::{collections::HashMap, io::Cursor, iter::FromIterator};
 
 use crate::{
     borrow, from_bytes,
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
-    to_bytes, ByteArray, IntArray, LongArray, Tag, Value,
+    to_bytes, to_bytes_with_opts, to_writer_with_opts, ByteArray, IntArray, LongArray, SerOpts,
+    Tag, Value,
 };
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_bytes::{ByteBuf, Bytes};
+use serde_json::to_writer;
 
 use super::builder::Builder;
 
@@ -916,4 +918,21 @@ fn serialize_key_and_value() {
     let bs = to_bytes(&Dummy).unwrap();
     let actual = to_bytes(&nbt!({"test":"value"})).unwrap();
     assert_eq!(actual, bs);
+}
+
+#[test]
+fn serialize_root_with_name() {
+    #[derive(Serialize)]
+    struct Empty {}
+    let expected = Builder::new().start_compound("test").end_compound().build();
+    let opts = SerOpts::new().root_name("test");
+    let mut actual_via_writer = Cursor::new(Vec::new());
+    to_writer_with_opts(&mut actual_via_writer, &Empty {}, opts.clone()).unwrap();
+
+    let actual_via_bytes = to_bytes_with_opts(&Empty {}, opts.clone()).unwrap();
+    let actual_value = to_bytes_with_opts(&Value::Compound(HashMap::new()), opts.clone()).unwrap();
+
+    assert_eq!(actual_via_bytes, expected);
+    assert_eq!(actual_via_writer.into_inner(), expected);
+    assert_eq!(actual_value, expected);
 }

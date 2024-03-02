@@ -256,18 +256,57 @@ impl Display for Tag {
 /// Serialize some `T` into NBT data. See the [`ser`] module for more
 /// information.
 pub fn to_bytes<T: Serialize>(v: &T) -> Result<Vec<u8>> {
+    to_bytes_with_opts(v, Default::default())
+}
+
+/// Serialize some `T` into NBT data. See the [`ser`] module for more
+/// information.
+pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
+    to_writer_with_opts(writer, v, Default::default())
+}
+
+/// Options for customizing serialization.
+#[derive(Default, Clone)]
+pub struct SerOpts {
+    root_name: String,
+}
+
+impl SerOpts {
+    /// Create new options. This object follows a builder pattern.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Set the root name (top level) of the compound. In most Minecraft data
+    /// structures this is the empty string. The [`ser`][`crate::ser`] module
+    /// contains an example.
+    pub fn root_name(mut self, root_name: impl Into<String>) -> Self {
+        self.root_name = root_name.into();
+        self
+    }
+}
+
+/// Serialize some `T` into NBT data. See the [`ser`] module for more
+/// information. The options allow you to set things like the root name of the
+/// compound when serialized.
+pub fn to_bytes_with_opts<T: Serialize>(v: &T, opts: SerOpts) -> Result<Vec<u8>> {
     let mut result = vec![];
     let mut serializer = Serializer {
         writer: &mut result,
+        root_name: opts.root_name,
     };
     v.serialize(&mut serializer)?;
     Ok(result)
 }
 
 /// Serialize some `T` into NBT data. See the [`ser`] module for more
-/// information.
-pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
-    let mut serializer = Serializer { writer };
+/// information. The options allow you to set things like the root name of the
+/// compound when serialized.
+pub fn to_writer_with_opts<T: Serialize, W: Write>(writer: W, v: &T, opts: SerOpts) -> Result<()> {
+    let mut serializer = Serializer {
+        writer,
+        root_name: opts.root_name,
+    };
     v.serialize(&mut serializer)?;
     Ok(())
 }
@@ -324,6 +363,7 @@ where
 }
 
 /// Options for customizing deserialization.
+#[derive(Clone)]
 pub struct DeOpts {
     /// Maximum number of bytes a list or array can be.
     max_seq_len: usize,
