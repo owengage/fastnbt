@@ -213,6 +213,7 @@ impl TryFrom<u8> for Tag {
 }
 
 impl From<Tag> for u8 {
+    #[inline(always)]
     fn from(tag: Tag) -> Self {
         tag as u8
     }
