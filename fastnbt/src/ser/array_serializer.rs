@@ -20,10 +20,14 @@ macro_rules! only_bytes {
         }
     };
 
-    {$v:ident($($t:ty),*)} => {
-        fn $v(self, $(_: $t)*) -> Result<()> {
+    {$v:ident<T>($($t:ty),*)} => {
+        fn $v<T: ?Sized>(self, $(_: $t,)*) -> Result<Self::Ok> {
             Err(Error::array_as_other())
         }
+    };
+
+    {$v:ident($($t:ty),*)} => {
+        only_bytes!{$v($($t),*) -> ()}
     };
 }
 
@@ -53,15 +57,18 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     only_bytes! {serialize_f64(f64)}
     only_bytes! {serialize_char(char)}
     only_bytes! {serialize_str(&str)}
-    only_bytes! {serialize_unit_struct(&'static str)}
     only_bytes! {serialize_none()}
+    only_bytes! {serialize_some<T>(&T)}
     only_bytes! {serialize_unit()}
+    only_bytes! {serialize_unit_struct(&'static str)}
+    only_bytes! {serialize_unit_variant(&'static str, u32, &'static str) -> Self::Ok}
+    only_bytes! {serialize_newtype_struct<T>(&'static str, &T)}
+    only_bytes! {serialize_newtype_variant<T>(&'static str, u32, &'static str, &T)}
     only_bytes! {serialize_seq(Option<usize>) -> Self::SerializeSeq}
     only_bytes! {serialize_tuple(usize) -> Self::SerializeSeq}
-    only_bytes! {serialize_map(Option<usize>) -> Self::SerializeMap}
-    only_bytes! {serialize_unit_variant(&'static str, u32, &'static str) -> Self::Ok}
-    only_bytes! {serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct}
     only_bytes! {serialize_tuple_variant(&'static str, u32, &'static str, usize) -> Self::SerializeTupleVariant}
+    only_bytes! {serialize_map(Option<usize>) -> Self::SerializeMap}
+    only_bytes! {serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct}
     only_bytes! {serialize_struct(&'static str, usize) -> Self::SerializeStruct}
     only_bytes! {serialize_struct_variant(&'static str, u32, &'static str, usize) -> Self::SerializeStructVariant}
 
@@ -76,36 +83,5 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
         self.ser.writer.write_len(len)?;
         self.ser.writer.write_all(v)?;
         Ok(())
-    }
-
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok>
-    where
-        T: serde::Serialize,
-    {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_newtype_struct<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _value: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: serde::Serialize,
-    {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_newtype_variant<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: serde::Serialize,
-    {
-        Err(Error::array_as_other())
     }
 }
