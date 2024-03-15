@@ -42,6 +42,19 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     type SerializeStruct = Impossible<(), Error>;
     type SerializeStructVariant = Impossible<(), Error>;
 
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
+        let stride = match self.tag {
+            Tag::ByteArray => 1,
+            Tag::IntArray => 4,
+            Tag::LongArray => 8,
+            _ => panic!(),
+        };
+        let len = v.len() / stride;
+        self.ser.writer.write_len(len)?;
+        self.ser.writer.write_all(v)?;
+        Ok(())
+    }
+
     only_bytes! {serialize_bool(bool)}
     only_bytes! {serialize_i8(i8)}
     only_bytes! {serialize_i16(i16)}
@@ -71,17 +84,4 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     only_bytes! {serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct}
     only_bytes! {serialize_struct(&'static str, usize) -> Self::SerializeStruct}
     only_bytes! {serialize_struct_variant(&'static str, u32, &'static str, usize) -> Self::SerializeStructVariant}
-
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
-        let stride = match self.tag {
-            Tag::ByteArray => 1,
-            Tag::IntArray => 4,
-            Tag::LongArray => 8,
-            _ => panic!(),
-        };
-        let len = v.len() / stride;
-        self.ser.writer.write_len(len)?;
-        self.ser.writer.write_all(v)?;
-        Ok(())
-    }
 }
