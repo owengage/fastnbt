@@ -213,22 +213,9 @@ impl TryFrom<u8> for Tag {
 }
 
 impl From<Tag> for u8 {
+    #[inline(always)]
     fn from(tag: Tag) -> Self {
-        match tag {
-            Tag::End => 0,
-            Tag::Byte => 1,
-            Tag::Short => 2,
-            Tag::Int => 3,
-            Tag::Long => 4,
-            Tag::Float => 5,
-            Tag::Double => 6,
-            Tag::ByteArray => 7,
-            Tag::String => 8,
-            Tag::List => 9,
-            Tag::Compound => 10,
-            Tag::IntArray => 11,
-            Tag::LongArray => 12,
-        }
+        tag as u8
     }
 }
 
