@@ -30,12 +30,23 @@ pub struct Serializer<W: Write> {
 }
 
 macro_rules! no_root {
-    ($v:ident, $t:ty) => {
-        fn $v(self, _: $t) -> Result<()> {
+    ($v:ident($($t:ty),* $(,)?) -> $r:ty) => {
+        fn $v(self, $(_: $t),*) -> Result<$r> {
             Err(Error::no_root_compound())
         }
     };
+
+    ($v:ident<T>($($t:ty),* $(,)?)) => {
+        fn $v<T: ?Sized>(self, $(_: $t),*) -> Result<Self::Ok> {
+            Err(Error::no_root_compound())
+        }
+    };
+
+    ($v:ident($($t:ty),* $(,)?)) => {
+        no_root!{$v($($t,)*) -> ()}
+    };
 }
+
 impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
@@ -47,92 +58,11 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
     type SerializeStruct = SerializerMap<'a, W>;
     type SerializeStructVariant = Impossible<(), Error>;
 
-    no_root!(serialize_bool, bool);
-    no_root!(serialize_i8, i8);
-    no_root!(serialize_i16, i16);
-    no_root!(serialize_i32, i32);
-    no_root!(serialize_i64, i64);
-    no_root!(serialize_i128, i128);
-    no_root!(serialize_u8, u8);
-    no_root!(serialize_u16, u16);
-    no_root!(serialize_u32, u32);
-    no_root!(serialize_u64, u64);
-    no_root!(serialize_u128, u128);
-    no_root!(serialize_f32, f32);
-    no_root!(serialize_f64, f64);
-    no_root!(serialize_char, char);
-    no_root!(serialize_str, &str);
-    no_root!(serialize_bytes, &[u8]);
-    no_root!(serialize_unit_struct, &'static str);
-
-    fn serialize_none(self) -> Result<()> {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<()>
-    where
-        T: Serialize,
-    {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_unit(self) -> Result<()> {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<()> {
-        Err(Error::no_root_compound())
-    }
-
     fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, value: &T) -> Result<()>
     where
         T: Serialize,
     {
         value.serialize(self)
-    }
-
-    fn serialize_newtype_variant<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<()>
-    where
-        T: Serialize,
-    {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        Err(Error::no_root_compound())
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::no_root_compound())
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -151,15 +81,49 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
         self.serialize_map(Some(len))
     }
 
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::no_root_compound())
-    }
+    no_root!(serialize_bool(bool));
+    no_root!(serialize_i8(i8));
+    no_root!(serialize_i16(i16));
+    no_root!(serialize_i32(i32));
+    no_root!(serialize_i64(i64));
+    no_root!(serialize_i128(i128));
+    no_root!(serialize_u8(u8));
+    no_root!(serialize_u16(u16));
+    no_root!(serialize_u32(u32));
+    no_root!(serialize_u64(u64));
+    no_root!(serialize_u128(u128));
+    no_root!(serialize_f32(f32));
+    no_root!(serialize_f64(f64));
+    no_root!(serialize_char(char));
+    no_root!(serialize_str(&str));
+    no_root!(serialize_bytes(&[u8]));
+    no_root!(serialize_none());
+    no_root!(serialize_some<T>(&T));
+    no_root!(serialize_unit());
+    no_root!(serialize_unit_struct(&'static str));
+    no_root!(serialize_unit_variant(&'static str, u32, &'static str));
+    no_root!(serialize_newtype_variant<T>(&'static str, u32, &'static str, &T));
+    no_root!(serialize_seq(Option<usize>) -> Self::SerializeSeq);
+    no_root!(serialize_tuple(usize) -> Self::SerializeSeq);
+    no_root!(serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct);
+
+    no_root!(
+        serialize_tuple_variant(
+            &'static str,
+            u32,
+            &'static str,
+            usize,
+        ) -> Self::SerializeTupleVariant
+    );
+
+    no_root!(
+        serialize_struct_variant(
+            &'static str,
+            u32,
+            &'static str,
+            usize,
+        ) -> Self::SerializeStructVariant
+    );
 }
 
 pub struct SerializerMap<'a, W: Write> {
