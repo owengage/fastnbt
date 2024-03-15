@@ -106,6 +106,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
     no_root!(serialize_seq(Option<usize>) -> Self::SerializeSeq);
     no_root!(serialize_tuple(usize) -> Self::SerializeSeq);
     no_root!(serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct);
+
     no_root!(
         serialize_tuple_variant(
             &'static str,
@@ -114,6 +115,7 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
             usize,
         ) -> Self::SerializeTupleVariant
     );
+
     no_root!(
         serialize_struct_variant(
             &'static str,
