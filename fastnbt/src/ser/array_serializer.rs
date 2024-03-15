@@ -74,7 +74,7 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     only_bytes!(serialize_some<T>(&T));
     only_bytes!(serialize_unit());
     only_bytes!(serialize_unit_struct(&'static str));
-    only_bytes!(serialize_unit_variant(&'static str, u32, &'static str) -> Self::Ok);
+    only_bytes!(serialize_unit_variant(&'static str, u32, &'static str));
     only_bytes!(serialize_newtype_struct<T>(&'static str, &T));
     only_bytes!(serialize_newtype_variant<T>(&'static str, u32, &'static str, &T));
     only_bytes!(serialize_seq(Option<usize>) -> Self::SerializeSeq);
