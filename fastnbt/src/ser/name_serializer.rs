@@ -2,14 +2,41 @@ use std::io::Write;
 
 use serde::{ser::Impossible, Serializer};
 
-use crate::error::Error;
+use crate::error::{Error, Result};
 
 pub(crate) struct NameSerializer<W: Write> {
     pub(crate) name: W,
 }
 
-fn name_must_be_stringy(ty: &str) -> Error {
-    Error::bespoke(format!("field must be string-like, found {ty}"))
+macro_rules! bespoke_error {
+    ($name:literal) => {
+        Err(Error::bespoke(format!(
+            "field must be string-like, found {}",
+            $name
+        )))
+    };
+}
+
+macro_rules! must_be_stringy {
+    ($name:literal: $ser:ident($($t:ty),*) -> $res:ty) => {
+        fn $ser(self, $(_: $t),*) -> Result<$res> {
+            bespoke_error!($name)
+        }
+    };
+
+    ($name:literal: $ser:ident<T>($($t:ty),*) -> $res:ty) => {
+        fn $ser<T: ?Sized>(self, $(_: $t),*) -> Result<$res> {
+            bespoke_error!($name)
+        }
+    };
+
+    ($name:literal: $ser:ident($($t:ty),*)) => {
+        must_be_stringy!($name: $ser($($t),*) -> ());
+    };
+
+    ($name:literal: $ser:ident<T>($($t:ty),*)) => {
+        must_be_stringy!($name: $ser<T>($($t),*) -> ());
+    };
 }
 
 /// NameSerializer is all about serializing the name of a field. It does not
@@ -30,162 +57,44 @@ impl<W: Write> Serializer for &mut NameSerializer<W> {
     type SerializeStruct = Impossible<(), Error>;
     type SerializeStructVariant = Impossible<(), Error>;
 
-    fn serialize_bool(self, _: bool) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("bool"))
-    }
-
-    fn serialize_i8(self, _: i8) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("i8"))
-    }
-
-    fn serialize_i16(self, _: i16) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("i16"))
-    }
-
-    fn serialize_i32(self, _: i32) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("i32"))
-    }
-
-    fn serialize_i64(self, _: i64) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("i64"))
-    }
-
-    fn serialize_u8(self, _: u8) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("u8"))
-    }
-
-    fn serialize_u16(self, _: u16) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("u16"))
-    }
-
-    fn serialize_u32(self, _: u32) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("u32"))
-    }
-
-    fn serialize_u64(self, _: u64) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("u64"))
-    }
-
-    fn serialize_f32(self, _: f32) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("f32"))
-    }
-
-    fn serialize_f64(self, _: f64) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("f64"))
-    }
-
-    fn serialize_char(self, c: char) -> Result<Self::Ok, Self::Error> {
-        self.name.write_all(&cesu8::to_java_cesu8(&c.to_string()))?;
-        Ok(())
-    }
-
-    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        self.name.write_all(&cesu8::to_java_cesu8(v))?;
-        Ok(())
-    }
-
-    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
         self.name.write_all(v)?;
         Ok(())
     }
 
-    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("none"))
+    fn serialize_char(self, c: char) -> Result<Self::Ok> {
+        self.name.write_all(&cesu8::to_java_cesu8(&c.to_string()))?;
+        Ok(())
     }
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok, Self::Error>
-    where
-        T: serde::Serialize,
-    {
-        Err(name_must_be_stringy("some"))
+    fn serialize_str(self, v: &str) -> Result<Self::Ok> {
+        self.name.write_all(&cesu8::to_java_cesu8(v))?;
+        Ok(())
     }
 
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("unit"))
-    }
-
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("unit_struct"))
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<Self::Ok, Self::Error> {
-        Err(name_must_be_stringy("unit_variant"))
-    }
-
-    fn serialize_newtype_struct<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _value: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: serde::Serialize,
-    {
-        Err(name_must_be_stringy("newtype_struct"))
-    }
-
-    fn serialize_newtype_variant<T: ?Sized>(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: serde::Serialize,
-    {
-        Err(name_must_be_stringy("newtype_variant"))
-    }
-
-    fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Err(name_must_be_stringy("seq"))
-    }
-
-    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        Err(name_must_be_stringy("tuple"))
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        Err(name_must_be_stringy("tuple_struct"))
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Err(name_must_be_stringy("tuple_variant"))
-    }
-
-    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Err(name_must_be_stringy("map"))
-    }
-
-    fn serialize_struct(
-        self,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeStruct, Self::Error> {
-        Err(name_must_be_stringy("struct"))
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _: &'static str,
-        _: u32,
-        _: &'static str,
-        _: usize,
-    ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        Err(name_must_be_stringy("struct_variant"))
-    }
+    must_be_stringy!("bool": serialize_bool(bool));
+    must_be_stringy!("i8": serialize_i8(i8));
+    must_be_stringy!("i16": serialize_i16(i16));
+    must_be_stringy!("i32": serialize_i32(i32));
+    must_be_stringy!("i64": serialize_i64(i64));
+    must_be_stringy!("u8": serialize_u8(u8));
+    must_be_stringy!("u16": serialize_u16(u16));
+    must_be_stringy!("u32": serialize_u32(u32));
+    must_be_stringy!("u64": serialize_u64(u64));
+    must_be_stringy!("f32": serialize_f32(f32));
+    must_be_stringy!("f64": serialize_f64(f64));
+    must_be_stringy!("none": serialize_none());
+    must_be_stringy!("some": serialize_some<T>(&T));
+    must_be_stringy!("unit": serialize_unit());
+    must_be_stringy!("unit_struct": serialize_unit_struct(&'static str));
+    must_be_stringy!("unit_variant": serialize_unit_variant(&'static str, u32, &'static str));
+    must_be_stringy!("newtype_struct": serialize_newtype_struct<T>(&'static str, &T));
+    must_be_stringy!("newtype_variant": serialize_newtype_variant<T>(&'static str, u32, &'static str, &T));
+    must_be_stringy!("seq": serialize_seq(Option<usize>) -> Self::SerializeSeq);
+    must_be_stringy!("tuple": serialize_tuple(usize) -> Self::SerializeTuple);
+    must_be_stringy!("tuple_struct": serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct);
+    must_be_stringy!("tuple_variant": serialize_tuple_variant(&'static str, u32, &'static str, usize) -> Self::SerializeTupleVariant);
+    must_be_stringy!("map": serialize_map(Option<usize>) -> Self::SerializeMap);
+    must_be_stringy!("struct": serialize_struct(&'static str, usize) -> Self::SerializeStruct);
+    must_be_stringy!("struct_variant": serialize_struct_variant(&'static str, u32, &'static str, usize) -> Self::SerializeStructVariant);
 }
