@@ -14,10 +14,20 @@ pub(crate) struct ArraySerializer<'a, W: Write> {
 }
 
 macro_rules! only_bytes {
-    ($v:ident, $t:ty) => {
-        fn $v(self, _: $t) -> Result<()> {
+    ($v:ident($($t:ty),* $(,)?) -> $r:ty) => {
+        fn $v(self, $(_: $t),*) -> Result<$r> {
             Err(Error::array_as_other())
         }
+    };
+
+    ($v:ident<T>($($t:ty),* $(,)?)) => {
+        fn $v<T: ?Sized>(self, $(_: $t),*) -> Result<Self::Ok> {
+            Err(Error::array_as_other())
+        }
+    };
+
+    ($v:ident($($t:ty),* $(,)?)) => {
+        only_bytes!{$v($($t,)*) -> ()}
     };
 }
 
@@ -32,23 +42,6 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
     type SerializeStruct = Impossible<(), Error>;
     type SerializeStructVariant = Impossible<(), Error>;
 
-    only_bytes!(serialize_bool, bool);
-    only_bytes!(serialize_i8, i8);
-    only_bytes!(serialize_i16, i16);
-    only_bytes!(serialize_i32, i32);
-    only_bytes!(serialize_i64, i64);
-    only_bytes!(serialize_i128, i128);
-    only_bytes!(serialize_u8, u8);
-    only_bytes!(serialize_u16, u16);
-    only_bytes!(serialize_u32, u32);
-    only_bytes!(serialize_u64, u64);
-    only_bytes!(serialize_u128, u128);
-    only_bytes!(serialize_f32, f32);
-    only_bytes!(serialize_f64, f64);
-    only_bytes!(serialize_char, char);
-    only_bytes!(serialize_str, &str);
-    only_bytes!(serialize_unit_struct, &'static str);
-
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok> {
         let stride = match self.tag {
             Tag::ByteArray => 1,
@@ -62,95 +55,49 @@ impl<'a, W: Write> serde::Serializer for ArraySerializer<'a, W> {
         Ok(())
     }
 
-    fn serialize_none(self) -> Result<Self::Ok> {
-        Err(Error::array_as_other())
-    }
+    only_bytes!(serialize_bool(bool));
+    only_bytes!(serialize_i8(i8));
+    only_bytes!(serialize_i16(i16));
+    only_bytes!(serialize_i32(i32));
+    only_bytes!(serialize_i64(i64));
+    only_bytes!(serialize_i128(i128));
+    only_bytes!(serialize_u8(u8));
+    only_bytes!(serialize_u16(u16));
+    only_bytes!(serialize_u32(u32));
+    only_bytes!(serialize_u64(u64));
+    only_bytes!(serialize_u128(u128));
+    only_bytes!(serialize_f32(f32));
+    only_bytes!(serialize_f64(f64));
+    only_bytes!(serialize_char(char));
+    only_bytes!(serialize_str(&str));
+    only_bytes!(serialize_none());
+    only_bytes!(serialize_some<T>(&T));
+    only_bytes!(serialize_unit());
+    only_bytes!(serialize_unit_struct(&'static str));
+    only_bytes!(serialize_unit_variant(&'static str, u32, &'static str));
+    only_bytes!(serialize_newtype_struct<T>(&'static str, &T));
+    only_bytes!(serialize_newtype_variant<T>(&'static str, u32, &'static str, &T));
+    only_bytes!(serialize_seq(Option<usize>) -> Self::SerializeSeq);
+    only_bytes!(serialize_tuple(usize) -> Self::SerializeSeq);
+    only_bytes!(serialize_map(Option<usize>) -> Self::SerializeMap);
+    only_bytes!(serialize_tuple_struct(&'static str, usize) -> Self::SerializeTupleStruct);
+    only_bytes!(serialize_struct(&'static str, usize) -> Self::SerializeStruct);
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok>
-    where
-        T: serde::Serialize,
-    {
-        Err(Error::array_as_other())
-    }
+    only_bytes!(
+        serialize_tuple_variant(
+            &'static str,
+            u32,
+            &'static str,
+            usize,
+        ) -> Self::SerializeTupleVariant
+    );
 
-    fn serialize_unit(self) -> Result<Self::Ok> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<Self::Ok> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_newtype_struct<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _value: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: serde::Serialize,
-    {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_newtype_variant<T: ?Sized>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<Self::Ok>
-    where
-        T: serde::Serialize,
-    {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleStruct> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        Err(Error::array_as_other())
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::array_as_other())
-    }
+    only_bytes!(
+        serialize_struct_variant(
+            &'static str,
+            u32,
+            &'static str,
+            usize,
+        ) -> Self::SerializeStructVariant
+    );
 }
