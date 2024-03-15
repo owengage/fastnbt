@@ -1,4 +1,4 @@
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use serde::{Deserialize, Serialize};
 
@@ -26,27 +26,31 @@ struct Single<T: Serialize> {
 #[derive(Serialize, Deserialize)]
 struct Wrap<T: Serialize>(T);
 
-fn assert_try_into(tag: Tag) {
-    assert_eq!(tag, (tag as u8).try_into().unwrap());
+macro_rules! check_tags {
+    {$($tag:ident = $val:literal),* $(,)?} => {
+        $(
+            assert_eq!(u8::from(Tag::$tag), $val);
+        )*
+    };
 }
 
 #[test]
 fn exhaustive_tag_check() {
-    use Tag::*;
-    assert_try_into(End);
-    assert_try_into(Byte);
-    assert_try_into(Short);
-    assert_try_into(Int);
-    assert_try_into(Long);
-    assert_try_into(Float);
-    assert_try_into(Double);
-    assert_try_into(ByteArray);
-    assert_try_into(String);
-    assert_try_into(List);
-    assert_try_into(Compound);
-    assert_try_into(Compound);
-    assert_try_into(IntArray);
-    assert_try_into(LongArray);
+    check_tags! {
+        End = 0,
+        Byte = 1,
+        Short = 2,
+        Int = 3,
+        Long = 4,
+        Float = 5,
+        Double = 6,
+        ByteArray = 7,
+        String = 8,
+        List = 9,
+        Compound = 10,
+        IntArray = 11,
+        LongArray = 12,
+    }
 
     for value in 13..=u8::MAX {
         assert!(Tag::try_from(value).is_err())
