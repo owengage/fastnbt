@@ -147,6 +147,11 @@ where
                     self.read_compressed_chunk(x, z, &mut buf)?;
                     Ok(buf)
                 }
+                CompressionScheme::Lz4 => {
+                    let mut decoder = Lz4DecoderWrapper::new(vec![]);
+                    self.read_compressed_chunk(x, z, &mut decoder)?;
+                    Ok(decoder.finish()?)
+                }
             })
             .transpose()
     }
@@ -285,12 +290,7 @@ where
         // size written to disk includes the byte representing the compression
         // scheme, so +1.
         c.write_u32::<BigEndian>(compressed_chunk_size + 1).unwrap();
-        c.write_u8(match scheme {
-            CompressionScheme::Gzip => 1,
-            CompressionScheme::Zlib => 2,
-            CompressionScheme::Uncompressed => 3,
-        })
-        .unwrap();
+        c.write_u8(scheme as u8).unwrap();
 
         buf
     }
@@ -454,6 +454,7 @@ pub enum CompressionScheme {
     Gzip = 1,
     Zlib = 2,
     Uncompressed = 3,
+    Lz4 = 4,
 }
 
 pub struct RegionIter<'a, S>
@@ -568,5 +569,41 @@ impl ChunkMeta {
             compressed_len: len - 1, // this len include the compression byte.
             compression_scheme: scheme,
         })
+    }
+}
+
+/// Wrapper type used to decompress a LZ4 chunk, needed because `lz4_java_wrc::Lz4BlockInput`
+/// expects a reader as input, while `self.read_compressed_chunk` expects a decoder that can be
+/// written to. The solution is to use an intermediate buffer, and decompress on the call to
+/// `.finish()`.
+pub struct Lz4DecoderWrapper<W: Write> {
+    buf: Vec<u8>,
+    write_to: W,
+}
+
+impl<W: Write> Lz4DecoderWrapper<W> {
+    pub fn new(write_to: W) -> Self {
+        Self {
+            buf: vec![],
+            write_to,
+        }
+    }
+
+    pub fn finish(mut self) -> Result<W> {
+        let mut decoder = lz4_java_wrc::Lz4BlockInput::new(Cursor::new(self.buf));
+        io::copy(&mut decoder, &mut self.write_to)?;
+
+        Ok(self.write_to)
+    }
+}
+
+impl<W: Write> Write for Lz4DecoderWrapper<W> {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        self.buf.extend_from_slice(data);
+        Ok(data.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
