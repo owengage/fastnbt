@@ -354,12 +354,20 @@ where
 pub struct DeOpts {
     /// Maximum number of bytes a list or array can be.
     max_seq_len: usize,
+    /// Whether compound tag names are expected to exist or not.
+    expect_coumpound_names: bool,
 }
 
 impl DeOpts {
     /// Create new options. This object follows a builder pattern.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Creates a decoder for "network NBT" mode.
+    /// At the moment that consists compound tags not having names (or their length).
+    pub fn network_nbt() -> Self {
+        Self::new().expect_coumpound_names(false)
     }
 
     /// Set the maximum length any given sequence can be, eg lists. This does
@@ -369,12 +377,19 @@ impl DeOpts {
         self.max_seq_len = value;
         self
     }
+
+    /// Sets wheather the deserializer should expect compound tags to have names.
+    pub fn expect_coumpound_names(mut self, value: bool) -> Self {
+        self.expect_coumpound_names = value;
+        self
+    }
 }
 
 impl Default for DeOpts {
     fn default() -> Self {
         Self {
             max_seq_len: 10_000_000, // arbitrary high limit.
+            expect_coumpound_names: true,
         }
     }
 }
