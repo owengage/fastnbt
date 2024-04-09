@@ -1744,3 +1744,66 @@ fn byte_array_value_from_reader() {
     // let r = &data;
     let _v: Value = from_reader(r).unwrap();
 }
+
+#[test]
+fn networked_compound() {
+    // TAG_Compound
+    // {
+    //     TAG_String("networked"): "compound"
+    // }
+    let data = b"\
+        \x0a\
+            \x08\
+                \x00\x09networked\
+                \x00\x08compound\
+        \x00";
+
+    let v: HashMap<String, Value> = from_bytes_with_opts(data, DeOpts::network_nbt()).unwrap();
+    assert_eq!(v["networked"], "compound");
+}
+
+#[test]
+fn nested_networked_compound() {
+    // TAG_Compound
+    // {
+    //     TAG_Compound("nested")
+    //     {
+    //         TAG_String("networked"): "compound"
+    //     }
+    // }
+    let data = b"\
+        \x0a\
+            \x0a\
+            \x00\x06nested\
+                \x08\
+                    \x00\x09networked\
+                    \x00\x08compound\
+            \x00\
+        \x00";
+
+    let v: HashMap<String, HashMap<String, Value>> =
+        from_bytes_with_opts(data, DeOpts::network_nbt()).unwrap();
+    assert_eq!(&v["nested"]["networked"], "compound");
+}
+
+#[test]
+fn error_nested_non_named_compounds() {
+    // TAG_Compound
+    // {
+    //     TAG_Compound
+    //     {
+    //         TAG_String("double nested unnamed"): "compound"
+    //     }
+    // }
+    let data = b"\
+        \x0a\
+            \x0a\
+                \x08\
+                    \x00\x15double nested unnamed\
+                    \x00\x08compound\
+            \x00\
+        \x00";
+
+    let v: Result<Value> = from_bytes_with_opts(data, DeOpts::network_nbt());
+    assert!(v.is_err())
+}
