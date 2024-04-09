@@ -311,7 +311,11 @@ where
             let peek = self.input.consume_tag()?;
 
             match peek {
-                Tag::Compound => self.input.ignore_str()?,
+                Tag::Compound => {
+                    if self.opts.expect_coumpound_names {
+                        self.input.ignore_str()?
+                    }
+                }
                 _ => return Err(Error::no_root_compound()),
             }
 
