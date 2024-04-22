@@ -1,7 +1,10 @@
 use clap::{App, Arg, ArgMatches, SubCommand};
 use env_logger::Env;
 use fastanvil::RenderedPalette;
-use fastanvil::{render_region, CCoord, HeightMode, RCoord, RegionLoader, Rgba, TopShadeRenderer};
+use fastanvil::{
+    render_region, CCoord, DEMRenderer, HeightMode, RCoord, RegionLoader, Renderer, Rgba,
+    TopShadeRenderer,
+};
 
 use fastanvil::RegionFileLoader;
 use flate2::read::GzDecoder;
@@ -207,6 +210,7 @@ fn render(args: &ArgMatches) -> Result<()> {
 
 fn tiles(args: &ArgMatches) -> Result<()> {
     let world: PathBuf = args.value_of("world").unwrap().parse().unwrap();
+    let renderer_type: &str = args.value_of("renderer").unwrap();
     let dim: &str = args.value_of("dimension").unwrap();
     let out: &str = args.value_of("out").unwrap();
     let height_mode = match args.is_present("calculate-heights") {
@@ -248,10 +252,13 @@ fn tiles(args: &ArgMatches) -> Result<()> {
         .into_par_iter()
         .filter_map(|(x, z)| {
             let loader = RegionFileLoader::new(world.join(subpath));
+            let renderer: Box<dyn Renderer> = match renderer_type {
+                "dem" => Box::new(DEMRenderer::new(height_mode)),
+                _ => Box::new(TopShadeRenderer::new(&pal, height_mode)),
+            };
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
-                let drawer = TopShadeRenderer::new(&pal, height_mode);
-                let map = render_region(x, z, &loader, &drawer);
+                let map = render_region(x, z, &loader, renderer.as_ref());
                 match map {
                     Ok(Some(map)) => {
                         info!("processed r.{}.{}.mca", x.0, z.0);
@@ -351,6 +358,13 @@ fn main() -> Result<()> {
         .subcommand(
             SubCommand::with_name("tiles")
                 .arg(Arg::with_name("world").takes_value(true).required(true))
+                .arg(
+                    Arg::with_name("renderer")
+                        .long("renderer")
+                        .takes_value(true)
+                        .required(false)
+                        .default_value("top_shade"),
+                )
                 .arg(
                     Arg::with_name("size")
                         .long("size")

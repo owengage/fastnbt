@@ -12,6 +12,17 @@ use super::biome::Biome;
 
 pub type Rgba = [u8; 4];
 
+const CHUNK_OK_STATUSES: [&str; 8] = [
+    "full",
+    "spawn",
+    "postprocessed",
+    "fullchunk",
+    "minecraft:full",
+    "minecraft:spawn",
+    "minecraft:postprocessed",
+    "minecraft:fullchunk",
+];
+
 /// Palette can be used to take a block description to produce a colour that it
 /// should render to.
 pub trait Palette {
@@ -19,7 +30,43 @@ pub trait Palette {
 }
 
 pub trait Renderer {
-    fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16];
+    fn render(&self, chunk: &dyn Chunk, north: Option<&dyn Chunk>) -> [Rgba; 16 * 16];
+}
+
+// TODO(shumbo): add tests
+pub struct DEMRenderer {
+    height_mode: HeightMode,
+}
+
+impl DEMRenderer {
+    pub fn new(mode: HeightMode) -> Self {
+        Self { height_mode: mode }
+    }
+}
+
+impl Renderer for DEMRenderer {
+    fn render(&self, chunk: &dyn Chunk, _: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
+        let mut data = [[0, 0, 0, 0]; 16 * 16];
+
+        let status = chunk.status();
+        if !CHUNK_OK_STATUSES.contains(&status.as_str()) {
+            // Chunks that have been fully generated will have a 'full' status.
+            // Skip chunks that don't; the way they render is unpredictable.
+            return data;
+        }
+
+        let y_range = chunk.y_range();
+
+        for z in 0..16 {
+            for x in 0..16 {
+                let air_height = chunk.surface_height(x, z, self.height_mode);
+                let block_height = (air_height - 1).max(y_range.start);
+                data[z * 16 + x] = height_colour(block_height);
+            }
+        }
+
+        data
+    }
 }
 
 pub struct TopShadeRenderer<'a, P: Palette> {
@@ -85,21 +132,11 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
 }
 
 impl<'a, P: Palette> Renderer for TopShadeRenderer<'a, P> {
-    fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
+    fn render(&self, chunk: &dyn Chunk, north: Option<&dyn Chunk>) -> [Rgba; 16 * 16] {
         let mut data = [[0, 0, 0, 0]; 16 * 16];
 
         let status = chunk.status();
-        const OK_STATUSES: [&str; 8] = [
-            "full",
-            "spawn",
-            "postprocessed",
-            "fullchunk",
-            "minecraft:full",
-            "minecraft:spawn",
-            "minecraft:postprocessed",
-            "minecraft:fullchunk",
-        ];
-        if !OK_STATUSES.contains(&status.as_str()) {
+        if !CHUNK_OK_STATUSES.contains(&status.as_str()) {
             // Chunks that have been fully generated will have a 'full' status.
             // Skip chunks that don't; the way they render is unpredictable.
             return data;
@@ -236,7 +273,7 @@ pub fn render_region<S>(
     x: RCoord,
     z: RCoord,
     loader: &dyn RegionLoader<S>,
-    renderer: &impl Renderer,
+    renderer: &dyn Renderer,
 ) -> LoaderResult<Option<RegionMap<Rgba>>>
 where
     S: Seek + Read + Write,
@@ -291,7 +328,7 @@ where
             //
             // Thanks to the default None value this works fine for the
             // first row or for any missing chunks.
-            let north = cache.as_ref();
+            let north: Option<&dyn Chunk> = cache.as_ref().map(|c| c as &dyn Chunk);
 
             let res = renderer.render(&chunk, north);
             *cache = Some(chunk);
@@ -321,4 +358,9 @@ fn top_shade_colour(colour: Rgba, height: isize, shade_height: isize) -> Rgba {
         (colour[2] as usize * shade / 255) as u8,
         colour[3],
     ]
+}
+
+fn height_colour(height: isize) -> Rgba {
+    let v = height + 32768;
+    [(v / 256) as u8, (v % 256) as u8, 0, 255]
 }
