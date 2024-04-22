@@ -18,6 +18,10 @@ pub trait Palette {
     fn pick(&self, block: &Block, biome: Option<Biome>) -> Rgba;
 }
 
+pub trait Renderer {
+    fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16];
+}
+
 pub struct TopShadeRenderer<'a, P: Palette> {
     palette: &'a P,
     height_mode: HeightMode,
@@ -29,42 +33,6 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
             palette,
             height_mode: mode,
         }
-    }
-
-    pub fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
-        let mut data = [[0, 0, 0, 0]; 16 * 16];
-
-        let status = chunk.status();
-        const OK_STATUSES: [&str; 8] = ["full", "spawn", "postprocessed", "fullchunk", "minecraft:full", "minecraft:spawn", "minecraft:postprocessed", "minecraft:fullchunk"];
-        if !OK_STATUSES.contains(&status.as_str()) {
-            // Chunks that have been fully generated will have a 'full' status.
-            // Skip chunks that don't; the way they render is unpredictable.
-            return data;
-        }
-
-        let y_range = chunk.y_range();
-
-        for z in 0..16 {
-            for x in 0..16 {
-                let air_height = chunk.surface_height(x, z, self.height_mode);
-                let block_height = (air_height - 1).max(y_range.start);
-
-                let colour = self.drill_for_colour(x, block_height, z, chunk, y_range.start);
-
-                let north_air_height = match z {
-                    // if top of chunk, get height from the chunk above.
-                    0 => north
-                        .map(|c| c.surface_height(x, 15, self.height_mode))
-                        .unwrap_or(block_height),
-                    z => chunk.surface_height(x, z - 1, self.height_mode),
-                };
-                let colour = top_shade_colour(colour, air_height, north_air_height);
-
-                data[z * 16 + x] = colour;
-            }
-        }
-
-        data
     }
 
     /// Drill for colour. Starting at y_start, make way down the column until we
@@ -113,6 +81,53 @@ impl<'a, P: Palette> TopShadeRenderer<'a, P> {
         }
 
         colour
+    }
+}
+
+impl<'a, P: Palette> Renderer for TopShadeRenderer<'a, P> {
+    fn render<C: Chunk + ?Sized>(&self, chunk: &C, north: Option<&C>) -> [Rgba; 16 * 16] {
+        let mut data = [[0, 0, 0, 0]; 16 * 16];
+
+        let status = chunk.status();
+        const OK_STATUSES: [&str; 8] = [
+            "full",
+            "spawn",
+            "postprocessed",
+            "fullchunk",
+            "minecraft:full",
+            "minecraft:spawn",
+            "minecraft:postprocessed",
+            "minecraft:fullchunk",
+        ];
+        if !OK_STATUSES.contains(&status.as_str()) {
+            // Chunks that have been fully generated will have a 'full' status.
+            // Skip chunks that don't; the way they render is unpredictable.
+            return data;
+        }
+
+        let y_range = chunk.y_range();
+
+        for z in 0..16 {
+            for x in 0..16 {
+                let air_height = chunk.surface_height(x, z, self.height_mode);
+                let block_height = (air_height - 1).max(y_range.start);
+
+                let colour = self.drill_for_colour(x, block_height, z, chunk, y_range.start);
+
+                let north_air_height = match z {
+                    // if top of chunk, get height from the chunk above.
+                    0 => north
+                        .map(|c| c.surface_height(x, 15, self.height_mode))
+                        .unwrap_or(block_height),
+                    z => chunk.surface_height(x, z - 1, self.height_mode),
+                };
+                let colour = top_shade_colour(colour, air_height, north_air_height);
+
+                data[z * 16 + x] = colour;
+            }
+        }
+
+        data
     }
 }
 
@@ -217,11 +232,11 @@ impl<T: Clone> RegionMap<T> {
     }
 }
 
-pub fn render_region<P: Palette, S>(
+pub fn render_region<S>(
     x: RCoord,
     z: RCoord,
     loader: &dyn RegionLoader<S>,
-    renderer: TopShadeRenderer<P>,
+    renderer: &impl Renderer,
 ) -> LoaderResult<Option<RegionMap<Rgba>>>
 where
     S: Seek + Read + Write,

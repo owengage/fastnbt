@@ -150,7 +150,7 @@ fn render(args: &ArgMatches) -> Result<()> {
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
-                let map = render_region(x, z, &loader, drawer);
+                let map = render_region(x, z, &loader, &drawer);
                 match map {
                     Ok(Some(map)) => {
                         info!("processed r.{}.{}.mca", x.0, z.0);
@@ -251,7 +251,7 @@ fn tiles(args: &ArgMatches) -> Result<()> {
 
             if x < x_range.end && x >= x_range.start && z < z_range.end && z >= z_range.start {
                 let drawer = TopShadeRenderer::new(&pal, height_mode);
-                let map = render_region(x, z, &loader, drawer);
+                let map = render_region(x, z, &loader, &drawer);
                 match map {
                     Ok(Some(map)) => {
                         info!("processed r.{}.{}.mca", x.0, z.0);

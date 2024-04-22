@@ -1,4 +1,4 @@
-use crate::{Chunk, HeightMode, JavaChunk, TopShadeRenderer};
+use crate::{Chunk, HeightMode, JavaChunk, Renderer, TopShadeRenderer};
 
 use super::HashPalette;
 
