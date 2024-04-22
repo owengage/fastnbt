@@ -301,6 +301,30 @@ pub fn make_palette(mc_jar_path: &Path) -> Result<()> {
             blockstate: Regex::new(r"minecraft:fire").unwrap(),
             texture_template: "minecraft:block/fire_0",
         },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:pink_petals").unwrap(),
+            texture_template: "minecraft:block/pink_petals",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:pointed_dripstone").unwrap(),
+            texture_template: "minecraft:block/pointed_dripstone_up_tip",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:mangrove_roots").unwrap(),
+            texture_template: "minecraft:block/mangrove_roots_top",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:(pumpkin|melon|attached_melon|attached_pumpkin|big_dripleaf)_stem").unwrap(),
+            texture_template: "minecraft:block/$1",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:glow_lichen").unwrap(),
+            texture_template: "minecraft:block/glow_lichen",
+        },
+        RegexMapping {
+            blockstate: Regex::new(r"minecraft:composter").unwrap(),
+            texture_template: "minecraft:block/composter_top",
+        },
     ];
 
     let mut palette = HashMap::new();
