@@ -74,7 +74,7 @@ impl Palette for RenderedPalette {
         // of the most called functions. Yuck.
         if let Some(id) = block.name().strip_prefix("minecraft:") {
             match id {
-                "grass" | "tall_grass" | "vine" | "fern" | "large_fern" => {
+                "grass" | "tall_grass" | "vine" | "fern" | "large_fern" | "short_grass" => {
                     return self.pick_grass(biome);
                 }
                 "grass_block" => {
