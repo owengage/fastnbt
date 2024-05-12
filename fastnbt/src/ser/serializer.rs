@@ -18,7 +18,7 @@ use super::{
 enum DelayedHeader {
     List { len: usize }, // header for a list, so element tag and list size.
     MapEntry { outer_name: Vec<u8> }, // header for a compound, so tag, name of compound.
-    Root { root_name: String }, // root compound, special because it isn't allowed to be an array type. Must be compound.
+    Root { root_name: Option<String> }, // root compound, special because it isn't allowed to be an array type. Must be compound.
 }
 
 pub struct Serializer<W: Write> {
@@ -27,6 +27,7 @@ pub struct Serializer<W: Write> {
     // Desired name of the root compound, typically an empty string.
     // NOTE: This is `mem:take`en, so is only valid at the start of serialization!
     pub(crate) root_name: String,
+    pub(crate) serialize_root_name: bool,
 }
 
 macro_rules! no_root {
@@ -69,10 +70,13 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
         // Take the root name to avoid a clone. Need to be careful not to use
         // self.root_name elsewhere.
         let root_name = mem::take(&mut self.root_name);
+        let serialize_root_name = mem::take(&mut self.serialize_root_name);
         Ok(SerializerMap {
             ser: self,
             key: None,
-            header: Some(DelayedHeader::Root { root_name }),
+            header: Some(DelayedHeader::Root {
+                root_name: serialize_root_name.then_some(root_name),
+            }),
             trailer: Some(Tag::End),
         })
     }
@@ -143,7 +147,9 @@ fn write_header(writer: &mut impl Write, header: DelayedHeader, actual_tag: Tag)
                 return Err(Error::no_root_compound());
             }
             writer.write_tag(Tag::Compound)?;
-            writer.write_size_prefixed_str(&outer_name)?;
+            if let Some(outer_name) = &outer_name {
+                writer.write_size_prefixed_str(&outer_name)?;
+            }
         }
         DelayedHeader::MapEntry { ref outer_name } => {
             writer.write_tag(actual_tag)?;

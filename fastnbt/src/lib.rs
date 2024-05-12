@@ -253,9 +253,20 @@ pub fn to_writer<T: Serialize, W: Write>(writer: W, v: &T) -> Result<()> {
 }
 
 /// Options for customizing serialization.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct SerOpts {
     root_name: String,
+    /// Whether to include the root compound name.
+    serialize_root_name: bool,
+}
+
+impl Default for SerOpts {
+    fn default() -> Self {
+        Self {
+            root_name: Default::default(),
+            serialize_root_name: true,
+        }
+    }
 }
 
 impl SerOpts {
@@ -264,11 +275,21 @@ impl SerOpts {
         Default::default()
     }
 
+    pub fn network_nbt() -> Self {
+        Self::new().serialize_root_compound_name(false)
+    }
+
+    pub fn serialize_root_compound_name(mut self, serialize_root_name: bool) -> Self {
+        self.serialize_root_name = serialize_root_name;
+        self
+    }
+
     /// Set the root name (top level) of the compound. In most Minecraft data
     /// structures this is the empty string. The [`ser`][`crate::ser`] module
     /// contains an example.
     pub fn root_name(mut self, root_name: impl Into<String>) -> Self {
         self.root_name = root_name.into();
+        self.serialize_root_name = true;
         self
     }
 }
@@ -281,6 +302,7 @@ pub fn to_bytes_with_opts<T: Serialize>(v: &T, opts: SerOpts) -> Result<Vec<u8>>
     let mut serializer = Serializer {
         writer: &mut result,
         root_name: opts.root_name,
+        serialize_root_name: opts.serialize_root_name,
     };
     v.serialize(&mut serializer)?;
     Ok(result)
@@ -293,6 +315,7 @@ pub fn to_writer_with_opts<T: Serialize, W: Write>(writer: W, v: &T, opts: SerOp
     let mut serializer = Serializer {
         writer,
         root_name: opts.root_name,
+        serialize_root_name: opts.serialize_root_name,
     };
     v.serialize(&mut serializer)?;
     Ok(())
