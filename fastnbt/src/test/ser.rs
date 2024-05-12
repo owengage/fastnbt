@@ -1,10 +1,10 @@
 use std::{collections::HashMap, io::Cursor, iter::FromIterator};
 
 use crate::{
-    borrow, from_bytes,
+    borrow, from_bytes, from_bytes_with_opts,
     test::{resources::CHUNK_RAW_WITH_ENTITIES, Single, Wrap},
-    to_bytes, to_bytes_with_opts, to_writer_with_opts, ByteArray, IntArray, LongArray, SerOpts,
-    Tag, Value,
+    to_bytes, to_bytes_with_opts, to_writer_with_opts, ByteArray, DeOpts, IntArray, LongArray,
+    SerOpts, Tag, Value,
 };
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_bytes::{ByteBuf, Bytes};
@@ -935,4 +935,27 @@ fn serialize_root_with_name() {
     assert_eq!(actual_via_bytes, expected);
     assert_eq!(actual_via_writer.into_inner(), expected);
     assert_eq!(actual_value, expected);
+}
+
+#[test]
+fn serialize_networked_compound() {
+    #[derive(Serialize)]
+    struct Example {
+        networked: String,
+    }
+
+    let data = Example {
+        networked: "compound".to_string(),
+    };
+    let bytes: Vec<u8> = to_bytes_with_opts(&data, SerOpts::network_nbt()).unwrap();
+
+    assert_eq!(
+        bytes,
+        b"\
+        \x0a\
+            \x08\
+                \x00\x09networked\
+                \x00\x08compound\
+        \x00"
+    );
 }
