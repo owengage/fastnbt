@@ -357,6 +357,33 @@ where
 /// # use std::io::Read;
 /// # use fastnbt::error::Result;
 /// # fn main() -> Result<()> {
+/// # use fastnbt::DeOpts;
+/// # let some_reader = io::stdin();
+/// let mut decoder = GzDecoder::new(some_reader);
+/// let opts = DeOpts::network_nbt();
+/// let val: Value = fastnbt::from_reader_with_opts(decoder, opts)?;
+/// # Ok(())
+/// # }
+/// ```
+pub fn from_reader_with_opts<'de, R, T>(reader: R, opts: DeOpts) -> Result<T>
+    where
+        T: serde_de::Deserialize<'de>,
+        R: Read,
+{
+    let mut deserializer = Deserializer::from_reader(reader, opts);
+    serde_de::Deserialize::deserialize(&mut deserializer)
+}
+
+/// Deserialize into a `T` from some NBT data. See the [`de`] module for more
+/// information.
+///
+/// ```no_run
+/// # use fastnbt::Value;
+/// # use flate2::read::GzDecoder;
+/// # use std::io;
+/// # use std::io::Read;
+/// # use fastnbt::error::Result;
+/// # fn main() -> Result<()> {
 /// # let some_reader = io::stdin();
 /// let mut decoder = GzDecoder::new(some_reader);
 /// let val: Value = fastnbt::from_reader(decoder)?;
@@ -364,12 +391,11 @@ where
 /// # }
 /// ```
 pub fn from_reader<'de, R, T>(reader: R) -> Result<T>
-where
-    T: serde_de::Deserialize<'de>,
-    R: Read,
+    where
+        T: serde_de::Deserialize<'de>,
+        R: Read,
 {
-    let mut deserializer = Deserializer::from_reader(reader, Default::default());
-    serde_de::Deserialize::deserialize(&mut deserializer)
+    from_reader_with_opts(reader, Default::default())
 }
 
 /// Options for customizing deserialization.
