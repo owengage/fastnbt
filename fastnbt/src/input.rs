@@ -143,8 +143,8 @@ pub trait Input<'de>: private::Sealed {
     }
 }
 
-pub(crate) struct Slice<'de> {
-    pub data: &'de [u8],
+pub struct Slice<'de> {
+    pub(crate) data: &'de [u8],
 }
 
 impl<'de> private::Sealed for Slice<'de> {}
@@ -226,8 +226,8 @@ impl<'de> Input<'de> for Slice<'de> {
     }
 }
 
-pub(crate) struct Reader<R: Read> {
-    pub reader: R,
+pub struct Reader<R: Read> {
+    pub(crate) reader: R,
 }
 
 impl<R: Read> private::Sealed for Reader<R> {}
