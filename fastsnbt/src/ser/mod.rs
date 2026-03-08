@@ -415,7 +415,10 @@ impl<'a, W: Write + 'a> SerializeMap for CompoundSerializer<'a, W> {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        if self.is_compound {
+        if !self.has_first {
+            // No key-value pair is serialized, write an empty compound
+            self.serializer.writer.write_all(b"{}")?;
+        } else if self.is_compound {
             self.serializer.writer.write_all(b"}")?;
         }
         Ok(())
