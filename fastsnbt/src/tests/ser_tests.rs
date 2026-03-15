@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::to_string;
 use serde::Serialize;
 use fastnbt::{ByteArray, IntArray, LongArray};
@@ -80,6 +82,13 @@ fn test_struct() {
     let data = SimpleStruct { x: 10, y: "test" };
     let snbt = to_string(&data).unwrap();
     assert_eq!("{\"x\":10b,\"y\":\"test\"}", snbt);
+}
+
+#[test]
+fn test_empty_map() {
+    let data: HashMap<String, String> = HashMap::new();
+    let snbt = to_string(&data).unwrap();
+    assert_eq!("{}", snbt);
 }
 
 #[test]
