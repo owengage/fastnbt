@@ -20,13 +20,11 @@
 [fastnbt-docs]: https://docs.rs/fastnbt/latest/fastnbt/index.html
 [fastnbt-docs-shield]: https://img.shields.io/docsrs/fastnbt
 [fastnbt-crates]: https://crates.io/crates/fastnbt
-
 [fastsnbt-shield]: https://img.shields.io/badge/%20-FastSNBT-blue
 [fastsnbt-version-shield]: https://img.shields.io/crates/v/fastsnbt.svg
 [fastsnbt-docs]: https://docs.rs/fastsnbt/latest/fastsnbt/index.html
 [fastsnbt-docs-shield]: https://img.shields.io/docsrs/fastsnbt
 [fastsnbt-crates]: https://crates.io/crates/fastsnbt
-
 [build-status-shield]: https://img.shields.io/github/actions/workflow/status/owengage/fastnbt/rust.yml?branch=master
 [github-actions]: https://github.com/owengage/fastnbt/actions?query=branch%3Amaster
 [fastanvil-shield]: https://img.shields.io/badge/%20-FastAnvil-blue
@@ -43,7 +41,7 @@ stringified NBT (sNBT) see FastSNBT.
 
 FastAnvil allows rendering maps of worlds, and a
 [`Region`](https://docs.rs/fastanvil/latest/fastanvil/struct.Region.html) for
-using the Region file format. Supports 1.20 down to 1.13 inclusive, and slightly
+using the Region file format. Supports down to 1.13 inclusive, and slightly
 flaky support for 1.12.
 
 An in-browser Rust-to-WASM powered Minecraft map renderer demo is below.
