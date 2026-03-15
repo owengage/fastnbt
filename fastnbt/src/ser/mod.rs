@@ -43,7 +43,7 @@
 //!     materials: String,
 //! }
 //!
-//! let structure = todo!(); // make schematic
+//! let structure: Schematic = todo!(); // make schematic
 //! let bytes = fastnbt::to_bytes_with_opts(&structure, SerOpts::new().root_name("Schematic")).unwrap();
 //! ```
 mod array_serializer;
