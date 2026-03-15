@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 use crate::from_str;
 
-
 #[test]
 fn test_num() {
     let input = "20b";
@@ -57,7 +56,7 @@ fn test_seq() {
     let bytes: Vec<u8> = from_str(input).unwrap();
     assert_eq!(&[1, 2, 3], bytes.as_slice());
     let input = "[1B,2,5.0e1D]";
-    let data: (i8,u64,f64) = from_str(input).unwrap();
+    let data: (i8, u64, f64) = from_str(input).unwrap();
     assert_eq!((1, 2, 50.), data);
 }
 
@@ -78,19 +77,32 @@ fn test_map() {
 fn test_bytearray() {
     let input = "[B;1b,-2b,3B]";
     let data: ByteArray = from_str(input).unwrap();
-    assert_eq!(ByteArray::new(vec![1,-2,3]), data);
+    assert_eq!(ByteArray::new(vec![1, -2, 3]), data);
 }
 
 #[test]
 fn test_intarray() {
     let input = "[I;1,2,-3]";
     let data: IntArray = from_str(input).unwrap();
-    assert_eq!(IntArray::new(vec![1,2,-3]), data);
+    assert_eq!(IntArray::new(vec![1, 2, -3]), data);
 }
 
 #[test]
 fn test_longarray() {
     let input = "[L;1l,2L,-3l]";
     let data: LongArray = from_str(input).unwrap();
-    assert_eq!(LongArray::new(vec![1,2,-3]), data);
+    assert_eq!(LongArray::new(vec![1, 2, -3]), data);
+}
+
+#[test]
+fn test_unit() {
+    #[derive(Deserialize)]
+    struct UnitStruct;
+    #[derive(Deserialize)]
+    struct UnitField {
+        _unit: (),
+    }
+
+    assert!(from_str::<UnitStruct>("{}").is_err());
+    assert!(from_str::<UnitField>("{_unit: {}}").is_err());
 }

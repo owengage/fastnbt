@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::to_string;
-use serde::Serialize;
 use fastnbt::{ByteArray, IntArray, LongArray};
+use serde::Serialize;
 
 #[test]
 fn test_true() {
@@ -98,7 +98,9 @@ fn test_normal_array() {
         bytes: Vec<u8>,
     }
 
-    let data = ByteStruct { bytes: vec![0, 1, 2, 3] };
+    let data = ByteStruct {
+        bytes: vec![0, 1, 2, 3],
+    };
     let snbt = to_string(&data).unwrap();
     assert_eq!("{\"bytes\":[0b,1b,2b,3b]}", snbt);
 }
@@ -132,7 +134,23 @@ fn test_struct_arrays() {
         longs: LongArray,
     }
 
-    let data = ArrayStruct { bytes: ByteArray::new(vec![-20,10]), longs: LongArray::new(vec![-40, 10_000]) };
+    let data = ArrayStruct {
+        bytes: ByteArray::new(vec![-20, 10]),
+        longs: LongArray::new(vec![-40, 10_000]),
+    };
     let snbt = to_string(&data).unwrap();
     assert_eq!("{\"bytes\":[B;-20b,10b],\"longs\":[L;-40l,10000l]}", snbt);
+}
+
+#[test]
+fn test_unit() {
+    #[derive(Serialize)]
+    struct UnitStruct;
+    #[derive(Serialize)]
+    struct UnitField {
+        unit: (),
+    }
+
+    assert!(to_string(&UnitStruct).is_err());
+    assert!(to_string(&UnitField { unit: () }).is_err());
 }
