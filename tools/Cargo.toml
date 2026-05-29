@@ -17,6 +17,6 @@ clap = "4"
 regex = "1"
 serde_json = "1.0"
 serde = { version = "1.0.111", features = ["derive"] }
-tar = "0.4.45"
+tar = "0.4.46"
 log = "0.4"
 env_logger = "0.11"
