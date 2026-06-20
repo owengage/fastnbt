@@ -111,6 +111,8 @@ pub enum Biome {
     WoodedBadlands,
     MangroveSwamp,
     DeepDark,
+    CherryGrove,
+    PaleGarden,
     Unknown,
 }
 
@@ -187,6 +189,8 @@ impl<'de> Deserialize<'de> for Biome {
                 "wooded_badlands" => WoodedBadlands,
                 "mangrove_swamp" => MangroveSwamp,
                 "deep_dark" => DeepDark,
+                "cherry_grove" => CherryGrove,
+                "pale_garden" => PaleGarden,
                 _ => Unknown,
             }),
             None => Ok(Unknown),
@@ -311,6 +315,8 @@ impl Biome {
             WoodedBadlands => climate(2.0, 0.0),
             MangroveSwamp => climate(0.8, 0.9),
             DeepDark => climate(0.8, 0.5),
+            CherryGrove => climate(0.5, 0.8),
+            PaleGarden => climate(0.7, 0.8),
             Unknown => climate(0.0, 0.0),
         }
     }
