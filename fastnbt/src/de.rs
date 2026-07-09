@@ -493,21 +493,57 @@ where
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
                 }
-                let len = self.de.input.consume_i32()? as usize;
+                let len_i32: i32 = self.de.input.consume_i32()?;
+                if len_i32 < 0 {
+                    return Err(Error::bespoke(format!(
+                        "negative array length: {}", len_i32
+                    )));
+                }
+                let len = len_i32 as usize;
+                if len > self.de.opts.max_seq_len {
+                    return Err(Error::bespoke(format!(
+                        "byte array size ({}) greater than max sequence length ({})",
+                        len, self.de.opts.max_seq_len,
+                    )));
+                }
                 v.visit_map(ArrayWrapperAccess::bytes(self.de, len)?)
             }
             Tag::IntArray => {
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
                 }
-                let len = self.de.input.consume_i32()? as usize;
+                let len_i32: i32 = self.de.input.consume_i32()?;
+                if len_i32 < 0 {
+                    return Err(Error::bespoke(format!(
+                        "negative array length: {}", len_i32
+                    )));
+                }
+                let len = len_i32 as usize;
+                if len > self.de.opts.max_seq_len {
+                    return Err(Error::bespoke(format!(
+                        "int array size ({}) greater than max sequence length ({})",
+                        len, self.de.opts.max_seq_len,
+                    )));
+                }
                 v.visit_map(ArrayWrapperAccess::ints(self.de, len)?)
             }
             Tag::LongArray => {
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
                 }
-                let len = self.de.input.consume_i32()? as usize;
+                let len_i32: i32 = self.de.input.consume_i32()?;
+                if len_i32 < 0 {
+                    return Err(Error::bespoke(format!(
+                        "negative array length: {}", len_i32
+                    )));
+                }
+                let len = len_i32 as usize;
+                if len > self.de.opts.max_seq_len {
+                    return Err(Error::bespoke(format!(
+                        "long array size ({}) greater than max sequence length ({})",
+                        len, self.de.opts.max_seq_len,
+                    )));
+                }
                 v.visit_map(ArrayWrapperAccess::longs(self.de, len)?)
             }
         }
