@@ -60,6 +60,7 @@ pub enum ErrorKind {
     /// Expected unicode data but was not valid. Parser remains valid if just
     /// this value was not unicode. Contained bytes are the invalid unicode data.
     Nonunicode(Vec<u8>),
+    InvalidLength(i32),
 }
 
 impl Error {
@@ -100,6 +101,13 @@ impl Error {
         Self {
             msg: "EOF".into(),
             kind: ErrorKind::Eof,
+        }
+    }
+
+    fn invalid_len(received_len: i32) -> Self {
+        Self {
+            msg: "Invalid length of list or array".into(),
+            kind: ErrorKind::InvalidLength(received_len),
         }
     }
 }
@@ -243,6 +251,15 @@ impl<R: Read> Parser<R> {
         self.reader
     }
 
+    fn read_i32_len(&mut self) -> Result<usize> {
+        let len = self.reader.read_i32::<BigEndian>()?;
+        if len < 0 {
+            Err(Error::invalid_len(len))
+        } else {
+            Ok(len as usize)
+        }
+    }
+
     /// Get the next value from the reader. Returns EOF if the stream ended sucessfully, and
     /// IO(err) for any other IO error.
     fn next_inner(&mut self) -> Result<Value> {
@@ -334,25 +351,25 @@ impl<R: Read> Parser<R> {
             }
             Tag::String => Ok(Value::String(name, self.read_size_prefixed_string()?)),
             Tag::ByteArray => {
-                let size = self.reader.read_i32::<BigEndian>()?;
-                let mut buf = vec![0u8; size as usize];
+                let size = self.read_i32_len()?;
+                let mut buf = vec![0u8; size];
                 self.reader.read_exact(&mut buf[..])?;
                 Ok(Value::ByteArray(name, vec_u8_into_i8(buf)))
             }
             Tag::IntArray => {
-                let size = self.reader.read_i32::<BigEndian>()?;
-                let mut buf = vec![0i32; size as usize];
+                let size = self.read_i32_len()?;
+                let mut buf = vec![0i32; size];
                 for i in 0..size {
-                    buf[i as usize] = self.reader.read_i32::<BigEndian>()?;
+                    buf[i] = self.reader.read_i32::<BigEndian>()?;
                 }
 
                 Ok(Value::IntArray(name, buf))
             }
             Tag::LongArray => {
-                let size = self.reader.read_i32::<BigEndian>()?;
-                let mut buf = vec![0i64; size as usize];
+                let size = self.read_i32_len()?;
+                let mut buf = vec![0i64; size];
                 for i in 0..size {
-                    buf[i as usize] = self.reader.read_i64::<BigEndian>()?;
+                    buf[i] = self.reader.read_i64::<BigEndian>()?;
                 }
 
                 Ok(Value::LongArray(name, buf))

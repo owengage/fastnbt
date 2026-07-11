@@ -94,8 +94,8 @@ pub trait Input<'de>: private::Sealed {
                 self.ignore_str()?;
             }
             Tag::ByteArray => {
-                let size = self.consume_i32()? as usize;
-                self.ignore_bytes(size)?;
+                let size = self.consume_i32()?;
+                self.ignore_bytes(try_size(size, std::mem::size_of::<i8>())?)?;
             }
             Tag::IntArray => {
                 let size = self.consume_i32()?;

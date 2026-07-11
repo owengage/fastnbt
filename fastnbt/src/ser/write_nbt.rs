@@ -21,7 +21,7 @@ pub(crate) trait WriteNbt: Write {
     }
 
     fn write_len(&mut self, len: usize) -> Result<()> {
-        self.write_u32::<BigEndian>(
+        self.write_i32::<BigEndian>(
             len.try_into()
                 .map_err(|_| Error::bespoke("len too large".to_owned()))?,
         )?;
