@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     borrow,
     error::{Error, Result},
-    from_bytes, from_bytes_with_opts, from_reader,
+    from_bytes, from_bytes_with_opts, from_reader, from_reader_with_opts,
     test::builder::Builder,
     to_bytes, ByteArray, DeOpts, IntArray, LongArray, Tag, Value,
 };
@@ -1806,4 +1806,144 @@ fn error_nested_non_named_compounds() {
 
     let v: Result<Value> = from_bytes_with_opts(data, DeOpts::network_nbt());
     assert!(v.is_err())
+}
+
+// Regression: `deserialize_bytes` and the `i128` IntArray path read the on-wire
+// length with raw signed casts, so a negative length became a huge `usize` and
+// panicked with `capacity overflow` when read via `from_reader`. These are the
+// siblings of the array-length DoS fix in #132, which only covered the
+// `deserialize_seq`/array-dispatch path.
+#[derive(Debug, Deserialize)]
+struct Bytes {
+    #[serde(with = "serde_bytes")]
+    val: Vec<u8>,
+}
+
+#[test]
+fn deserialize_bytes_negative_bytearray_length_errors() {
+    let payload = Builder::new()
+        .start_compound("root")
+        .tag(Tag::ByteArray)
+        .name("val")
+        .int_payload(-1)
+        .end_compound()
+        .build();
+
+    let e = from_reader::<_, Bytes>(payload.as_slice()).unwrap_err();
+    assert!(e.to_string().contains("negative"), "got: {e}");
+}
+
+#[test]
+fn deserialize_bytes_negative_list_of_byte_length_errors() {
+    let payload = Builder::new()
+        .start_compound("root")
+        .tag(Tag::List)
+        .name("val")
+        .tag(Tag::Byte)
+        .int_payload(-1)
+        .end_compound()
+        .build();
+
+    let e = from_reader::<_, Bytes>(payload.as_slice()).unwrap_err();
+    assert!(e.to_string().contains("negative"), "got: {e}");
+}
+
+#[test]
+fn deserialize_bytes_negative_longarray_length_errors() {
+    let payload = Builder::new()
+        .start_compound("root")
+        .tag(Tag::LongArray)
+        .name("val")
+        .int_payload(-1)
+        .end_compound()
+        .build();
+
+    let e = from_reader::<_, Bytes>(payload.as_slice()).unwrap_err();
+    assert!(e.to_string().contains("negative"), "got: {e}");
+}
+
+#[test]
+fn deserialize_i128_negative_intarray_length_errors() {
+    #[derive(Debug, Deserialize)]
+    struct Big {
+        _val: i128,
+    }
+
+    let payload = Builder::new()
+        .start_compound("root")
+        .tag(Tag::IntArray)
+        .name("_val")
+        .int_payload(-1)
+        .end_compound()
+        .build();
+
+    let e = from_reader::<_, Big>(payload.as_slice()).unwrap_err();
+    assert!(e.to_string().contains("negative"), "got: {e}");
+}
+
+#[test]
+fn deserialize_bytes_string_length_is_unsigned() {
+    // NBT string length is an unsigned short, so a length above i16::MAX must not
+    // wrap to a negative (and huge) `usize`. 33000 > i16::MAX.
+    let n = 33000usize;
+    let payload = Builder::new()
+        .start_compound("root")
+        .tag(Tag::String)
+        .name("val")
+        .raw_str_len(n)
+        .raw_bytes(&vec![b'a'; n])
+        .end_compound()
+        .build();
+
+    let v = from_reader::<_, Bytes>(payload.as_slice()).unwrap();
+    assert_eq!(v.val.len(), n);
+}
+
+#[test]
+fn deserialize_bytes_valid_bytearray_roundtrips() {
+    let payload = Builder::new()
+        .start_compound("root")
+        .byte_array("val", &[1, 2, 3])
+        .end_compound()
+        .build();
+
+    let v = from_reader::<_, Bytes>(payload.as_slice()).unwrap();
+    assert_eq!(v.val, vec![1, 2, 3]);
+}
+
+#[test]
+fn deserialize_bytes_length_over_max_seq_len_errors() {
+    let opts = DeOpts::new().max_seq_len(4);
+    let field = |len: i32, data: &[u8]| {
+        Builder::new()
+            .start_compound("root")
+            .tag(Tag::ByteArray)
+            .name("val")
+            .int_payload(len)
+            .raw_bytes(data)
+            .end_compound()
+            .build()
+    };
+
+    // At the limit is fine; one over is rejected before allocating.
+    let ok = field(4, &[1, 2, 3, 4]);
+    assert!(from_reader_with_opts::<_, Bytes>(ok.as_slice(), DeOpts::new().max_seq_len(4)).is_ok());
+
+    let too_big = field(5, &[1, 2, 3, 4, 5]);
+    let e = from_reader_with_opts::<_, Bytes>(too_big.as_slice(), opts).unwrap_err();
+    assert!(e.to_string().contains("max sequence length"), "got: {e}");
+}
+
+#[test]
+fn deserialize_bytes_huge_positive_bytearray_is_graceful_error() {
+    // i32::MAX exceeds the default max_seq_len; must be a graceful error, not a panic.
+    let payload = Builder::new()
+        .start_compound("root")
+        .tag(Tag::ByteArray)
+        .name("val")
+        .int_payload(i32::MAX)
+        .end_compound()
+        .build();
+
+    assert!(from_reader::<_, Bytes>(payload.as_slice()).is_err());
 }
