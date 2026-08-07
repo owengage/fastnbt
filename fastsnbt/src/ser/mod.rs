@@ -22,6 +22,7 @@ use self::name_serializer::NameSerializer;
 
 mod name_serializer;
 mod array_serializer;
+mod compound_value_serializer;
 
 pub(crate) fn write_escaped_str<W: Write>(mut writer: W, v: &str) -> Result<(), Error> {
     writer.write_all(b"\"")?;
@@ -380,6 +381,8 @@ impl<'a, W: Write + 'a> SerializeMap for CompoundSerializer<'a, W> {
             Error::bespoke("serialize_value called before serialize_key".to_string())
         })?;
 
+        let is_first = !self.has_first;
+
         if !self.has_first {
             self.has_first = true;
         } else {
@@ -407,19 +410,23 @@ impl<'a, W: Write + 'a> SerializeMap for CompoundSerializer<'a, W> {
                     self.is_compound = true;
                     self.serializer.writer.write_all(b"{")?;
                 }
-                self.serializer.writer.write_all(&name)?;
-                self.serializer.writer.write_all(b":")?;
-                value.serialize(&mut *self.serializer)
+                let ser = compound_value_serializer::CompoundValueSerializer{
+                    ser: self,
+                    name: &name,
+                    is_first
+                };
+
+                value.serialize(ser)
             }
         }
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        if !self.has_first {
+        if self.is_compound {
+            self.serializer.writer.write_all(b"}")?;
+        } else if !self.has_first {
             // No key-value pair is serialized, write an empty compound
             self.serializer.writer.write_all(b"{}")?;
-        } else if self.is_compound {
-            self.serializer.writer.write_all(b"}")?;
         }
         Ok(())
     }
