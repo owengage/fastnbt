@@ -106,3 +106,17 @@ fn test_unit() {
     assert!(from_str::<UnitStruct>("{}").is_err());
     assert!(from_str::<UnitField>("{_unit: {}}").is_err());
 }
+
+#[test]
+fn test_option() {
+    #[derive(Deserialize)]
+    struct StructWithOption {
+        name: Option<String>
+    }
+
+    let some: StructWithOption = from_str(r#"{name:"Bob"}"#).unwrap();
+    assert_eq!(some.name.unwrap(), "Bob");
+
+    let none: StructWithOption = from_str("{}").unwrap();
+    assert!(none.name.is_none());
+}
