@@ -388,7 +388,7 @@ dependencies = [
  "bit_field",
  "byteorder",
  "criterion",
- "fastnbt 2.6.2",
+ "fastnbt 2.6.3",
  "flate2",
  "image",
  "log",
@@ -414,7 +414,7 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "2.6.2"
+version = "2.6.3"
 dependencies = [
  "arbitrary",
  "byteorder",
@@ -432,7 +432,7 @@ dependencies = [
  "clap",
  "env_logger",
  "fastanvil",
- "fastnbt 2.6.2",
+ "fastnbt 2.6.3",
  "fastsnbt",
  "flate2",
  "image",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "fastsnbt"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "byteorder",
  "fastnbt 2.4.4",
