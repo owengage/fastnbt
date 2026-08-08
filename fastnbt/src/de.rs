@@ -549,12 +549,13 @@ where
 
         match self.tag {
             Tag::String => {
-                let len = self.de.input.consume_i16()? as usize;
+                // NBT string length is an unsigned short.
+                let len = self.de.input.consume_i16()? as u16 as usize;
                 consume_visit(self.de, len, 1)
             }
             Tag::List => {
                 let tag = self.de.input.consume_tag()?;
-                let remaining = self.de.input.consume_i32()? as usize;
+                let remaining = consume_i32_len(&mut self.de.input, self.de.opts.max_seq_len)?;
 
                 match tag {
                     Tag::Byte => consume_visit(self.de, remaining, std::mem::size_of::<i8>()),
@@ -568,11 +569,11 @@ where
                 }
             }
             Tag::ByteArray => {
-                let remaining = self.de.input.consume_i32()? as usize;
+                let remaining = consume_i32_len(&mut self.de.input, self.de.opts.max_seq_len)?;
                 consume_visit(self.de, remaining, std::mem::size_of::<i8>())
             }
             Tag::LongArray => {
-                let remaining = self.de.input.consume_i32()? as usize;
+                let remaining = consume_i32_len(&mut self.de.input, self.de.opts.max_seq_len)?;
                 consume_visit(self.de, remaining, std::mem::size_of::<i64>())
             }
             _ => Err(Error::bespoke(format!(
@@ -873,7 +874,7 @@ where
 
     match tag {
         Tag::IntArray => {
-            let size = de.de.input.consume_i32()? as usize;
+            let size = consume_i32_len(&mut de.de.input, de.de.opts.max_seq_len)?;
 
             let size = size
                 .checked_mul(4)
