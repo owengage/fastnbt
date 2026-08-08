@@ -366,9 +366,9 @@ where
 /// # }
 /// ```
 pub fn from_reader_with_opts<'de, R, T>(reader: R, opts: DeOpts) -> Result<T>
-    where
-        T: serde_de::Deserialize<'de>,
-        R: Read,
+where
+    T: serde_de::Deserialize<'de>,
+    R: Read,
 {
     let mut deserializer = Deserializer::from_reader(reader, opts);
     serde_de::Deserialize::deserialize(&mut deserializer)
@@ -391,9 +391,9 @@ pub fn from_reader_with_opts<'de, R, T>(reader: R, opts: DeOpts) -> Result<T>
 /// # }
 /// ```
 pub fn from_reader<'de, R, T>(reader: R) -> Result<T>
-    where
-        T: serde_de::Deserialize<'de>,
-        R: Read,
+where
+    T: serde_de::Deserialize<'de>,
+    R: Read,
 {
     from_reader_with_opts(reader, Default::default())
 }
@@ -437,7 +437,7 @@ impl DeOpts {
 impl Default for DeOpts {
     fn default() -> Self {
         Self {
-            max_seq_len: 10_000_000, // arbitrary high limit.
+            max_seq_len: 100_000_000, // arbitrary high limit.
             expect_coumpound_names: true,
         }
     }
