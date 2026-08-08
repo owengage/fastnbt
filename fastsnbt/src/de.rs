@@ -134,9 +134,17 @@ impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
         Ok(value)
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        // Presence is not encoded in SNBT, if deserialize_option is called, "Some" can be assumed
+        visitor.visit_some(self)
+    }
+
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq
+        bytes byte_buf unit unit_struct newtype_struct seq
         tuple tuple_struct map struct identifier
     }
 

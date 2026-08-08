@@ -154,3 +154,22 @@ fn test_unit() {
     assert!(to_string(&UnitStruct).is_err());
     assert!(to_string(&UnitField { unit: () }).is_err());
 }
+
+
+#[test]
+fn test_option() {
+    #[derive(Serialize)]
+    struct StructWithOption {
+        name: Option<String>
+    }
+
+    let some = StructWithOption {
+        name: Some("Bob".to_owned())
+    };
+    assert_eq!(to_string(&some).unwrap(), r#"{"name":"Bob"}"#);
+
+    let none = StructWithOption {
+        name: None
+    };
+    assert_eq!(to_string(&none).unwrap(), "{}");
+}
