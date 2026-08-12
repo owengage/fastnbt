@@ -1,5 +1,4 @@
 use core::result;
-use std::collections::HashMap;
 
 use serde::{ser::Impossible, Serialize};
 
@@ -9,7 +8,7 @@ use crate::{
     LONG_ARRAY_TOKEN,
 };
 
-use super::array_serializer::ArraySerializer;
+use super::{array_serializer::ArraySerializer, Map};
 
 impl Serialize for Value {
     fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
@@ -268,7 +267,7 @@ impl serde::Serializer for &mut Serializer {
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializeMap {
-            map: HashMap::new(),
+            map: Map::new(),
             next_key: None,
         })
     }
@@ -286,7 +285,7 @@ impl serde::Serializer for &mut Serializer {
     ) -> Result<Self::SerializeStructVariant> {
         Ok(SerializeStructVariant {
             name: variant.into(),
-            map: HashMap::new(),
+            map: Map::new(),
         })
     }
 
@@ -320,13 +319,13 @@ pub struct SerializeTupleVariant {
 }
 
 pub struct SerializeMap {
-    map: HashMap<String, Value>,
+    map: Map<String, Value>,
     next_key: Option<String>,
 }
 
 pub struct SerializeStructVariant {
     name: String,
-    map: HashMap<String, Value>,
+    map: Map<String, Value>,
 }
 
 impl serde::ser::SerializeSeq for SerializeVec {
@@ -391,7 +390,7 @@ impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = HashMap::new();
+        let mut object = Map::new();
 
         object.insert(self.name, Value::List(self.vec));
 
@@ -654,7 +653,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     }
 
     fn end(self) -> Result<Value> {
-        let mut object = HashMap::new();
+        let mut object = Map::new();
 
         object.insert(self.name, Value::Compound(self.map));
 

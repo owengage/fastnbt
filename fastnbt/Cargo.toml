@@ -19,6 +19,7 @@ serde_bytes = "0.11.5"
 
 [features]
 arbitrary1 = ["arbitrary"]
+btreemap = []
 
 [dev-dependencies]
 flate2 = "1"
