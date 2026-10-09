@@ -437,8 +437,8 @@ impl serde::ser::SerializeMap for SerializeMap {
 
             Ok(match key.as_str() {
                 BYTE_ARRAY_TOKEN => Value::ByteArray(ByteArray::from_bytes(&data())),
-                INT_ARRAY_TOKEN => Value::IntArray(IntArray::from_bytes(&data())?),
-                LONG_ARRAY_TOKEN => Value::LongArray(LongArray::from_bytes(&data())?),
+                INT_ARRAY_TOKEN => Value::IntArray(IntArray::from_bytes(&data())),
+                LONG_ARRAY_TOKEN => Value::LongArray(LongArray::from_bytes(&data())),
                 _ => Value::Compound(self.map),
             })
         } else {
