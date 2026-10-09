@@ -1,6 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-use byteorder::{BigEndian, ReadBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
@@ -142,8 +141,8 @@ impl IntArray {
     pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
         let data = data
             .chunks_exact(4)
-            .map(|mut bs| bs.read_i32::<BigEndian>())
-            .collect::<std::io::Result<Vec<i32>>>()?;
+            .map(|bs| i32::from_be_bytes(bs.try_into().unwrap()))
+            .collect::<Vec<i32>>();
 
         Ok(IntArray { data })
     }
@@ -240,8 +239,8 @@ impl LongArray {
     pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
         let data = data
             .chunks_exact(8)
-            .map(|mut bs| bs.read_i64::<BigEndian>())
-            .collect::<std::io::Result<Vec<i64>>>()?;
+            .map(|bs| i64::from_be_bytes(bs.try_into().unwrap()))
+            .collect::<Vec<i64>>();
 
         Ok(LongArray { data })
     }
