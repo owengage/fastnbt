@@ -181,9 +181,10 @@ impl IntArray {
 
     /// Produce a IntArray from raw data. This data should be big endian!
     pub(crate) fn from_bytes(data: &[u8]) -> Self {
-        let data = data
-            .chunks_exact(4)
-            .map(|bs| i32::from_be_bytes(bs.try_into().unwrap()))
+        let (chunks, _rest) = data.as_chunks::<4>(); // rest should be 0
+        let data = chunks
+            .iter()
+            .map(|&bs| i32::from_be_bytes(bs))
             .collect::<Vec<i32>>();
 
         IntArray { data }
@@ -278,9 +279,10 @@ impl LongArray {
     }
 
     pub(crate) fn from_bytes(data: &[u8]) -> Self {
-        let data = data
-            .chunks_exact(8)
-            .map(|bs| i64::from_be_bytes(bs.try_into().unwrap()))
+        let (chunks, _rest) = data.as_chunks::<8>(); // rest should be 0
+        let data = chunks
+            .iter()
+            .map(|&bs| i64::from_be_bytes(bs))
             .collect::<Vec<i64>>();
 
         LongArray { data }
