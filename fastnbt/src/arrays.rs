@@ -11,23 +11,23 @@ pub(crate) const INT_ARRAY_TOKEN: &str = "__fastnbt_int_array";
 pub(crate) const LONG_ARRAY_TOKEN: &str = "__fastnbt_long_array";
 
 /// An array type that can be deserialized from big-endian bytes.
-pub(crate) trait FromArray {
+pub(crate) trait FromArrayBytes {
     fn from_array(bytes: &[u8]) -> Self;
 }
 
-impl FromArray for ByteArray {
+impl FromArrayBytes for ByteArray {
     fn from_array(bytes: &[u8]) -> Self {
         ByteArray::from_bytes(bytes)
     }
 }
 
-impl FromArray for IntArray {
+impl FromArrayBytes for IntArray {
     fn from_array(bytes: &[u8]) -> Self {
         IntArray::from_bytes(bytes)
     }
 }
 
-impl FromArray for LongArray {
+impl FromArrayBytes for LongArray {
     fn from_array(bytes: &[u8]) -> Self {
         LongArray::from_bytes(bytes)
     }
@@ -37,13 +37,13 @@ impl FromArray for LongArray {
 /// allows deserialization from &[u8] with one allocation only.
 pub(crate) struct Array<T>(pub(crate) T);
 
-impl<'de, T: FromArray> Deserialize<'de> for Array<T> {
+impl<'de, T: FromArrayBytes> Deserialize<'de> for Array<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         struct BytesVisitor<T>(PhantomData<T>);
-        impl<'de, T: FromArray> Visitor<'de> for BytesVisitor<T> {
+        impl<'de, T: FromArrayBytes> Visitor<'de> for BytesVisitor<T> {
             type Value = Array<T>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
