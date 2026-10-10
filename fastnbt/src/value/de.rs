@@ -8,9 +8,8 @@ use serde::{
     },
     forward_to_deserialize_any, Deserialize, Deserializer,
 };
-use serde_bytes::ByteBuf;
 
-use crate::{error::Error, ByteArray, IntArray, LongArray, Value};
+use crate::{error::Error, Array, ByteArray, IntArray, LongArray, Value};
 
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -110,20 +109,16 @@ impl<'de> Deserialize<'de> for Value {
                         Ok(Value::Compound(compound))
                     }
                     Some(KeyClass::ByteArray) => {
-                        let data = map.next_value::<ByteBuf>()?;
-                        Ok(Value::ByteArray(ByteArray::from_buf(data.into_vec())))
+                        let data = map.next_value::<Array<ByteArray>>()?;
+                        Ok(Value::ByteArray(data.0))
                     }
                     Some(KeyClass::IntArray) => {
-                        let data = map.next_value::<ByteBuf>()?;
-                        IntArray::from_bytes(&data)
-                            .map(Value::IntArray)
-                            .map_err(|_| serde::de::Error::custom("could not read int array"))
+                        let data = map.next_value::<Array<IntArray>>()?;
+                        Ok(Value::IntArray(data.0))
                     }
                     Some(KeyClass::LongArray) => {
-                        let data = map.next_value::<ByteBuf>()?;
-                        LongArray::from_bytes(&data)
-                            .map(Value::LongArray)
-                            .map_err(|_| serde::de::Error::custom("could not read long array"))
+                        let data = map.next_value::<Array<LongArray>>()?;
+                        Ok(Value::LongArray(data.0))
                     }
                     // No keys just means an empty compound.
                     None => Ok(Value::Compound(Default::default())),

@@ -1,12 +1,65 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
-use byteorder::{BigEndian, ReadBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
 pub(crate) const BYTE_ARRAY_TOKEN: &str = "__fastnbt_byte_array";
 pub(crate) const INT_ARRAY_TOKEN: &str = "__fastnbt_int_array";
 pub(crate) const LONG_ARRAY_TOKEN: &str = "__fastnbt_long_array";
+
+/// An array type that can be deserialized from big-endian bytes.
+pub(crate) trait FromArrayBytes {
+    fn from_array(bytes: &[u8]) -> Self;
+}
+
+impl FromArrayBytes for ByteArray {
+    fn from_array(bytes: &[u8]) -> Self {
+        ByteArray::from_bytes(bytes)
+    }
+}
+
+impl FromArrayBytes for IntArray {
+    fn from_array(bytes: &[u8]) -> Self {
+        IntArray::from_bytes(bytes)
+    }
+}
+
+impl FromArrayBytes for LongArray {
+    fn from_array(bytes: &[u8]) -> Self {
+        LongArray::from_bytes(bytes)
+    }
+}
+
+/// Generic ByteArray, IntArray, and LongArray wrapper that
+/// allows deserialization from &[u8] with one allocation only.
+pub(crate) struct Array<T>(pub(crate) T);
+
+impl<'de, T: FromArrayBytes> Deserialize<'de> for Array<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BytesVisitor<T>(PhantomData<T>);
+        impl<'de, T: FromArrayBytes> Visitor<'de> for BytesVisitor<T> {
+            type Value = Array<T>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("array")
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(Array(T::from_array(v)))
+            }
+        }
+        deserializer.deserialize_bytes(BytesVisitor(PhantomData))
+    }
+}
 
 /// NBT ByteArray that owns its data. This type preserves the exact NBT type
 /// when (de)serializing. This dereferences into a i8 slice, so should be usable
@@ -54,10 +107,10 @@ impl<'de> Deserialize<'de> for ByteArray {
                 let token = map.next_key::<&str>()?.ok_or_else(|| {
                     serde::de::Error::custom("expected NBT byte array token, but got empty map")
                 })?;
-                let data = map.next_value::<ByteBuf>()?;
+                let data = map.next_value::<Array<ByteArray>>()?;
 
                 if token == BYTE_ARRAY_TOKEN {
-                    Ok(ByteArray::from_buf(data.into_vec()))
+                    Ok(data.0)
                 } else {
                     Err(serde::de::Error::custom("expected NBT byte array token"))
                 }
@@ -80,18 +133,6 @@ impl ByteArray {
 
     /// Produce a ByteArray from raw data.
     pub(crate) fn from_bytes(data: &[u8]) -> Self {
-        // Safe to treat [u8] as [i8].
-        let data = unsafe { &*(data as *const [u8] as *const [i8]) };
-        ByteArray {
-            data: data.to_owned(),
-        }
-    }
-
-    /// Produce a ByteArray from raw data.
-    pub(crate) fn from_buf(data: Vec<u8>) -> Self {
-        // TODO: Remove copy.
-        let data = data.as_slice();
-
         // Safe to treat [u8] as [i8].
         let data = unsafe { &*(data as *const [u8] as *const [i8]) };
         ByteArray {
@@ -139,13 +180,14 @@ impl IntArray {
     }
 
     /// Produce a IntArray from raw data. This data should be big endian!
-    pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
-        let data = data
-            .chunks_exact(4)
-            .map(|mut bs| bs.read_i32::<BigEndian>())
-            .collect::<std::io::Result<Vec<i32>>>()?;
+    pub(crate) fn from_bytes(data: &[u8]) -> Self {
+        let (chunks, _rest) = data.as_chunks::<4>(); // rest should be 0
+        let data = chunks
+            .iter()
+            .map(|&bs| i32::from_be_bytes(bs))
+            .collect::<Vec<i32>>();
 
-        Ok(IntArray { data })
+        IntArray { data }
     }
 
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
@@ -190,11 +232,10 @@ impl<'de> Deserialize<'de> for IntArray {
                 let token = map.next_key::<&str>()?.ok_or_else(|| {
                     serde::de::Error::custom("expected NBT int array token, but got empty map")
                 })?;
-                let data = map.next_value::<ByteBuf>()?;
+                let data = map.next_value::<Array<IntArray>>()?;
 
                 match token {
-                    INT_ARRAY_TOKEN => IntArray::from_bytes(&data)
-                        .map_err(|_| serde::de::Error::custom("could not read i32 for int array")),
+                    INT_ARRAY_TOKEN => Ok(data.0),
                     _ => Err(serde::de::Error::custom("expected NBT int array token")),
                 }
             }
@@ -237,13 +278,14 @@ impl LongArray {
         self.data
     }
 
-    pub(crate) fn from_bytes(data: &[u8]) -> std::io::Result<Self> {
-        let data = data
-            .chunks_exact(8)
-            .map(|mut bs| bs.read_i64::<BigEndian>())
-            .collect::<std::io::Result<Vec<i64>>>()?;
+    pub(crate) fn from_bytes(data: &[u8]) -> Self {
+        let (chunks, _rest) = data.as_chunks::<8>(); // rest should be 0
+        let data = chunks
+            .iter()
+            .map(|&bs| i64::from_be_bytes(bs))
+            .collect::<Vec<i64>>();
 
-        Ok(LongArray { data })
+        LongArray { data }
     }
 
     pub(crate) fn to_bytes(&self) -> Vec<u8> {
@@ -288,11 +330,10 @@ impl<'de> Deserialize<'de> for LongArray {
                 let token = map.next_key::<&str>()?.ok_or_else(|| {
                     serde::de::Error::custom("expected NBT long array token, but got empty map")
                 })?;
-                let data = map.next_value::<ByteBuf>()?;
+                let data = map.next_value::<Array<LongArray>>()?;
 
                 match token {
-                    LONG_ARRAY_TOKEN => LongArray::from_bytes(&data)
-                        .map_err(|_| serde::de::Error::custom("could not read i64 for long array")),
+                    LONG_ARRAY_TOKEN => Ok(data.0),
                     _ => Err(serde::de::Error::custom("expected NBT long array token")),
                 }
             }
