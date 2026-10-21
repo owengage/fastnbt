@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use serde::{
     de::{
@@ -10,6 +10,8 @@ use serde::{
 };
 
 use crate::{error::Error, Array, ByteArray, IntArray, LongArray, Value};
+
+use super::Map;
 
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -99,7 +101,7 @@ impl<'de> Deserialize<'de> for Value {
             {
                 match map.next_key_seed(KeyClassifier)? {
                     Some(KeyClass::Compound(first_key)) => {
-                        let mut compound = HashMap::new();
+                        let mut compound = Map::new();
 
                         compound.insert(first_key, map.next_value()?);
                         while let Some((key, value)) = map.next_entry()? {
@@ -247,10 +249,7 @@ where
     }
 }
 
-fn visit_compound<'de, V>(
-    compound: &'de HashMap<String, Value>,
-    visitor: V,
-) -> Result<V::Value, Error>
+fn visit_compound<'de, V>(compound: &'de Map<String, Value>, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
@@ -728,12 +727,12 @@ impl<'de> SeqAccess<'de> for SeqDeserializer<'de> {
 }
 
 struct MapDeserializer<'de> {
-    iter: <&'de HashMap<String, Value> as IntoIterator>::IntoIter,
+    iter: <&'de Map<String, Value> as IntoIterator>::IntoIter,
     value: Option<&'de Value>,
 }
 
 impl<'de> MapDeserializer<'de> {
-    fn new(map: &'de HashMap<String, Value>) -> Self {
+    fn new(map: &'de Map<String, Value>) -> Self {
         MapDeserializer {
             iter: map.iter(),
             value: None,
