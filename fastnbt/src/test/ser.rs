@@ -958,3 +958,150 @@ fn serialize_networked_compound() {
         \x00"
     );
 }
+
+#[test]
+fn strings_are_written_as_modified_utf8() {
+    // Names and values alike: ASCII and the two and three byte characters as they are,
+    // NUL as two bytes, and a character beyond the BMP as a surrogate pair.
+    let cases: [(&str, &[u8]); 7] = [
+        ("", b""),
+        ("plain", b"plain"),
+        ("nul\0inside", b"nul\xc0\x80inside"),
+        ("\0", b"\xc0\x80"),
+        ("\u{e9}\u{65e5}", "\u{e9}\u{65e5}".as_bytes()),
+        ("\u{10401}", b"\xed\xa0\x81\xed\xb0\x81"),
+        ("a\u{10401}\0", b"a\xed\xa0\x81\xed\xb0\x81\xc0\x80"),
+    ];
+    for (text, encoded) in cases {
+        let mut map = HashMap::new();
+        map.insert(text, text);
+
+        let mut expected = vec![Tag::Compound as u8, 0, 0, Tag::String as u8];
+        for _ in 0..2 {
+            expected.extend_from_slice(&(encoded.len() as u16).to_be_bytes());
+            expected.extend_from_slice(encoded);
+        }
+        expected.push(Tag::End as u8);
+        assert_eq!(expected, to_bytes(&map).unwrap(), "{text:?}");
+    }
+}
+
+#[test]
+fn names_of_any_length_follow_each_other() {
+    // One buffer holds the name of each field in turn, and a nested compound's header
+    // still names the outer field once the inner names have been through their own.
+    #[derive(Serialize)]
+    struct Inner {
+        an_inner_name_longer_than_the_outer_one: i8,
+        z: i8,
+    }
+    #[derive(Serialize)]
+    struct V {
+        a_long_first_name: i32,
+        b: i32,
+        nested: Inner,
+        empty: HashMap<String, i8>,
+        list: Vec<Inner>,
+        c: i8,
+    }
+    let inner = || Inner {
+        an_inner_name_longer_than_the_outer_one: 1,
+        z: 2,
+    };
+    let v = V {
+        a_long_first_name: 1,
+        b: 2,
+        nested: inner(),
+        empty: HashMap::new(),
+        list: vec![inner(), inner()],
+        c: 3,
+    };
+
+    let expected = Builder::new()
+        .start_compound("")
+        .int("a_long_first_name", 1)
+        .int("b", 2)
+        .start_compound("nested")
+        .byte("an_inner_name_longer_than_the_outer_one", 1)
+        .byte("z", 2)
+        .end_compound()
+        .start_compound("empty")
+        .end_compound()
+        .start_list("list", Tag::Compound, 2)
+        .byte("an_inner_name_longer_than_the_outer_one", 1)
+        .byte("z", 2)
+        .end_anon_compound()
+        .byte("an_inner_name_longer_than_the_outer_one", 1)
+        .byte("z", 2)
+        .end_anon_compound()
+        .byte("c", 3)
+        .end_compound()
+        .build();
+
+    assert_eq!(expected, to_bytes(&v).unwrap());
+}
+
+#[test]
+fn chars_and_raw_bytes_as_fields() {
+    let mut chars = HashMap::new();
+    chars.insert('\u{e9}', 1i8);
+    let expected = Builder::new()
+        .start_compound("")
+        .byte("\u{e9}", 1)
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&chars).unwrap());
+
+    // Bytes are a name as they are, valid UTF-8 or not.
+    let mut raw = HashMap::new();
+    raw.insert(Bytes::new(&[0xff, 0x00, 0xfe]), 1i8);
+    let expected = Builder::new()
+        .start_compound("")
+        .tag(Tag::Byte)
+        .raw_str_len(3)
+        .raw_bytes(&[0xff, 0x00, 0xfe])
+        .byte_payload(1)
+        .end_compound()
+        .build();
+    assert_eq!(expected, to_bytes(&raw).unwrap());
+}
+
+#[test]
+fn a_value_needs_a_key_and_the_last_key_names_it() {
+    struct NoKey;
+    impl Serialize for NoKey {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let mut map = serializer.serialize_map(None)?;
+            map.serialize_value("value")?;
+            map.end()
+        }
+    }
+    assert!(to_bytes(&NoKey).is_err());
+
+    struct ValueTwice;
+    impl Serialize for ValueTwice {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let mut map = serializer.serialize_map(None)?;
+            map.serialize_key("test")?;
+            map.serialize_value("value")?;
+            map.serialize_value("again")?;
+            map.end()
+        }
+    }
+    assert!(to_bytes(&ValueTwice).is_err());
+
+    struct KeyTwice;
+    impl Serialize for KeyTwice {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            let mut map = serializer.serialize_map(None)?;
+            map.serialize_key("a_first_and_longer_key")?;
+            map.serialize_key("test")?;
+            map.serialize_value("value")?;
+            map.end()
+        }
+    }
+    assert_eq!(
+        to_bytes(&nbt!({"test":"value"})).unwrap(),
+        to_bytes(&KeyTwice).unwrap()
+    );
+}

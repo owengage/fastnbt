@@ -4,6 +4,8 @@ use serde::{ser::Impossible, Serializer};
 
 use crate::error::{Error, Result};
 
+use super::write_nbt::to_java_cesu8;
+
 pub(crate) struct NameSerializer<W: Write> {
     pub(crate) name: W,
 }
@@ -63,12 +65,12 @@ impl<W: Write> Serializer for &mut NameSerializer<W> {
     }
 
     fn serialize_char(self, c: char) -> Result<Self::Ok> {
-        self.name.write_all(&cesu8::to_java_cesu8(&c.to_string()))?;
+        self.name.write_all(&to_java_cesu8(&c.to_string()))?;
         Ok(())
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
-        self.name.write_all(&cesu8::to_java_cesu8(v))?;
+        self.name.write_all(&to_java_cesu8(v))?;
         Ok(())
     }
 

@@ -15,9 +15,11 @@ use super::{
     array_serializer::ArraySerializer, name_serializer::NameSerializer, write_nbt::WriteNbt,
 };
 
-enum DelayedHeader {
+enum DelayedHeader<'k> {
     List { len: usize }, // header for a list, so element tag and list size.
-    MapEntry { outer_name: Vec<u8> }, // header for a compound, so tag, name of compound.
+    // header for a compound, so tag, name of compound. The name is borrowed from the
+    // `SerializerMap` that is serializing the entry, which outlives the entry's value.
+    MapEntry { outer_name: &'k [u8] },
     Root { root_name: Option<String> }, // root compound, special because it isn't allowed to be an array type. Must be compound.
 }
 
@@ -73,7 +75,8 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
         let serialize_root_name = mem::take(&mut self.serialize_root_name);
         Ok(SerializerMap {
             ser: self,
-            key: None,
+            key: Vec::new(),
+            has_key: false,
             header: Some(DelayedHeader::Root {
                 root_name: serialize_root_name.then_some(root_name),
             }),
@@ -132,8 +135,11 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Serializer<W> {
 
 pub struct SerializerMap<'a, W: Write> {
     ser: &'a mut Serializer<W>,
-    key: Option<Vec<u8>>,
-    header: Option<DelayedHeader>,
+    // The name of the entry being serialized. One buffer serves every entry of the map,
+    // so a compound costs one allocation for its names rather than one per field.
+    key: Vec<u8>,
+    has_key: bool,
+    header: Option<DelayedHeader<'a>>,
     trailer: Option<Tag>,
 }
 
@@ -151,7 +157,7 @@ fn write_header(writer: &mut impl Write, header: DelayedHeader, actual_tag: Tag)
                 writer.write_size_prefixed_str(&outer_name)?;
             }
         }
-        DelayedHeader::MapEntry { ref outer_name } => {
+        DelayedHeader::MapEntry { outer_name } => {
             writer.write_tag(actual_tag)?;
             writer.write_u16::<BigEndian>(outer_name.len() as u16)?;
             writer.write_all(outer_name)?;
@@ -174,9 +180,12 @@ impl<'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
         T: serde::Serialize,
     {
         // Get the name ahead of time.
-        let mut name = Vec::new();
-        key.serialize(&mut NameSerializer { name: &mut name })?;
-        self.key = Some(name);
+        self.key.clear();
+        self.has_key = false;
+        key.serialize(&mut NameSerializer {
+            name: &mut self.key,
+        })?;
+        self.has_key = true;
         Ok(())
     }
 
@@ -184,44 +193,38 @@ impl<'a, W: Write> serde::ser::SerializeMap for SerializerMap<'a, W> {
     where
         T: serde::Serialize,
     {
-        let name = self.key.take().ok_or_else(|| {
-            Error::bespoke("serialize_value called before serialize_key".to_string())
-        })?;
+        if !std::mem::take(&mut self.has_key) {
+            return Err(Error::bespoke(
+                "serialize_value called before serialize_key".to_string(),
+            ));
+        }
+        let name: &[u8] = &self.key;
 
-        let outer_tag = match std::str::from_utf8(&name) {
-            Ok(BYTE_ARRAY_TOKEN) => Tag::ByteArray,
-            Ok(INT_ARRAY_TOKEN) => Tag::IntArray,
-            Ok(LONG_ARRAY_TOKEN) => Tag::LongArray,
-            _ => Tag::Compound,
+        // The array tokens are ASCII, so the bytes can be compared as they are.
+        let array_tag = if name == BYTE_ARRAY_TOKEN.as_bytes() {
+            Some(Tag::ByteArray)
+        } else if name == INT_ARRAY_TOKEN.as_bytes() {
+            Some(Tag::IntArray)
+        } else if name == LONG_ARRAY_TOKEN.as_bytes() {
+            Some(Tag::LongArray)
+        } else {
+            None
         };
 
         if let Some(header) = self.header.take() {
-            write_header(&mut self.ser.writer, header, outer_tag)?;
+            write_header(
+                &mut self.ser.writer,
+                header,
+                array_tag.unwrap_or(Tag::Compound),
+            )?;
         }
 
-        match std::str::from_utf8(&name) {
-            Ok(BYTE_ARRAY_TOKEN) => {
+        match array_tag {
+            Some(tag) => {
                 self.trailer = None;
-                value.serialize(ArraySerializer {
-                    ser: self.ser,
-                    tag: Tag::ByteArray,
-                })
+                value.serialize(ArraySerializer { ser: self.ser, tag })
             }
-            Ok(INT_ARRAY_TOKEN) => {
-                self.trailer = None;
-                value.serialize(ArraySerializer {
-                    ser: self.ser,
-                    tag: Tag::IntArray,
-                })
-            }
-            Ok(LONG_ARRAY_TOKEN) => {
-                self.trailer = None;
-                value.serialize(ArraySerializer {
-                    ser: self.ser,
-                    tag: Tag::LongArray,
-                })
-            }
-            _ => value.serialize(&mut Delayed {
+            None => value.serialize(&mut Delayed {
                 ser: &mut *self.ser,
                 header: Some(DelayedHeader::MapEntry { outer_name: name }),
                 is_list: false,
@@ -341,7 +344,7 @@ impl<'a, W: 'a + Write> serde::ser::SerializeTupleVariant for SerializerTuple<'a
 
 struct Delayed<'a, W: Write + 'a> {
     ser: &'a mut Serializer<W>,
-    header: Option<DelayedHeader>,
+    header: Option<DelayedHeader<'a>>,
     is_list: bool,
 }
 
@@ -576,7 +579,8 @@ impl<'a, W: 'a + Write> serde::ser::Serializer for &'a mut Delayed<'a, W> {
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         Ok(SerializerMap {
             ser: self.ser,
-            key: None,
+            key: Vec::new(),
+            has_key: false,
             header: self.header.take(),
             trailer: Some(Tag::End),
         })
