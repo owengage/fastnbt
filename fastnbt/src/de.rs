@@ -248,6 +248,7 @@ pub struct Deserializer<In> {
     input: In,
     scratch: Vec<u8>,
     seen_root: bool,
+    depth: usize,
     opts: DeOpts,
 }
 
@@ -260,8 +261,24 @@ where
             input,
             scratch: Vec::new(),
             seen_root: false,
+            depth: 0,
             opts,
         }
+    }
+
+    fn nest<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
+        if self.depth >= self.opts.max_depth {
+            return Err(Error::max_depth_exceeded());
+        }
+        self.depth += 1;
+        let result = f(self);
+        self.depth -= 1;
+        result
+    }
+
+    fn ignore_value(&mut self, tag: Tag) -> Result<()> {
+        let depth_left = self.opts.max_depth.saturating_sub(self.depth);
+        self.input.ignore_value(tag, depth_left)
     }
 }
 
@@ -322,7 +339,7 @@ where
             self.seen_root = true;
         }
 
-        visitor.visit_map(MapAccess::new(self))
+        self.nest(|de| visitor.visit_map(MapAccess::new(de)))
     }
 
     fn deserialize_struct<V>(
@@ -502,13 +519,10 @@ where
                     )));
                 }
 
-                v.visit_seq(ListAccess {
-                    de: self.de,
-                    tag,
-                    remaining,
-                })
+                self.de
+                    .nest(|de| v.visit_seq(ListAccess { de, tag, remaining }))
             }
-            Tag::Compound => v.visit_map(MapAccess::new(self.de)),
+            Tag::Compound => self.de.nest(|de| v.visit_map(MapAccess::new(de))),
             Tag::ByteArray => {
                 if let Hint::Seq = last_hint {
                     return Err(Error::array_as_seq());
@@ -553,21 +567,21 @@ where
                 let len = self.de.input.consume_i16()? as u16 as usize;
                 consume_visit(self.de, len, 1)
             }
-            Tag::List => {
-                let tag = self.de.input.consume_tag()?;
-                let remaining = consume_i32_len(&mut self.de.input, self.de.opts.max_seq_len)?;
+            Tag::List => self.de.nest(|de| {
+                let tag = de.input.consume_tag()?;
+                let remaining = consume_i32_len(&mut de.input, de.opts.max_seq_len)?;
 
                 match tag {
-                    Tag::Byte => consume_visit(self.de, remaining, std::mem::size_of::<i8>()),
-                    Tag::Short => consume_visit(self.de, remaining, std::mem::size_of::<i16>()),
-                    Tag::Int => consume_visit(self.de, remaining, std::mem::size_of::<i32>()),
-                    Tag::Long => consume_visit(self.de, remaining, std::mem::size_of::<i64>()),
+                    Tag::Byte => consume_visit(de, remaining, std::mem::size_of::<i8>()),
+                    Tag::Short => consume_visit(de, remaining, std::mem::size_of::<i16>()),
+                    Tag::Int => consume_visit(de, remaining, std::mem::size_of::<i32>()),
+                    Tag::Long => consume_visit(de, remaining, std::mem::size_of::<i64>()),
                     _ => Err(Error::bespoke(format!(
                         "cannot convert list of {} to bytes",
                         tag
                     ))),
                 }
-            }
+            }),
             Tag::ByteArray => {
                 let remaining = consume_i32_len(&mut self.de.input, self.de.opts.max_seq_len)?;
                 consume_visit(self.de, remaining, std::mem::size_of::<i8>())
@@ -605,7 +619,7 @@ where
         // value to 'fill' that hole in your type. This means a unit type can be
         // used to ensure the presense of a value in the NBT without actually
         // caring or deserializing its contents.
-        self.de.input.ignore_value(self.tag)?;
+        self.de.ignore_value(self.tag)?;
         visitor.visit_unit()
     }
 
@@ -650,7 +664,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        self.de.input.ignore_value(self.tag)?;
+        self.de.ignore_value(self.tag)?;
         visitor.visit_unit()
     }
 

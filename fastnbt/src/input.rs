@@ -70,7 +70,7 @@ pub trait Input<'de>: private::Sealed {
     fn consume_f32(&mut self) -> Result<f32>;
     fn consume_f64(&mut self) -> Result<f64>;
 
-    fn ignore_value(&mut self, tag: Tag) -> Result<()> {
+    fn ignore_value(&mut self, tag: Tag, depth_left: usize) -> Result<()> {
         match tag {
             Tag::Byte => {
                 self.consume_byte()?;
@@ -106,6 +106,10 @@ pub trait Input<'de>: private::Sealed {
                 self.ignore_bytes(try_size(size, std::mem::size_of::<i64>())?)?;
             }
             Tag::Compound => {
+                let depth_left = depth_left
+                    .checked_sub(1)
+                    .ok_or_else(Error::max_depth_exceeded)?;
+
                 // Need to loop and ignore each value until we reach an end tag.
 
                 // we need to enter the compound, then ignore it's value.
@@ -117,14 +121,17 @@ pub trait Input<'de>: private::Sealed {
 
                     // consume the name.
                     self.ignore_str()?;
-                    self.ignore_value(tag)?;
+                    self.ignore_value(tag, depth_left)?;
                 }
             }
             Tag::List => {
+                let depth_left = depth_left
+                    .checked_sub(1)
+                    .ok_or_else(Error::max_depth_exceeded)?;
                 let element_tag = self.consume_tag()?;
                 let size = self.consume_i32()?;
                 for _ in 0..size {
-                    self.ignore_value(element_tag)?;
+                    self.ignore_value(element_tag, depth_left)?;
                 }
             }
             Tag::End => {
