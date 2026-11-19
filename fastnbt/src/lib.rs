@@ -403,6 +403,8 @@ where
 pub struct DeOpts {
     /// Maximum number of bytes a list or array can be.
     max_seq_len: usize,
+    /// Maximum number of compounds and lists nested in each other.
+    max_depth: usize,
     /// Whether compound tag names are expected to exist or not.
     expect_coumpound_names: bool,
 }
@@ -427,6 +429,14 @@ impl DeOpts {
         self
     }
 
+    /// Set the maximum number of compounds and lists that can be nested in
+    /// each other, counting the root compound. A deeper input results in an
+    /// error. Defaults to 512, the same as Minecraft.
+    pub fn max_depth(mut self, value: usize) -> Self {
+        self.max_depth = value;
+        self
+    }
+
     /// Sets wheather the deserializer should expect compound tags to have names.
     pub fn expect_coumpound_names(mut self, value: bool) -> Self {
         self.expect_coumpound_names = value;
@@ -438,6 +448,7 @@ impl Default for DeOpts {
     fn default() -> Self {
         Self {
             max_seq_len: 100_000_000, // arbitrary high limit.
+            max_depth: 512,
             expect_coumpound_names: true,
         }
     }

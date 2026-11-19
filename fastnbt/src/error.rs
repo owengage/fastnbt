@@ -66,6 +66,10 @@ impl Error {
         Error("expected NBT Array: use ByteArray, IntArray or LongArray types".into())
     }
 
+    pub(crate) fn max_depth_exceeded() -> Error {
+        Error("nbt nested deeper than DeOpts::max_depth".into())
+    }
+
     pub(crate) fn bespoke(msg: String) -> Error {
         Error(msg)
     }

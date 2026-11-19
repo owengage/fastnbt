@@ -1947,3 +1947,52 @@ fn deserialize_bytes_huge_positive_bytearray_is_graceful_error() {
 
     assert!(from_reader::<_, Bytes>(payload.as_slice()).is_err());
 }
+
+fn nested_lists_of_compounds(depth: usize) -> Vec<u8> {
+    let mut builder = Builder::new().start_compound("");
+    for _ in 0..depth {
+        builder = builder.start_list("l", Tag::Compound, 1);
+    }
+    for _ in 0..=depth {
+        builder = builder.end_compound();
+    }
+    builder.build()
+}
+
+#[test]
+fn nesting_is_limited_to_max_depth() {
+    let payload = nested_lists_of_compounds(2);
+    for (max_depth, allowed) in [(5, true), (4, false)] {
+        let opts = DeOpts::new().max_depth(max_depth);
+        assert_eq!(
+            from_bytes_with_opts::<Value>(&payload, opts.clone()).is_ok(),
+            allowed
+        );
+        assert_eq!(
+            from_bytes_with_opts::<HashMap<String, ()>>(&payload, opts).is_ok(),
+            allowed
+        );
+    }
+}
+
+#[test]
+fn deep_nesting_is_an_error_instead_of_a_stack_overflow() {
+    let payload = nested_lists_of_compounds(50_000);
+    let opts = DeOpts::new().max_depth(64);
+    let e = from_bytes_with_opts::<Value>(&payload, opts.clone()).unwrap_err();
+    assert!(e.to_string().contains("max_depth"), "got: {e}");
+    let e = from_bytes_with_opts::<HashMap<String, ()>>(&payload, opts).unwrap_err();
+    assert!(e.to_string().contains("max_depth"), "got: {e}");
+}
+
+#[test]
+fn byte_lists_count_towards_max_depth() {
+    let payload = Builder::new()
+        .start_compound("")
+        .start_list("val", Tag::Byte, 1)
+        .byte_payload(1)
+        .end_compound()
+        .build();
+    assert!(from_bytes_with_opts::<Bytes>(&payload, DeOpts::new().max_depth(2)).is_ok());
+    assert!(from_bytes_with_opts::<Bytes>(&payload, DeOpts::new().max_depth(1)).is_err());
+}
